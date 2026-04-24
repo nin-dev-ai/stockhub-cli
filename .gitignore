@@ -44,3 +44,7 @@ Thumbs.db
 
 # User-specific OpenBB settings (keeps keys out of repo)
 user_settings.json
+
+# Creator's private notes
+VIDEO_SCRIPT.md
+*.private.md
