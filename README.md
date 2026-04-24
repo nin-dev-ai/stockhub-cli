@@ -10,24 +10,51 @@ Built on [OpenBB](https://github.com/OpenBB-finance/OpenBB) + Vite + React + Typ
 
 ---
 
-## Quick start (3 commands)
+## Install in one line
+
+Paste this into your terminal (macOS or Linux):
 
 ```bash
-git clone <this-repo> BBterminal
-cd BBterminal
-./setup.sh     # one-time; installs OpenBB + UI (~3-5 min)
-./start.sh     # launches API + UI, opens your browser
+curl -fsSL https://raw.githubusercontent.com/vaughanf1/BB-Terminal/main/install.sh | bash
 ```
 
-The UI opens at **http://localhost:5173/**. To stop: `./stop.sh`.
+That's it. The installer will:
+
+1. Check that `git`, Python 3.10+, and Node.js 18+ are on your system (and tell you exactly how to install them if not)
+2. Clone this repo to `~/BB-Terminal`
+3. Install OpenBB Platform and all its data providers (~3 min)
+4. Install the UI dependencies (~1 min)
+5. Launch both servers and open the terminal in your browser
+
+**Windows users:** run the command inside **WSL** (Ubuntu) or **Git Bash**.
+
+### Every launch after that
+
+```bash
+cd ~/BB-Terminal
+./start.sh     # launches API + UI, opens your browser
+./stop.sh      # when you're done
+```
+
+The UI lives at **http://localhost:5173/**. All data works out of the box via **Yahoo Finance** — no API keys required. Optional providers (FRED, TradingEconomics, FMP, Polygon, etc.) can be added to `~/.openbb_platform/user_settings.json`.
 
 ### Prerequisites
-- macOS or Linux
+
+- macOS or Linux (Windows via WSL)
 - Python 3.10, 3.11, or 3.12
 - Node.js 18+
 - ~2 GB free disk (OpenBB pulls many provider libraries)
 
-All provider data works out of the box via **Yahoo Finance** — no API keys required. Optional providers (FRED, TradingEconomics, FMP, Polygon, etc.) can be added to `~/.openbb_platform/user_settings.json`.
+### Manual install (for anyone who doesn't trust `curl | bash`)
+
+Fair enough — that pattern is a real risk if you don't know what's in the script. You can read [`install.sh`](./install.sh) first, or skip it entirely and run the steps yourself:
+
+```bash
+git clone https://github.com/vaughanf1/BB-Terminal.git
+cd BB-Terminal
+./setup.sh       # installs OpenBB + UI (~3-5 min)
+./start.sh       # launches the terminal
+```
 
 ---
 
