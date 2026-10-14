@@ -156,6 +156,8 @@ Tight 5-7 minute walk-through for the video:
 - **Polling, not streaming.** Yahoo Finance has no WebSocket in OpenBB, so quotes refresh every 3–60s depending on the panel. For live ticks you'd need a broker feed (IBKR, Alpaca) — not wired in yet.
 - **Yahoo symbol quirks.** A handful of Asian indices (`^N225`, `^HSI`, `^AXJO`, `^TWII`) and a few crypto tickers don't return via OpenBB's Yahoo provider; those cells show "—".
 - **Rules are heuristics.** The INTEL signals are rules of thumb, not predictions. Tweak the thresholds in `signals.ts` to match your own framework.
+- **Company news may be empty.** In testing, OpenBB's `yfinance` news provider returned no data even for large tickers (HTTP 204), so `NI`, the INTEL headlines, and the CC headline panel show "No news". This is upstream of the app.
+- **OpenBB 4.x only.** `setup.sh` pins `openbb>=4.3,<5`. OpenBB 5 uses different API routes and every data call would return 404.
 - **Economic calendar, CPI, world news** need provider API keys (TradingEconomics, FRED, Biztoc). The UI handles the 401 gracefully.
 
 ---

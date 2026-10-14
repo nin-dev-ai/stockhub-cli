@@ -41,7 +41,7 @@ step "Upgrading pip"
 .venv/bin/pip install --upgrade --quiet pip wheel
 
 step "Installing OpenBB Platform (this takes ~3 minutes)"
-.venv/bin/pip install --quiet "openbb[all]" openbb-cli
+.venv/bin/pip install --quiet "openbb[all]>=4.3,<5" openbb-cli
 ok "OpenBB + all provider extensions installed"
 
 # -------- UI dependencies --------
