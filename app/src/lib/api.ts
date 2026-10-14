@@ -1,3 +1,5 @@
+import { parseRssItems, type FeedKind } from "./news";
+
 const BASE = "/api/v1";
 
 export class ApiError extends Error {
@@ -102,8 +104,26 @@ export const fetchHistorical = (s: string, o: { interval?: string; start_date?: 
   });
 };
 
-export const fetchNewsCompany = (s: string, limit = 30) =>
-  get<NewsItem[]>("/news/company", { symbol: s, provider: "yfinance", limit });
+async function fetchFeed(url: string, kind: FeedKind, symbol: string): Promise<NewsItem[]> {
+  const res = await fetch(url);
+  if (!res.ok) throw new ApiError(res.status, `${kind} news feed returned ${res.status}`);
+  return parseRssItems(await res.text(), kind, symbol);
+}
+
+// OpenBB's yfinance news provider returns no rows, so read public RSS feeds instead.
+export async function fetchNewsCompany(s: string, limit = 30): Promise<NewsItem[]> {
+  const sym = encodeURIComponent(s);
+  try {
+    const items = await fetchFeed(`/rss/yahoo?s=${sym}&region=US&lang=en-US`, "yahoo", s);
+    if (items.length > 0) return items.slice(0, limit);
+  } catch {
+    // fall through to the Google News feed
+  }
+  const items = await fetchFeed(
+    `/rss/google?q=${encodeURIComponent(`${s} stock`)}&hl=en-US&gl=US&ceid=US:en`, "google", s,
+  );
+  return items.slice(0, limit);
+}
 
 export const fetchProfile = (s: string) =>
   get<Profile[] | Profile>("/equity/profile", { symbol: s, provider: "yfinance" })
