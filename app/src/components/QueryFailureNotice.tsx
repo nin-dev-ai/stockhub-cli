@@ -13,7 +13,7 @@ export function QueryFailureNotice({ label, queries }: Props) {
     <div role="alert" className="border border-term-red/40 bg-term-red/5 px-3 py-2 text-term-text text-[12px]">
       {failed.length === queries.length
         ? `${label} data is unavailable.`
-        : `${failed.length} of ${queries.length} ${label} requests failed; those rows show — and the table is incomplete.`}
+        : `${failed.length} of ${queries.length} ${label} requests failed; affected values show — and the view is incomplete.`}
       <span className="ml-2 text-term-muted">{first}</span>
       <button className="ml-3 text-term-amber hover:underline" onClick={() => failed.forEach((q) => void q.refetch())}>
         Retry

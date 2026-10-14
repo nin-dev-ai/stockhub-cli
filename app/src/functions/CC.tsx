@@ -6,6 +6,7 @@ import {
 import { fmtPrice, fmtPct, fmtTime, fmtPctFromDecimal } from "@/lib/format";
 import { useWorkspace } from "@/store/workspaceStore";
 import { cn } from "@/lib/cn";
+import { QueryFailureNotice } from "@/components/QueryFailureNotice";
 
 const INDICES = [
   { sym: "^GSPC", name: "S&P 500" },
@@ -90,7 +91,14 @@ export function CC() {
     : { t: "STEEP", tone: "up" as const };
 
   return (
-    <div className="p-3 grid gap-3 h-full"
+    <div className="h-full flex flex-col">
+      <div className="px-3 pt-3 empty:hidden">
+        <QueryFailureNotice
+          label="Command Center"
+          queries={[...idxQueries, ...fxQueries, curve, gainers, losers, news]}
+        />
+      </div>
+    <div className="p-3 grid gap-3 flex-1 min-h-0"
       style={{
         gridTemplateColumns: "minmax(0,2fr) minmax(0,1fr) minmax(0,1fr)",
         gridTemplateRows: "minmax(160px, 1fr) minmax(0,1fr)",
@@ -265,6 +273,7 @@ export function CC() {
           ))}
         </div>
       </div>
+    </div>
     </div>
   );
 }
