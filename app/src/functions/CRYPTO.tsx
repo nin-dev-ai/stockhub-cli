@@ -2,6 +2,7 @@ import { useQueries } from "@tanstack/react-query";
 import { fetchCryptoHistorical } from "@/lib/api";
 import { fmtPrice, fmtPct, fmtVolume } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { QueryFailureNotice } from "@/components/QueryFailureNotice";
 
 const COINS = [
   { sym: "BTC-USD", name: "Bitcoin" },
@@ -29,6 +30,7 @@ export function CRYPTO() {
 
   return (
     <div className="p-3 text-[12px]">
+      <div className="mb-3"><QueryFailureNotice label="crypto" queries={queries} /></div>
       <div className="text-term-amber text-[10px] tracking-[0.25em] font-bold border-b border-term-border pb-1 mb-2">TOP CRYPTOCURRENCIES</div>
       <table className="w-full grid-data">
         <thead>
