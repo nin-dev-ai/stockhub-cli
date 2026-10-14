@@ -27,6 +27,7 @@ The definitive function list lives in [`app/src/lib/functions.ts`](../app/src/li
 - A user can reach each registered function from the command bar and see its data or a useful error state.
 - Symbol-specific views use the selected ticker, while market-wide views work without one.
 - Missing data and provider credential errors remain legible rather than being shown as valid zero values.
+- INTEL distinguishes a failed data request from an unsupported or unknown ticker and identifies partial data when a provider call fails.
 - Signal rules and thresholds stay inspectable in source code.
 - The app can run locally with the setup described in the README.
 

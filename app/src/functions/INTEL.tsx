@@ -72,6 +72,14 @@ export function INTEL({ symbol }: { symbol: string }) {
 
   const allSignals = [...technicals, ...valuation, ...fundamentals, ...analyst, ...shareholder];
   const t = tally(allSignals);
+  const failures = [
+    { name: "quote", error: quoteQ.error, retry: quoteQ.refetch },
+    { name: "profile", error: profileQ.error, retry: profileQ.refetch },
+    { name: "metrics", error: metricsQ.error, retry: metricsQ.refetch },
+    { name: "analyst estimates", error: consensusQ.error, retry: consensusQ.refetch },
+    { name: "news", error: newsQ.error, retry: newsQ.refetch },
+    { name: "income", error: incomeQ.error, retry: incomeQ.refetch },
+  ].filter((item) => item.error != null);
 
   const loading = quoteQ.isLoading || profileQ.isLoading || metricsQ.isLoading;
   if (loading) return <div className="p-6 text-term-muted uppercase text-[11px] tracking-widest">Loading intelligence for {symbol}…</div>;
@@ -80,6 +88,9 @@ export function INTEL({ symbol }: { symbol: string }) {
   const hasPrice = q?.last_price != null;
   const hasName = (q?.name ?? p?.name) != null && (q?.name ?? p?.name) !== "";
   if (!hasPrice && !hasName) {
+    if (quoteQ.error || profileQ.error) {
+      return <DataFailure symbol={symbol} failures={failures} />;
+    }
     return <NoDataBlock symbol={symbol} />;
   }
 
@@ -92,6 +103,12 @@ export function INTEL({ symbol }: { symbol: string }) {
   return (
     <div className="p-4 grid gap-4 text-[12px]"
       style={{ gridTemplateColumns: "minmax(0,1.5fr) minmax(0,1fr) minmax(0,1fr)", gridTemplateRows: "auto auto 1fr" }}>
+      {failures.length > 0 && (
+        <div role="alert" className="col-span-3 border border-term-red/40 bg-term-red/5 px-3 py-2 text-term-text">
+          Some INTEL data is unavailable ({failures.map((item) => item.name).join(", ")}). The scorecard may be incomplete.
+          <button className="ml-3 text-term-amber hover:underline" onClick={() => failures.forEach((item) => void item.retry())}>Retry</button>
+        </div>
+      )}
       {/* Header: symbol + price */}
       <div className="col-span-3 flex items-start justify-between border-b border-term-border pb-3">
         <div>
@@ -215,6 +232,32 @@ export function INTEL({ symbol }: { symbol: string }) {
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+interface QueryFailure {
+  name: string;
+  error: Error | null;
+  retry: () => unknown;
+}
+
+function DataFailure({ symbol, failures }: { symbol: string; failures: QueryFailure[] }) {
+  return (
+    <div role="alert" className="p-8 flex flex-col items-start gap-3 max-w-2xl">
+      <div className="text-term-red text-[11px] uppercase tracking-[0.3em] font-bold">DATA UNAVAILABLE</div>
+      <div className="text-term-heading text-xl">Could not load {symbol}.</div>
+      {failures.map((item) => (
+        <div key={item.name} className="text-term-text text-[12px]">
+          <span className="text-term-amber uppercase">{item.name}:</span> {item.error?.message ?? "Request failed"}
+        </div>
+      ))}
+      <button
+        className="mt-2 px-3 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle"
+        onClick={() => failures.forEach((item) => void item.retry())}
+      >
+        Retry data
+      </button>
     </div>
   );
 }
