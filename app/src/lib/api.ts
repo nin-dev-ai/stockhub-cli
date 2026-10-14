@@ -15,6 +15,8 @@ async function get<T>(
     if (v !== undefined && v !== "") qs.set(k, String(v));
   }
   const res = await fetch(`${BASE}${path}?${qs.toString()}`);
+  // OpenBB answers 204 with no body when a provider returns no rows.
+  if (res.status === 204) return [] as T;
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
     const detail = body.detail;
