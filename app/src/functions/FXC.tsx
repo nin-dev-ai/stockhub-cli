@@ -2,6 +2,7 @@ import { useQueries } from "@tanstack/react-query";
 import { fetchFxHistorical } from "@/lib/api";
 import { fmtPct } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { QueryFailureNotice } from "@/components/QueryFailureNotice";
 
 const MAJORS = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "USDCAD", "AUDUSD", "NZDUSD", "EURGBP", "EURJPY", "GBPJPY", "USDCNY", "USDMXN"];
 
@@ -16,6 +17,7 @@ export function FXC() {
 
   return (
     <div className="p-3 text-[12px]">
+      <div className="mb-3"><QueryFailureNotice label="FX" queries={queries} /></div>
       <div className="text-term-amber text-[10px] tracking-[0.25em] font-bold border-b border-term-border pb-1 mb-2">MAJOR PAIRS</div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
         {MAJORS.map((pair, i) => {
