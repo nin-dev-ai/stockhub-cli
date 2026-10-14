@@ -20,4 +20,6 @@ The visual system is defined in [`app/src/index.css`](../app/src/index.css) and 
 
 Use concise labels, units, and date ranges for financial values. Distinguish missing data from zero. Show loading and provider error states in the panel where they occur. Describe INTEL outputs as rule-based signals, with the underlying thresholds available in [`signals.ts`](../app/src/lib/signals.ts).
 
+On multi-request market screens (`CC`, `WEI`, `CRYPTO`, `FXC`), a shared notice ([`QueryFailureNotice`](../app/src/components/QueryFailureNotice.tsx)) reports how many requests failed, shows the first error, and offers retry, so a failed request is not mistaken for missing data.
+
 On INTEL, show a data error with retry when the quote or profile request fails and there is no usable identity or price. If some requests fail while other data loads, label the scorecard as incomplete and offer retry.
