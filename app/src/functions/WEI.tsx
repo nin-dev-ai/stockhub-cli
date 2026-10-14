@@ -2,6 +2,7 @@ import { useQueries } from "@tanstack/react-query";
 import { fetchIndexHistorical } from "@/lib/api";
 import { fmtPrice, fmtPct } from "@/lib/format";
 import { cn } from "@/lib/cn";
+import { QueryFailureNotice } from "@/components/QueryFailureNotice";
 
 const INDICES = [
   { sym: "^GSPC",   name: "S&P 500",       region: "Americas" },
@@ -35,6 +36,7 @@ export function WEI() {
 
   return (
     <div className="p-3 flex flex-col gap-4 text-[12px]">
+      <QueryFailureNotice label="index" queries={queries} />
       {regions.map((region) => (
         <div key={region}>
           <div className="text-term-amber text-[10px] tracking-[0.25em] font-bold border-b border-term-border pb-1 mb-2">{region.toUpperCase()}</div>
