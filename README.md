@@ -2,11 +2,11 @@
 
 A Bloomberg-style intelligence dashboard for free financial data.
 
+Project requirements, interface notes, technical design, and maintainer guidance live in the [docs index](docs/README.md).
+
 Runs locally. One data layer (OpenBB Platform — 50+ providers, 270 endpoints), one amber-on-black terminal UI, and a built-in rules engine that turns numbers into **signals** so you don't stare at raw data trying to remember what matters.
 
 Built on [OpenBB](https://github.com/OpenBB-finance/OpenBB) + Vite + React + TypeScript + TradingView lightweight-charts.
-
-![screenshot — Command Center landing page](app/v2-help.png)
 
 ---
 
