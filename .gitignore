@@ -31,7 +31,7 @@ Thumbs.db
 /app/*.png
 /v2-*.png
 /v3-*.png
-/bbterminal-*.png
+/stockhub-*.png
 
 # Upstream OpenBB source — users clone it themselves if needed
 /OpenBB/
@@ -48,3 +48,5 @@ user_settings.json
 # Creator's private notes
 VIDEO_SCRIPT.md
 *.private.md
+.harness/worktrees/
+.harness/runs/

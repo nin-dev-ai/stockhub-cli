@@ -1,6 +1,6 @@
-# BBterminal
+# StockHub
 
-A Bloomberg-style intelligence dashboard for free financial data.
+A terminal-style intelligence dashboard for free financial data.
 
 Project requirements, interface notes, technical design, and maintainer guidance live in the [docs index](docs/README.md).
 
@@ -15,13 +15,13 @@ Built on [OpenBB](https://github.com/OpenBB-finance/OpenBB) + Vite + React + Typ
 Paste this into your terminal (macOS or Linux):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vaughanf1/BB-Terminal/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/nin-dev-ai/stockhub-cli/main/install.sh | bash
 ```
 
 That's it. The installer will:
 
 1. Check that `git`, Python 3.10+, and Node.js 18+ are on your system (and tell you exactly how to install them if not)
-2. Clone this repo to `~/BB-Terminal`
+2. Clone this repo to `~/stockhub-cli`
 3. Install OpenBB Platform and all its data providers (~3 min)
 4. Install the UI dependencies (~1 min)
 5. Launch both servers and open the terminal in your browser
@@ -31,7 +31,7 @@ That's it. The installer will:
 ### Every launch after that
 
 ```bash
-cd ~/BB-Terminal
+cd ~/stockhub-cli
 ./start.sh     # launches API + UI, opens your browser
 ./stop.sh      # when you're done
 ```
@@ -50,8 +50,8 @@ The UI lives at **http://localhost:5173/**. All data works out of the box via **
 Fair enough — that pattern is a real risk if you don't know what's in the script. You can read [`install.sh`](./install.sh) first, or skip it entirely and run the steps yourself:
 
 ```bash
-git clone https://github.com/vaughanf1/BB-Terminal.git
-cd BB-Terminal
+git clone https://github.com/nin-dev-ai/stockhub-cli.git
+cd stockhub-cli
 ./setup.sh       # installs OpenBB + UI (~3-5 min)
 ./start.sh       # launches the terminal
 ```
@@ -116,14 +116,14 @@ Keyboard: `↑/↓` walks history, `⇥` autocompletes codes, `/` focuses the co
 
 Tight 5-7 minute walk-through for the video:
 
-1. **Open on a black screen** — `./start.sh`, browser pops up to Command Center. Say: *"Here's a Bloomberg-style terminal I built in an afternoon, running entirely on my laptop, using free data."*
+1. **Open on a black screen** — `./start.sh`, browser pops up to Command Center. Say: *"Here's a market terminal I built in an afternoon, running entirely on my laptop, using free data."*
 2. **CC dashboard tour (45s)** — "S&P's down 0.4%, VIX is up 2%, yield curve is normal at +52bps, biggest gainer today is URI up 23%."
 3. **Click a gainer** — it opens INTEL. *"Now the terminal tells me what it thinks: 5 bullish, 2 bearish signals. This stock is trading at the upper range, P/E is rich but revenue is growing 15% — so the market's paying for growth. Without this synthesis, I'd have had to pull 6 different screens."*
 4. **Type `TSLA` + Enter** — INTEL refreshes instantly. Point at the verdict badge.
 5. **Type `TSLA OMON`** — full options chain fills the screen. *"That's every AAPL strike, calls left, puts right, in-the-money highlighted."*
 6. **Type `CURV`** — yield curve chart. *"Here's the US Treasury yield curve with today, a week ago, and a month ago overlaid. 2s-10s is +52 basis points — normal, not inverted."*
 7. **Type `WEI`** — world indices. *"Global markets by region."*
-8. **Wrap** — *"16 functions, tabs across the top like Bloomberg Launchpad, completely free. Clone the repo, run `./setup.sh`, done. Link in description."*
+8. **Wrap** — *"16 functions, tabs across the top, completely free. Clone the repo, run `./setup.sh`, done. Link in description."*
 
 ### Shot list for the video
 - Terminal window (black, amber) — at least one wide shot
@@ -186,7 +186,7 @@ Restart the API after changing (`./stop.sh && ./start.sh`).
 ## Repo layout
 
 ```
-BBterminal/
+stockhub-cli/
 ├── setup.sh            # one-time install
 ├── start.sh            # launch API + UI
 ├── stop.sh             # kill both
@@ -208,6 +208,6 @@ BBterminal/
 
 ## License
 
-- Your BBterminal code: yours to relicense.
+- Your StockHub code: yours to relicense.
 - OpenBB Platform: AGPL-v3 (upstream).
 - Yahoo Finance data: subject to Yahoo's terms — personal use only.

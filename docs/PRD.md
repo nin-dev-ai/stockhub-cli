@@ -2,7 +2,7 @@
 
 ## Purpose
 
-BBterminal is a local financial intelligence dashboard. It brings market data, company views, and rule-based signals into a command-driven terminal interface. The signal verdicts summarize configured heuristics; they are not predictions or investment advice.
+StockHub is a local financial intelligence dashboard. It brings market data, company views, and rule-based signals into a command-driven terminal interface. The signal verdicts summarize configured heuristics; they are not predictions or investment advice.
 
 ## Primary user flow
 

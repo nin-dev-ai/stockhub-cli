@@ -59,6 +59,6 @@ export const useWorkspace = create<WorkspaceState>()(
       setActiveTab: (id) => set({ activeTabId: id }),
       setActiveSymbol: (s) => set({ activeSymbol: s.toUpperCase() }),
     }),
-    { name: "bbterminal-workspace" }
+    { name: "stockhub-workspace" }
   )
 );

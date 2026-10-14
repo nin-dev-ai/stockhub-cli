@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# BBterminal — one-line installer
+# StockHub — one-line installer
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/vaughanf1/BB-Terminal/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/nin-dev-ai/stockhub-cli/main/install.sh | bash
 #
 # Environment overrides:
-#   INSTALL_DIR=~/somewhere    # where to clone (default: ~/BB-Terminal)
+#   INSTALL_DIR=~/somewhere    # where to clone (default: ~/stockhub-cli)
 #   SKIP_LAUNCH=1              # don't auto-launch after install
 
 set -euo pipefail
 
-REPO_URL="https://github.com/vaughanf1/BB-Terminal.git"
-INSTALL_DIR="${INSTALL_DIR:-$HOME/BB-Terminal}"
+REPO_URL="https://github.com/nin-dev-ai/stockhub-cli.git"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/stockhub-cli}"
 SKIP_LAUNCH="${SKIP_LAUNCH:-}"
 
 AMBER='\033[33m'; GREEN='\033[32m'; RED='\033[31m'; DIM='\033[2m'; BOLD='\033[1m'; RST='\033[0m'
@@ -27,8 +27,8 @@ cat <<'BANNER'
   ██   ██ ██   ██        ██    ██      ██   ██ ██  ██  ██ ██ ██  ██ ██ ██   ██ ██
   ██████  ██████         ██    ███████ ██   ██ ██      ██ ██ ██   ████ ██   ██ ███████
 
-  Bloomberg-style intelligence dashboard — powered by OpenBB
-  https://github.com/vaughanf1/BB-Terminal
+  Terminal-style intelligence dashboard — powered by OpenBB
+  https://github.com/nin-dev-ai/stockhub-cli
 
 BANNER
 
@@ -72,7 +72,7 @@ fi
 ok "Node    $(node --version)"
 
 # ── clone ────────────────────────────────────────────────────
-step "Cloning BB-Terminal to $INSTALL_DIR"
+step "Cloning stockhub-cli to $INSTALL_DIR"
 
 if [ -e "$INSTALL_DIR" ]; then
   cat <<EOF >&2
@@ -83,7 +83,7 @@ To reinstall, remove it first:
   rm -rf "$INSTALL_DIR"
 
 Or install somewhere else:
-  INSTALL_DIR=~/my-path curl -fsSL https://raw.githubusercontent.com/vaughanf1/BB-Terminal/main/install.sh | bash
+  INSTALL_DIR=~/my-path curl -fsSL https://raw.githubusercontent.com/nin-dev-ai/stockhub-cli/main/install.sh | bash
 
 EOF
   exit 1
@@ -98,13 +98,13 @@ cd "$INSTALL_DIR"
 
 # ── auto-launch ──────────────────────────────────────────────
 if [ -z "$SKIP_LAUNCH" ]; then
-  step "Launching BBterminal"
+  step "Launching StockHub"
   ./start.sh
 else
   cat <<EOF
 
 ${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}
-${BOLD}${AMBER}  BBterminal installed.${RST}
+${BOLD}${AMBER}  StockHub installed.${RST}
 
   Launch it now:
     ${AMBER}cd $INSTALL_DIR && ./start.sh${RST}

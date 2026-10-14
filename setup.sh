@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BBterminal — one-time setup
+# StockHub — one-time setup
 # Installs OpenBB Platform (Python) and the UI (Node). Run once.
 
 set -euo pipefail
@@ -52,7 +52,7 @@ ok "Node modules installed"
 cat <<EOF
 
 ${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}
-${AMBER}  BBterminal is ready.${RST}
+${AMBER}  StockHub is ready.${RST}
 ${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}
 
   Launch:    ${AMBER}./start.sh${RST}

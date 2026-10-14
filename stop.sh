@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BBterminal — stop both servers.
+# StockHub — stop both servers.
 
 set -u
 cd "$(dirname "$0")"
@@ -23,4 +23,4 @@ for port in 6900 5173; do
   fi
 done
 
-ok "BBterminal stopped"
+ok "StockHub stopped"

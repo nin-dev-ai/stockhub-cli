@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# BBterminal — launch both servers and open the browser.
+# StockHub — launch both servers and open the browser.
 # Idempotent: if a server is already running on its port, it's left alone.
 
 set -euo pipefail
@@ -24,7 +24,7 @@ if port_in_use "$API_PORT"; then
 else
   step "Starting OpenBB API on :$API_PORT"
   nohup .venv/bin/openbb-api --host 127.0.0.1 --port "$API_PORT" \
-    > /tmp/bbterminal-api.log 2>&1 &
+    > /tmp/stockhub-api.log 2>&1 &
   API_PID=$!
   printf "  ${DIM}waiting for API to come up"
   for i in $(seq 1 60); do
@@ -34,7 +34,7 @@ else
     printf "."; sleep 1
     if [ "$i" = "60" ]; then
       printf "${RST}\n"
-      fail "API didn't respond within 60s. See /tmp/bbterminal-api.log"
+      fail "API didn't respond within 60s. See /tmp/stockhub-api.log"
     fi
   done
 fi
@@ -44,7 +44,7 @@ if port_in_use "$UI_PORT"; then
   ok "UI dev server already running on :$UI_PORT"
 else
   step "Starting UI on :$UI_PORT"
-  ( cd app && nohup npm run dev > /tmp/bbterminal-ui.log 2>&1 & )
+  ( cd app && nohup npm run dev > /tmp/stockhub-ui.log 2>&1 & )
   printf "  ${DIM}waiting for UI"
   for i in $(seq 1 30); do
     if curl -s -o /dev/null "http://127.0.0.1:$UI_PORT/"; then
@@ -53,7 +53,7 @@ else
     printf "."; sleep 1
     if [ "$i" = "30" ]; then
       printf "${RST}\n"
-      fail "UI didn't respond within 30s. See /tmp/bbterminal-ui.log"
+      fail "UI didn't respond within 30s. See /tmp/stockhub-ui.log"
     fi
   done
 fi
@@ -68,13 +68,13 @@ fi
 cat <<EOF
 
 ${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}
-${AMBER}  BBterminal is live${RST}
+${AMBER}  StockHub is live${RST}
 
   UI:         ${AMBER}${URL}${RST}
   API docs:   ${DIM}http://localhost:${API_PORT}/docs${RST}
 
-  Logs:       /tmp/bbterminal-api.log
-              /tmp/bbterminal-ui.log
+  Logs:       /tmp/stockhub-api.log
+              /tmp/stockhub-ui.log
 
   Stop:       ${AMBER}./stop.sh${RST}
 ${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RST}
