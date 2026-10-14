@@ -30,6 +30,6 @@ React Query handles data fetching and refresh intervals inside function screens.
 
 ## Verification
 
-Run `npm run build` from `app/` for TypeScript and production build validation. For behavior that depends on providers, run the local services and check the affected screen with representative symbols and error cases.
+Run `npm test` from `app/` for unit coverage of the deterministic core (signal rules in `signals.ts`, the command parser in `functions.ts`, and the formatters in `format.ts`; tests live beside the source as `*.test.ts` and run under Vitest). Run `npm run build` from `app/` for TypeScript and production build validation. For behavior that depends on providers, run the local services and check the affected screen with representative symbols and error cases.
 
-GitHub Actions runs the same frontend build on pushes and pull requests using Node.js 20 (`.github/workflows/frontend-build.yml`).
+GitHub Actions runs the same tests and frontend build on pushes and pull requests using Node.js 20 (`.github/workflows/frontend-build.yml`).
