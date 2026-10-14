@@ -19,7 +19,7 @@ The shell scripts in the repository root install, start, and stop the local serv
 | Signal rules | `app/src/lib/signals.ts` | Classifies metrics and computes INTEL verdicts |
 | Workspace state | `app/src/store/workspaceStore.ts` | Tabs and active symbol, persisted with Zustand |
 
-React Query handles data fetching and refresh intervals inside function screens. The browser calls the local Vite server, which forwards API requests to OpenBB. Most fetchers explicitly request the `yfinance` provider; treasury rates use `federal_reserve`, and symbol search uses `sec`. Provider availability and credentials affect returned data. The route shapes in `api.ts` target OpenBB 4.x (`/equity/price/quote?provider=...`); OpenBB 5 serves provider-first routes, so `setup.sh` pins `openbb>=4.3,<5`. Revisit the pin and `api.ts` together when migrating.
+React Query handles data fetching and refresh intervals inside function screens. The browser calls the local Vite server, which forwards API requests to OpenBB. Most fetchers explicitly request the `yfinance` provider; treasury rates use `federal_reserve`, and symbol search uses `sec`. Company news bypasses OpenBB: `fetchNewsCompany` reads Yahoo Finance's RSS feed, then Google News if Yahoo is empty or fails, and `app/src/lib/news.ts` parses the XML. [`vite.config.ts`](../app/vite.config.ts) proxies `/rss/yahoo` and `/rss/google` (Yahoo requires a browser `User-Agent`), so news only works through the Vite dev server. Provider availability and credentials affect returned data. The route shapes in `api.ts` target OpenBB 4.x (`/equity/price/quote?provider=...`); OpenBB 5 serves provider-first routes, so `setup.sh` pins `openbb>=4.3,<5`. Revisit the pin and `api.ts` together when migrating.
 
 ## Change points
 
