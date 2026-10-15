@@ -22,6 +22,7 @@ export interface StrategyDef {
   tags: string[];
   region: "US";
   holdingPeriod: string;
+  riskLevel?: "Lower" | "Moderate" | "Higher";
   universe: string[];
   benchmark: string;
   allocation: Allocation;
@@ -35,7 +36,7 @@ export interface StrategyDef {
   evidence: "Backtested" | "Paper-tracked" | "Verified live";
   experimental?: boolean;
   /** Parameter paths varied for the sensitivity test. */
-  sensitivity?: { path: string; values: number[] }[];
+  sensitivity?: { path: string; values: number[]; informational?: boolean }[];
   /** Created from this curated strategy; set on user drafts. */
   forkOf?: string;
 }
