@@ -60,7 +60,7 @@ export function PORT() {
             Run a projection in the Simulation Lab and choose Save Plan. StockHub stores the plan and its projection as a snapshot that never changes,
             then compares what happens next against it. You can also record holdings you already own on the left.
           </div>
-          <div className="text-term-muted text-[11px]">Everything is stored in this browser only. An Interactive Brokers account can be read through its local gateway; StockHub never places orders.</div>
+          <div className="text-term-muted text-[11px]">Everything is stored in this browser only. An Interactive Brokers account can be read through its local gateway; orders go only to a paper account, from Paper Orders, one confirmed order at a time.</div>
           <button onClick={() => openTab("LAB")} className="self-start px-3 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle">Go to Simulation Lab</button>
         </div>}
       </div>

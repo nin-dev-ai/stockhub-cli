@@ -125,7 +125,7 @@ export function respond(message: string, ctx: CopilotContext, opts: { takenIds?:
     if (ctx.personas?.copy) return copyResult(m, ctx.personas.copy);
     const c = new Composer("persona", "Copy-trade backtest", m);
     c.p("Open a House member's card on this screen and choose Backtest copying. It runs their reported purchases and sales twice, from the day each report was filed and from the trade date, against SPY, and I can then explain the result.");
-    c.note("Copying is a historical test only; StockHub places no orders.");
+    c.note("Copying is a historical test only; it never places orders.");
     return c.done();
   }
 
@@ -434,7 +434,7 @@ function persona(m: string, who: { known: Persona | null; name: string; politici
     c.p(c.vetted(`${who.name} is not a preset. Add them on the Personas screen: a fund manager by their firm's CIK (13F), a company insider by the company's ticker and their name (Form 4), or a US House member by name or district.`));
   }
   if (p?.note) c.note(c.vetted(p.note));
-  if (/\b(mirror|copy)\b/i.test(m)) c.note(c.vetted("Copying trades automatically is not supported: StockHub is not connected to a broker and places no orders. Following is for research."));
+  if (/\b(mirror|copy)\b/i.test(m)) c.note(c.vetted("Copying trades automatically is not supported: following never places orders, and paper orders are only sent by you from the Paper Orders screen. Following is for research."));
   c.persona = { known: p };
   if (p?.source.kind === "house") c.source("Clerk of the House", "Periodic Transaction Reports, no key");
   else c.source("SEC EDGAR", "Form 13F and Form 4 via OpenBB, no key");

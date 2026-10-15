@@ -2,6 +2,7 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import type { Portfolio } from "@/quant/tracking";
 import { usePortfolios } from "@/store/portfolioStore";
+import { useWorkspace } from "@/store/workspaceStore";
 
 function Group({ title, note, items, selected, onSelect }: { title: string; note: string; items: Portfolio[]; selected: string | null; onSelect: (id: string) => void }) {
   return (
@@ -28,6 +29,7 @@ export function PortfolioList({ portfolios, selected, onSelect, onBroker, broker
   portfolios: Portfolio[]; selected: string | null; onSelect: (id: string) => void; onBroker: () => void; brokerOpen: boolean;
 }) {
   const create = usePortfolios((s) => s.createPortfolio);
+  const openTab = useWorkspace((s) => s.openTab);
   const [name, setName] = useState("");
   const [err, setErr] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -45,6 +47,7 @@ export function PortfolioList({ portfolios, selected, onSelect, onBroker, broker
       <Group title="Manually reported" note="Real holdings you enter yourself. Not broker-verified." items={portfolios.filter((p) => p.mode === "manual")} selected={selected} onSelect={onSelect} />
       <Group title="Broker-reported" note="Positions read from Interactive Brokers through its local gateway." items={portfolios.filter((p) => p.mode === "broker")} selected={selected} onSelect={onSelect} />
       <button onClick={onBroker} className={cn("self-start text-left text-[11px] hover:text-term-amber", brokerOpen ? "text-term-amber" : "text-term-muted")}>⇄ Interactive Brokers (read-only)</button>
+      <button onClick={() => openTab("ORD")} className="self-start text-left text-[11px] text-term-muted hover:text-term-amber">→ Paper orders (IBKR paper account)</button>
       {open ? (
         <div className="flex flex-col gap-1 border-t border-term-border pt-2">
           <span className="sub-header">New manual holdings record</span>
@@ -60,7 +63,7 @@ export function PortfolioList({ portfolios, selected, onSelect, onBroker, broker
       ) : (
         <button onClick={() => setOpen(true)} className="self-start text-[11px] text-term-muted hover:text-term-amber">+ Record existing holdings</button>
       )}
-      <div className="mt-auto text-[10px] text-term-muted leading-snug">Stored in this browser only. The IBKR connection is read-only; StockHub places no orders.</div>
+      <div className="mt-auto text-[10px] text-term-muted leading-snug">Stored in this browser only. Reading IBKR is read-only; paper orders are sent only from Paper Orders, after your confirmation.</div>
     </aside>
   );
 }

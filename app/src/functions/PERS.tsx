@@ -205,7 +205,7 @@ export function PERS() {
         ))}
         <AddForm />
         <div className="text-[10px] text-term-muted leading-snug border-t border-term-border pt-2">
-          Sources: SEC EDGAR through the local OpenBB API, and the Clerk of the House for House members. Free, official and keyless. Following a persona is for research; StockHub places no trades.
+          Sources: SEC EDGAR through the local OpenBB API, and the Clerk of the House for House members. Free, official and keyless. Following a persona is for research and never places a trade.
         </div>
       </aside>
 

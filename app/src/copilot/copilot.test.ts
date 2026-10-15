@@ -313,7 +313,7 @@ describe("personas", () => {
     const a = respond("follow Tim Cook and copy his trades", empty);
     expect(a.persona?.known).toBeNull();
     expect(text(a)).toMatch(/not a preset/);
-    expect(text(a)).toMatch(/places no orders/);
+    expect(text(a)).toMatch(/never places orders/);
   });
   it("leaves unrelated questions alone", () => {
     expect(respond("Why is my portfolio different from the plan?", empty).kind).not.toBe("persona");
