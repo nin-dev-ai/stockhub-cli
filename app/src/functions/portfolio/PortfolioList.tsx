@@ -23,8 +23,10 @@ function Group({ title, note, items, selected, onSelect }: { title: string; note
   );
 }
 
-/** Paper and manually reported records are listed apart so they are never confused (AC-12). */
-export function PortfolioList({ portfolios, selected, onSelect }: { portfolios: Portfolio[]; selected: string | null; onSelect: (id: string) => void }) {
+/** Paper, manually reported and broker-reported records are listed apart so they are never confused (AC-12). */
+export function PortfolioList({ portfolios, selected, onSelect, onBroker, brokerOpen }: {
+  portfolios: Portfolio[]; selected: string | null; onSelect: (id: string) => void; onBroker: () => void; brokerOpen: boolean;
+}) {
   const create = usePortfolios((s) => s.createPortfolio);
   const [name, setName] = useState("");
   const [err, setErr] = useState<string | null>(null);
@@ -41,6 +43,8 @@ export function PortfolioList({ portfolios, selected, onSelect }: { portfolios: 
       <span className="text-term-amber text-[10px] tracking-[0.22em] font-bold">MY PORTFOLIO</span>
       <Group title="Paper plans" note="Save a plan from the Simulation Lab to follow it on paper." items={portfolios.filter((p) => p.mode === "paper")} selected={selected} onSelect={onSelect} />
       <Group title="Manually reported" note="Real holdings you enter yourself. Not broker-verified." items={portfolios.filter((p) => p.mode === "manual")} selected={selected} onSelect={onSelect} />
+      <Group title="Broker-reported" note="Positions read from Interactive Brokers through its local gateway." items={portfolios.filter((p) => p.mode === "broker")} selected={selected} onSelect={onSelect} />
+      <button onClick={onBroker} className={cn("self-start text-left text-[11px] hover:text-term-amber", brokerOpen ? "text-term-amber" : "text-term-muted")}>⇄ Interactive Brokers (read-only)</button>
       {open ? (
         <div className="flex flex-col gap-1 border-t border-term-border pt-2">
           <span className="sub-header">New manual holdings record</span>
@@ -56,7 +60,7 @@ export function PortfolioList({ portfolios, selected, onSelect }: { portfolios: 
       ) : (
         <button onClick={() => setOpen(true)} className="self-start text-[11px] text-term-muted hover:text-term-amber">+ Record existing holdings</button>
       )}
-      <div className="mt-auto text-[10px] text-term-muted leading-snug">Stored in this browser only. No broker connection, no order execution.</div>
+      <div className="mt-auto text-[10px] text-term-muted leading-snug">Stored in this browser only. The IBKR connection is read-only; StockHub places no orders.</div>
     </aside>
   );
 }

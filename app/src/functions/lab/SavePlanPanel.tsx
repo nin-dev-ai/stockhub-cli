@@ -66,11 +66,13 @@ export function SavePlanPanel({ bundle, projection, inputs, weights, weightsSour
           <input value={name} onChange={(e) => setName(e.target.value)} className="bg-term-bg border border-term-border px-2 py-1 focus:outline-none focus:border-term-amberDim" /></label>
         <div className="flex flex-col gap-1">
           <span className="sub-header">Track as</span>
-          {(["paper", "manual"] as PortfolioMode[]).map((m) => (
+          {(["paper", "manual", "broker"] as PortfolioMode[]).map((m) => (
             <label key={m} className="flex items-start gap-2 text-[11px] cursor-pointer">
               <input type="radio" checked={mode === m} onChange={() => setMode(m)} className="accent-[#ff8c00] mt-0.5" />
               <span><span className="text-term-text">{MODE_LABEL[m]}</span><br /><span className="text-term-muted">
-                {m === "paper" ? "Hypothetical trades at market closes. Follow the plan without real money." : "You enter the real contributions and trades you make. StockHub cannot verify them."}
+                {m === "paper" ? "Hypothetical trades at market closes. Follow the plan without real money."
+                  : m === "manual" ? "You enter the real contributions and trades you make. StockHub cannot verify them."
+                  : "Sync your Interactive Brokers positions into it from My Portfolio (read-only). Deposits are not visible, so new holdings count as money in."}
               </span></span>
             </label>
           ))}

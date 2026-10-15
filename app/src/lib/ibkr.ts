@@ -19,6 +19,7 @@ const ALLOWED: { method: "GET" | "POST"; path: RegExp }[] = [
 ];
 
 export class ReadOnlyViolation extends Error {}
+const TIMEOUT_MS = 8000;
 
 /** Throws unless the request is one of the read-only calls above. */
 export function assertReadOnly(method: string, path: string) {
@@ -27,7 +28,8 @@ export function assertReadOnly(method: string, path: string) {
 
 async function call(method: "GET" | "POST", path: string, fetcher: typeof fetch = fetch): Promise<unknown> {
   assertReadOnly(method, path);
-  const res = await fetcher(`${IBKR_BASE}${path}`, { method, headers: { Accept: "application/json" } });
+  // something else on the port (macOS AirPlay Receiver listens on 5000) can hang instead of refusing
+  const res = await fetcher(`${IBKR_BASE}${path}`, { method, headers: { Accept: "application/json" }, signal: AbortSignal.timeout(TIMEOUT_MS) });
   if (res.status === 401) throw Object.assign(new Error("The IBKR session is not logged in."), { status: 401 });
   if (!res.ok) throw Object.assign(new Error(`IBKR returned ${res.status} for ${path}.`), { status: res.status });
   return res.json();
@@ -40,6 +42,7 @@ export async function ibkrStatus(fetcher: typeof fetch = fetch): Promise<Gateway
   } catch (e) {
     const status = (e as { status?: number }).status;
     if (status === 401) return { kind: "login", detail: "The gateway is running but not logged in." };
+    if ((e as Error).name === "TimeoutError" || (e as Error).name === "AbortError") return { kind: "offline", detail: "Nothing answered in time on the gateway port. On a Mac, AirPlay Receiver uses port 5000: give the gateway another port." };
     return { kind: "offline", detail: status ? `The proxy answered ${status}; is the gateway running on the configured port?` : "No gateway answered." };
   }
 }

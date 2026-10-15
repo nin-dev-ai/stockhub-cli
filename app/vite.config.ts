@@ -2,7 +2,11 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
+const ibkrGateway = process.env.IBKR_GATEWAY_URL ?? "https://localhost:5000";
+
 export default defineConfig({
+  // the Broker panel links to the gateway's login page on the same address the proxy uses
+  define: { "import.meta.env.VITE_IBKR_LOGIN_URL": JSON.stringify(ibkrGateway) },
   plugins: [react()],
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
@@ -25,7 +29,7 @@ export default defineConfig({
       // IBKR Client Portal Gateway (read-only use): runs locally with a self-signed certificate.
       // Set IBKR_GATEWAY_URL when it listens somewhere other than https://localhost:5000.
       "/ibkr": {
-        target: process.env.IBKR_GATEWAY_URL ?? "https://localhost:5000",
+        target: ibkrGateway,
         changeOrigin: true,
         secure: false,
         rewrite: (p) => p.replace(/^\/ibkr/, ""),
