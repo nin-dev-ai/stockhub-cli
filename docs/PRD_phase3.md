@@ -216,7 +216,7 @@ This implements the future trading rules in 6.6.1 for **paper accounts only**:
 | E1 — Strategy across ETFs | Delivered: `spread` definitions, sleeve engine and report (per-ETF results, correlation, single-ETF and buy-and-hold baselines, drawdown verdict); STRAT *Spread across several ETFs*; Lab *Spread across more ETFs*; Copilot spread drafts and Lab spread proposals. Checked in the browser on live data. |
 | E2 — House members as personas | Delivered: Clerk index and PTR parser with a golden fixture, `/clerk` proxy, five presets and member search, amount ranges, scanned reports linked, Copilot follow and summaries. Checked in the browser on live data (Pelosi: 7 reports, 39 trades). |
 | E3 — Copy-trade backtest | Delivered for House members: `schedule` rule type, copy-trade engine (filing-date and trade-date versions, lag cost, coverage) with a no-look-ahead test, *Backtest copying* panel, Copilot explanation. Checked live (Pelosi, Dec 2024 to Oct 2026: filing-date copy +42.6%, trade-date copy +58.6%, SPY +32.3%, delay cost $1,598 on $10,000). Deferred: funds (13F rows have CUSIPs, not tickers; needs a CUSIP-to-ticker source), insiders (single-stock, little to learn), and using a copy as a Lab slot (under two years of history is below the 60-month projection minimum). |
-| E4 — IBKR read-only | Not started |
+| E4 — IBKR read-only | In progress: `/ibkr` gateway proxy, read-only client (allow-list, tested to block order paths), position and summary normalizers, ledger sync |
 | E5 — Paper orders | Not started |
 | E6 — LLM Copilot adapter | Not started |
 
