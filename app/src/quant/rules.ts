@@ -75,6 +75,10 @@ export function describeRuleParts(d: StrategyDef): RuleParts {
   else if (sch === "daily") schedule.push(`Re-evaluate ${SCHEDULE_TEXT.daily}; trade only when the target changes${minTradeWeight ? ` by more than ${pct(minTradeWeight)}` : ""}.`);
   else schedule.push(`Rebalance to the targets ${SCHEDULE_TEXT[sch]}.`);
   if (d.entry && d.entry.deployMonths > 0) schedule.push(`Initial capital is invested in ${d.entry.deployMonths} equal monthly tranches; the undeployed part stays in cash.`);
+  if (d.spread) {
+    const list = d.spread.targets.map((t) => `${t.ticker} (${pct(t.weight)})`).join(", ");
+    signal.unshift(`Runs the rules below separately on ${list}, each in place of ${d.spread.from} and funded with its share of the starting amount and of every contribution; the results are added. The sleeves are not rebalanced against each other.`);
+  }
   if (d.reserve) schedule.push(`${pct(d.reserve.fraction)} of each contribution is held in cash and invested in ${d.reserve.riskyTicker} when it is more than ${pct(-d.reserve.releaseDrawdown)} below its prior peak.`);
   return {
     signal, schedule,

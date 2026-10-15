@@ -7,8 +7,9 @@ import { fmtMoney, fmtPts, fmtRate, fmtRatio } from "@/lib/format";
 import { drawdownSeries } from "@/quant/indicators";
 import { twrIndex } from "@/quant/ranking";
 import { describeRuleParts } from "@/quant/rules";
-import { requiredTickers, retarget, validateStrategy, type StrategyDef } from "@/quant/strategy";
+import { primaryRisky, requiredTickers, retarget, validateStrategy, withSpread, type StrategyDef } from "@/quant/strategy";
 import { EtfSelect } from "@/components/quant/EtfSelect";
+import { EtfMultiPick } from "@/components/quant/EtfMultiPick";
 import type { BacktestResult } from "@/quant/service";
 import { INSTRUMENT_BY_TICKER } from "@/quant/instruments";
 
@@ -92,6 +93,61 @@ function EtfMapper({ def, onRetarget }: { def: StrategyDef; onRetarget: (v: Stra
   );
 }
 
+/** Run the same rules on several ETFs at once, money split equally; saved as a draft before it runs. */
+function EtfSpreader({ def, from, onRetarget }: { def: StrategyDef; from: string; onRetarget: (v: StrategyDef) => void }) {
+  const [picked, setPicked] = useState<string[]>([from]);
+  const variant = useMemo(() => (picked.length >= 2 ? withSpread(def, picked) : null), [def, picked]);
+  const v = variant ? validateStrategy(variant) : null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-[11px] text-term-muted">Run these rules separately on each ETF you pick in place of {from}, with the money split equally, and add the results. The report shows whether spreading made the worst drawdown shallower.</div>
+      <EtfMultiPick value={picked} onChange={setPicked} ariaLabel="ETFs to spread across" />
+      {v && !v.ok && <ul className="text-term-red text-[11px] list-disc pl-4">{v.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
+      <div className="flex items-center gap-2">
+        <button disabled={!variant || !v?.ok} onClick={() => variant && onRetarget(variant)}
+          className="px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px] disabled:opacity-30 disabled:cursor-not-allowed">
+          Backtest across these ETFs
+        </button>
+        <span className="text-[10px] text-term-muted">{variant ? `Saves “${variant.name}” as a draft in this browser.` : "Pick at least two ETFs."}</span>
+      </div>
+    </div>
+  );
+}
+
+function SpreadResults({ r }: { r: BacktestResult }) {
+  const sp = r.spread!;
+  const rows: { label: string; cagr: number | null; dd: number | null; sharpe: number | null; final: number; extra?: string; strong?: boolean }[] = [
+    { label: "Combined", cagr: r.run.metrics.cagr, dd: r.run.metrics.maxDrawdown, sharpe: r.run.metrics.sharpe, final: r.run.finalValue, strong: true },
+    ...sp.sleeves.map((s) => ({ label: `${s.ticker} sleeve (${Math.round(s.weight * 100)}%)`, cagr: s.cagr, dd: s.maxDrawdown, sharpe: s.sharpe, final: s.finalValue, extra: s.gainShare == null ? "–" : `${(s.gainShare * 100).toFixed(0)}% of gain` })),
+    { label: `Same rules on ${sp.single.ticker} only`, cagr: sp.single.metrics.cagr, dd: sp.single.metrics.maxDrawdown, sharpe: sp.single.metrics.sharpe, final: sp.single.finalValue },
+    { label: "Buy & hold of the same ETFs", cagr: sp.buyHold.metrics.cagr, dd: sp.buyHold.metrics.maxDrawdown, sharpe: sp.buyHold.metrics.sharpe, final: sp.buyHold.finalValue },
+  ];
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="text-term-amberBright text-[11px]">{sp.summary}</div>
+      <table className="w-full grid-data text-[11px]">
+        <thead><tr><th>Run</th><th className="text-right">CAGR</th><th className="text-right">Max DD</th><th className="text-right">Sharpe</th><th className="text-right">Final value</th><th className="text-right">Contribution</th></tr></thead>
+        <tbody>{rows.map((x) => (
+          <tr key={x.label} className={x.strong ? "text-term-amber" : ""}>
+            <td>{x.label}</td><td className="num text-right">{fmtRate(x.cagr)}</td><td className="num text-right">{fmtRate(x.dd)}</td>
+            <td className="num text-right">{fmtRatio(x.sharpe)}</td><td className="num text-right">{fmtMoney(x.final)}</td><td className="num text-right text-term-muted">{x.extra ?? ""}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+      <div>
+        <div className="sub-header mb-1">Correlation of daily returns between sleeves</div>
+        <table className="grid-data text-[11px]">
+          <thead><tr><th></th>{sp.sleeves.map((s) => <th key={s.ticker} className="text-right">{s.ticker}</th>)}</tr></thead>
+          <tbody>{sp.sleeves.map((a, i) => (
+            <tr key={a.ticker}><td className="text-term-amber">{a.ticker}</td>{sp.correlation[i].map((c, j) => <td key={j} className="num text-right">{c.toFixed(2)}</td>)}</tr>
+          ))}</tbody>
+        </table>
+        <div className="text-[10px] text-term-muted mt-1">Close to 1 means the sleeves move together and spreading adds little diversification.</div>
+      </div>
+    </div>
+  );
+}
+
 export function StrategyDetail({ def, result, draft, unsavedVariant, onSaveVariant, onRetarget, onClose, onFork, onEdit, onDelete }: Props) {
   const [showAllTrades, setShowAllTrades] = useState(false);
   const [showJson, setShowJson] = useState(false);
@@ -144,6 +200,10 @@ export function StrategyDetail({ def, result, draft, unsavedVariant, onSaveVaria
 
         <Section title="Run on other ETFs"><EtfMapper key={def.id} def={def} onRetarget={onRetarget} /></Section>
 
+        {!def.spread && primaryRisky(def) && (
+          <Section title="Spread across several ETFs"><EtfSpreader key={def.id} def={def} from={primaryRisky(def)!} onRetarget={onRetarget} /></Section>
+        )}
+
         <Section title="Exact rules" right={
           <button onClick={() => setShowJson((s) => !s)} className="text-[10px] text-term-muted hover:text-term-amber uppercase tracking-widest">{showJson ? "Hide" : "Show"} machine-readable definition</button>
         }>
@@ -184,6 +244,8 @@ export function StrategyDetail({ def, result, draft, unsavedVariant, onSaveVaria
               <MetricsTable cols={cols} />
               <UnavailableNotes cols={cols} />
             </Section>
+
+            {r.spread && <Section title="Spread across ETFs — per-ETF results"><SpreadResults r={r} /></Section>}
 
             <Section title="Robustness" right={<VerdictBadge verdict={rb?.verdict} />}>
               {rb && (
