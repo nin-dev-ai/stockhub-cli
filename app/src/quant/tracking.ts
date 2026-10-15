@@ -13,10 +13,11 @@ import { ENGINE_VERSION, type Panel } from "./types";
  * Pure functions only; persistence lives in store/portfolioStore.ts.
  */
 
-export type PortfolioMode = "paper" | "manual";
+export type PortfolioMode = "paper" | "manual" | "broker";
 export const MODE_LABEL: Record<PortfolioMode, string> = {
   paper: "Paper (hypothetical)",
   manual: "Manually reported · not broker-verified",
+  broker: "Broker-reported · IBKR, read-only",
 };
 
 export type TxKind = "contribution" | "withdrawal" | "buy" | "sell" | "fee" | "dividend" | "transfer_in";
