@@ -332,6 +332,7 @@ function portfolio(m: string, pf: PortfolioContext | null): Answer {
   ]);
   c.list(a.notes.filter((n) => !n.startsWith("FX")).map(c.vetted));
   if (pf.mode === "manual") c.note("These records are manually reported and not broker-verified.");
+  if (pf.mode === "broker") c.note("These holdings were synced from Interactive Brokers through a read-only connection. Deposits are not visible, so holdings that appeared between syncs count as money in; I cannot place or change orders.");
   c.source("Tracking engine", "saved snapshot, ledger and plan replay");
   return c.done();
 }
