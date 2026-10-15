@@ -33,6 +33,8 @@ export interface Answer {
   labChange?: LabChange;
   /** A screen the user may open with one click (permission level 1). */
   open?: { code: "ORD" | "PORT"; label: string };
+  /** Set when an LLM rephrased the blocks; `grounded` keeps the rule-based blocks it was checked against. */
+  phrasing?: { status: "pending" } | { status: "done"; model: string; grounded: Block[] } | { status: "fallback"; reason: string };
   verified: boolean;
   unverified: string[];
 }
@@ -83,7 +85,7 @@ class Composer {
 
 const has = (m: string, re: RegExp) => re.test(m);
 /** Fixed product vocabulary that contains digits but is not a result: percentile names and their meaning. */
-const STATIC_FIGURES = "10th 50th 90th 10th–90th 1 in 10 1 in 5";
+export const STATIC_FIGURES = "10th 50th 90th 10th–90th 1 in 10 1 in 5";
 const DISCLAIMER = "Informational only, not personal advice. Past results and simulations do not predict future returns.";
 
 // ---------------------------------------------------------------------------------------------
