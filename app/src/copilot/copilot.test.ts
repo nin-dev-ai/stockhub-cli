@@ -146,6 +146,9 @@ describe("explanations from engine output (AI-03, AI-05, AI-07)", () => {
     expect(a.verified).toBe(true);
     expect(text(a)).toMatch(/Contribution difference/);
     expect(text(a)).toMatch(/Projection error/);
+    const b = respond("why is my portfolio behind the plan?", { ...empty, screen: "PORT", portfolio: { name: "IBKR DU1", mode: "broker", snapshots: 1, total: 101, contributed: 105, attribution: att } });
+    expect(text(b)).toMatch(/broker-reported · ibkr, read-only/);
+    expect(text(b)).toMatch(/read-only connection/);
   });
   it("reports unavailable evidence instead of guessing", () => {
     expect(text(respond("explain my projection", empty))).toMatch(/No projection has been run/);
