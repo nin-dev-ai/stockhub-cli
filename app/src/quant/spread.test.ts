@@ -3,6 +3,7 @@ import { CATALOG_BY_ID } from "./catalog";
 import { applyTarget, primaryRisky, requiredTickers, sleeveDef, validateStrategy, withSpread } from "./strategy";
 import { runBacktestOn } from "./service";
 import { syntheticDataset } from "./testData";
+import { DEFAULT_LAB, labStrategies, validateLab } from "./lab";
 
 const ds = syntheticDataset(12, 3);
 const cfg = { initial: 1000, contribution: { amount: 100, frequency: "monthly" as const } };
@@ -74,5 +75,17 @@ describe("spreading a strategy across ETFs", () => {
     const d = withSpread(gc, ["SPY", "QQQ"])!;
     expect(runBacktestOn(ds, d, cfg).runId).toBe(runBacktestOn(ds, d, cfg).runId);
     expect(runBacktestOn(ds, gc, cfg).spread).toBeNull();
+  });
+
+  it("spreads SPY-trading basket strategies in the Lab and leaves the rest alone", () => {
+    const basket = [gc, CATALOG_BY_ID.momentum_rotation];
+    const one = labStrategies(basket, { ...DEFAULT_LAB, etf: "QQQ" });
+    expect((one[0].allocation as { risky: string }).risky).toBe("QQQ");
+    expect(one[0].spread).toBeUndefined();
+    const many = labStrategies(basket, { ...DEFAULT_LAB, etf: "SPY", alsoEtfs: ["QQQ", "DIA"] });
+    expect(many[0].spread?.targets.map((t) => t.ticker)).toEqual(["SPY", "QQQ", "DIA"]);
+    expect(many[1]).toBe(basket[1]);
+    expect(validateLab({ ...DEFAULT_LAB, alsoEtfs: ["SPY"] })).toContain("Each ETF can be picked only once.");
+    expect(validateLab({ ...DEFAULT_LAB, alsoEtfs: ["QQQ", "DIA", "VTI", "MDY", "IWM", "EFA"] }).join()).toMatch(/at most 6/);
   });
 });

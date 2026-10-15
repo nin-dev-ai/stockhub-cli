@@ -14,14 +14,15 @@ import { useLab } from "@/store/labStore";
 import { LAB_CHANGE_FIELDS, type LabChange } from "@/copilot/labChanges";
 
 const fmtField = (k: keyof LabChange, v: unknown) =>
-  k === "etf" ? String(v) : k === "years" ? `${v} years` : `$${Number(v).toLocaleString("en-US")}`;
+  k === "etf" ? String(v) : k === "alsoEtfs" ? ((v as string[] | undefined)?.join(", ") || "none") : k === "years" ? `${v} years` : `$${Number(v).toLocaleString("en-US")}`;
 
 /** Shows current → proposed Lab inputs; nothing changes until Apply, and the Lab's Reset undoes it. */
 function LabChangeCard({ change }: { change: LabChange }) {
   const { inputs, setInputs } = useLab();
   const openTab = useWorkspace((s) => s.openTab);
   const [applied, setApplied] = useState(false);
-  const keys = Object.keys(change) as (keyof LabChange)[];
+  // clearing a spread that is not set is no change worth a row
+  const keys = (Object.keys(change) as (keyof LabChange)[]).filter((k) => k !== "alsoEtfs" || (change.alsoEtfs?.length ?? 0) > 0 || inputs.alsoEtfs.length > 0);
   if (applied) return <div className="text-[10px] text-term-green">Applied to the Lab inputs. Run the backtest again to see the effect.</div>;
   return (
     <div className="border border-term-amberDim p-2 flex flex-col gap-2">
