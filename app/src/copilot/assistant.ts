@@ -99,6 +99,15 @@ export function respond(message: string, ctx: CopilotContext, opts: { takenIds?:
     if (Object.keys(lc.change).length > 0) return labChange(m, lc);
   }
 
+  // the copy-trade backtest open on the Personas screen (level 0: explain what is on screen)
+  if (ctx.screen === "PERS" && has(m, /\b(cop(y|ied|ying)|mirror(ed|ing)?)\b/i) && has(m, /\b(what if|had|would|result|backtest|explain|how|did|lag|delay)\b/i)) {
+    if (ctx.personas?.copy) return copyResult(m, ctx.personas.copy);
+    const c = new Composer("persona", "Copy-trade backtest", m);
+    c.p("Open a House member's card on this screen and choose Backtest copying. It runs their reported purchases and sales twice, from the day each report was filed and from the trade date, against SPY, and I can then explain the result.");
+    c.note("Copying is a historical test only; StockHub places no orders.");
+    return c.done();
+  }
+
   if (ctx.personas?.personas.length && ctx.screen === "PERS") {
     const words = m.toLowerCase().replace(/[^a-z ]/g, " ").split(/\s+/);
     const one = ctx.personas.personas.find((p) => words.includes(p.name.toLowerCase().split(" ").pop()!));
@@ -417,6 +426,25 @@ function labChange(m: string, lc: ReturnType<typeof labChangeFromText>): Answer 
   else c.labChange = lc.change;
   c.note(c.vetted(`Only ${Object.values(LAB_CHANGE_FIELDS).join(", ").toLowerCase()} can be changed from here. Costs, risk settings, weights and saved plans stay under your direct control.`));
   c.note("Run the backtest and projection again after applying; earlier results are kept, not overwritten.");
+  return c.done();
+}
+
+/** Explains the copy-trade backtest on screen; every figure comes from the two engine runs. */
+function copyResult(m: string, k: NonNullable<NonNullable<CopilotContext["personas"]>["copy"]>): Answer {
+  const c = new Composer("persona", `Copying ${k.name}: backtest`, m);
+  c.p(`Starting with ${c.money(k.initial)} on ${c.date(k.start)} and ending ${c.date(k.end)}, copying ${c.data(k.name)}'s reported purchases and sales in equal weights:`);
+  c.list([
+    `Acting when each report was filed: ${c.money(k.filed.finalValue)} (${c.pct(k.filed.totalReturn)} total return, worst drawdown ${c.pct(k.filed.maxDrawdown)}).`,
+    `Acting on the trade dates, which no copier could do: ${c.money(k.traded.finalValue)} (${c.pct(k.traded.totalReturn)}).`,
+    `${c.data(k.benchmark.ticker)} buy and hold: ${c.money(k.benchmark.finalValue)} (${c.pct(k.benchmark.totalReturn)}).`,
+  ]);
+  c.p(k.lagCost >= 0
+    ? `The reporting delay cost ${c.money(k.lagCost)}${k.medianLagDays != null ? `; the median report came ${c.int(k.medianLagDays)} days after the trade` : ""}.`
+    : `Here the delay happened to help by ${c.money(-k.lagCost)}${k.medianLagDays != null ? ` (median delay ${c.int(k.medianLagDays)} days)` : ""}; it can as easily hurt.`);
+  if (k.unpriced.length || k.skipped.length) c.note(`Left out for lack of prices or a ticker: ${[...k.unpriced, ...k.skipped].map(c.data).join(", ")}.`);
+  c.note("Amounts are ranges, so the copy uses equal weights, and option trades are copied as stock exposure. A short window is weak evidence, and this is a historical test, not a recommendation.");
+  c.source("StockHub engine", "copy-trade backtest on the Personas screen");
+  c.source("Clerk of the House", "Periodic Transaction Reports");
   return c.done();
 }
 
