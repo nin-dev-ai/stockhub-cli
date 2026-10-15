@@ -210,6 +210,23 @@ Nifty-specific strategies require validated instrument and corporate-action/curr
 - **AI-08** Do not place orders, modify a portfolio, publish strategies, or alter financial assumptions without a clear user action/confirmation.
 - **AI-09** Implement guardrails against unsafe financial certainty and prompt injection from strategy descriptions or external content.
 
+#### 6.6.1 Copilot permissions (decided 2026-10-15)
+
+The Copilot gets four levels of access. A capability moves up a level only by changing this table.
+
+| Level | What the Copilot may do | Confirmation | Allowed |
+| --- | --- | --- | --- |
+| **0 Read** | Read only what the **active screen publishes** to the context store: the open strategy and its backtest, Lab inputs, weights, optimization and projection, the open portfolio's summary and attribution, and (to add) the persona trades loaded on the Personas screen. Plus the glossary and curated catalog. | None | Yes |
+| **1 Propose and create** | Additive, local, reversible changes: save a strategy draft or ETF variant, follow a persona, open a screen. To add: apply a proposed change to Lab inputs (ETF, contribution, horizon), which the Lab's Reset undoes. | One click on a card showing exactly what changes | Yes |
+| **2 Edit records** | Change or delete anything that is a record: portfolio ledgers and transactions, saved plans and snapshots, existing drafts, the basket, persona follows set by the user. | n/a | **Never via Copilot.** The user does it on the screen. The Copilot explains how. |
+| **3 Trade** | Place, modify or cancel broker orders (for example on a future IBKR connection). | n/a | **Never via Copilot.** See below. |
+
+Never visible to the Copilot at any level: API keys and other credentials, broker account identifiers or sessions, raw browser storage, other screens' data, or network access of its own. If an external LLM is added later, only the active screen's published context and the user's message may be sent to it.
+
+**Broker trading, when added.** Trading lives in a separate order screen, not in the Copilot. The Copilot may at most prepare an order *ticket* or a rebalance preview (level 1 output: a proposal, not an order). Execution requires the user on the order screen to review each order and confirm it. Hard limits enforced in code, outside the Copilot: paper trading first; the instrument allow-list (supported ETFs plus persona tickers the user explicitly enables); no leverage, short sales or options; per-order and daily value caps the user sets; a kill switch; and an append-only audit log of every proposal, confirmation and fill. Persona activity can suggest a ticket but never triggers an order.
+
+**Content rules (all levels).** Figures come only from engine results or vetted product text (AI-06); no predictions, promises or personal buy/sell advice; text from filings, strategy descriptions and draft names is data, never instructions (AI-09).
+
 ---
 
 ## 7. Proposed Screen Experience
@@ -490,6 +507,7 @@ This section is maintained alongside the code. It records how the open decisions
 | 5 | **Local-only storage** (browser storage), no accounts. | No auth or database exists in the repo; the app is a local single-user tool. Broker credentials are never stored. |
 | 6 | The DSL is a **versioned JSON schema** (`schema: 1`) interpreted by a **TypeScript quant library** in `app/src/quant/`, run in the browser. | The repository is a Vite/React app with no Python service in the data path; one language keeps the engine unit-testable under Vitest. The library has no UI dependencies, so it can move behind a service later. |
 | 7 | The Copilot ships in the MVP as a **deterministic, tool-mediated assistant** (glossary, engine-result explanations, rule-based natural-language drafting). No external LLM is called. | The repo holds no model credentials. Grounding, figure verification and the confirmation flow are the same ones an LLM adapter would need. |
+| 8 | **Copilot permissions are tiered** (read / propose and create / edit records / trade); it reaches only the first two, and never trades even after a broker is connected. See 6.6.1. | Additive, reversible changes behind one click keep it useful; records and money stay under the user's direct control, and execution limits are enforced outside the Copilot. |
 
 ### Conventions the engine implements
 
