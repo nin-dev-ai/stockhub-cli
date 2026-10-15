@@ -7,7 +7,8 @@ import {
  * Read-only client for the IBKR Client Portal Gateway, reached through the `/ibkr` Vite proxy
  * (the gateway serves HTTPS on localhost with a self-signed certificate). Only the GET endpoints
  * below and the session keep-alive are allowed; any other path, and any other method, throws before
- * a request is made. There is no order endpoint in this module by design.
+ * a request is made. There is no order endpoint in this module by design: paper orders live in
+ * lib/ibkrOrders.ts and are used only by the Orders screen.
  */
 export const IBKR_BASE = "/ibkr/v1/api";
 const ALLOWED: { method: "GET" | "POST"; path: RegExp }[] = [

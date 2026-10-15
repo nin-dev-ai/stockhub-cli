@@ -78,7 +78,7 @@ export function BrokerPanel({ onClose }: { onClose: () => void }) {
         <button onClick={onClose} aria-label="Close broker panel" className="text-term-muted hover:text-term-red"><X size={14} /></button>
       </div>
       <div className="text-[11px] text-term-muted leading-snug">
-        StockHub reads positions and balances through IBKR's Client Portal Gateway, which runs on this computer and holds the login. It cannot place, change or cancel orders: the connection only allows status, keep-alive and portfolio reads, and anything else is blocked before it is sent. Nothing is saved until you sync.
+        StockHub reads positions and balances through IBKR's Client Portal Gateway, which runs on this computer and holds the login. This panel cannot place, change or cancel orders: it only allows status, keep-alive and portfolio reads, and anything else is blocked before it is sent. Nothing is saved until you sync. Paper-account orders are possible only from the Orders screen (ORD), one confirmed order at a time.
       </div>
 
       {status.isLoading && <div className="text-term-muted uppercase tracking-widest text-[11px]">Checking the gateway…</div>}
