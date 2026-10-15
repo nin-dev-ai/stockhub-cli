@@ -4,7 +4,7 @@ export type FunctionCode =
   | "FA" | "KEY" | "DVD" | "EE" | "NI"
   | "WEI" | "MOV" | "OMON"
   | "CURV" | "FXC" | "CRYPTO"
-  | "STRAT" | "LAB" | "PORT" | "PERS";
+  | "STRAT" | "LAB" | "PORT" | "PERS" | "ORD";
 
 export interface FunctionDef {
   code: FunctionCode;
@@ -40,6 +40,7 @@ export const FUNCTIONS: FunctionDef[] = [
   { code: "LAB",   name: "Simulation Lab",       needsSymbol: false, group: "Strategy", summary: "Backtest a basket, optimize weights, project a range of outcomes" },
   { code: "PORT",  name: "My Portfolio",         needsSymbol: false, group: "Strategy", summary: "Saved plans, paper and manually reported holdings, plan vs observed" },
   { code: "PERS",  name: "Personas",             needsSymbol: false, group: "Strategy", summary: "Follow public figures' disclosed trades (SEC 13F and Form 4, House PTRs) in one timeline" },
+  { code: "ORD",   name: "Paper Orders",         needsSymbol: false, group: "Strategy", summary: "Rebalance an IBKR paper account to a saved plan, one confirmed order at a time" },
   { code: "STRAT", name: "Strategies",           needsSymbol: false, group: "Strategy", summary: "Curated rules-based strategies: rules, backtests, robustness, basket" },
 ];
 
@@ -47,7 +48,7 @@ export const FUNCTIONS: FunctionDef[] = [
 export type Section = "explore" | "strategies" | "personas" | "lab" | "portfolio";
 export const STRATEGY_CODES: FunctionCode[] = ["STRAT"];
 export const LAB_CODES: FunctionCode[] = ["LAB"];
-export const PORTFOLIO_CODES: FunctionCode[] = ["PORT"];
+export const PORTFOLIO_CODES: FunctionCode[] = ["PORT", "ORD"];
 export const PERSONA_CODES: FunctionCode[] = ["PERS"];
 export const sectionOf = (code: FunctionCode): Section =>
   STRATEGY_CODES.includes(code) ? "strategies" : PERSONA_CODES.includes(code) ? "personas" : LAB_CODES.includes(code) ? "lab" : PORTFOLIO_CODES.includes(code) ? "portfolio" : "explore";

@@ -31,6 +31,7 @@ import { STRAT } from "@/functions/STRAT";
 import { LAB } from "@/functions/LAB";
 import { PORT } from "@/functions/PORT";
 import { PERS } from "@/functions/PERS";
+import { ORD } from "@/functions/ORD";
 
 const SCREENS: Record<string, (symbol?: string) => JSX.Element> = {
   CC: () => <CC />,
@@ -55,6 +56,7 @@ const SCREENS: Record<string, (symbol?: string) => JSX.Element> = {
   LAB: () => <LAB />,
   PORT: () => <PORT />,
   PERS: () => <PERS />,
+  ORD: () => <ORD />,
 };
 
 export default function App() {

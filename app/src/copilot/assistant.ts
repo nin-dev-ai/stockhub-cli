@@ -31,6 +31,8 @@ export interface Answer {
   persona?: { known: Persona | null };
   /** Proposed Lab inputs, applied only when the user clicks Apply. */
   labChange?: LabChange;
+  /** A screen the user may open with one click (permission level 1). */
+  open?: { code: "ORD" | "PORT"; label: string };
   verified: boolean;
   unverified: string[];
 }
@@ -61,6 +63,7 @@ class Composer {
   persona?: { known: Persona | null };
   /** Proposed Lab inputs, applied only when the user clicks Apply. */
   labChange?: LabChange;
+  open?: { code: "ORD" | "PORT"; label: string };
 
   done(draft?: DraftResult): Answer {
     const text = this.blocks.map((b) => (b.type === "list" ? b.items.join("\n") : b.text)).join("\n");
@@ -74,7 +77,7 @@ class Composer {
           : "The drafted answer contained figures that could not be traced to an engine result or a vetted source, so it was withheld rather than risk showing an invented number." }],
       };
     }
-    return { kind: this.kind, title: this.title, blocks: this.blocks, sources: this.sources, draft, persona: this.persona, labChange: this.labChange, verified: true, unverified: [] };
+    return { kind: this.kind, title: this.title, blocks: this.blocks, sources: this.sources, draft, persona: this.persona, labChange: this.labChange, open: this.open, verified: true, unverified: [] };
   }
 }
 
@@ -97,6 +100,22 @@ export function respond(message: string, ctx: CopilotContext, opts: { takenIds?:
   if (has(m, labWords) && has(m, /\b(set|change|make|use|run|try|switch|increase|decrease|raise|lower|put|update|invest|start|with)\b/i)) {
     const lc = labChangeFromText(m);
     if (Object.keys(lc.change).length > 0) return labChange(m, lc);
+  }
+
+  // opening the paper-orders or broker screens is level 1; sending orders never is
+  if (has(m, /\b(ibkr|interactive brokers|broker|paper (account|orders?|trading)|orders? screen)\b/i) && !has(m, /\b(place|submit|execute|send)\b/i)) {
+    const orders = has(m, /\b(orders?|rebalanc\w*|trade|trading)\b/i);
+    const c = new Composer("help", orders ? "Paper orders" : "Interactive Brokers", m);
+    if (orders) {
+      c.p("The Paper Orders screen proposes whole-share orders that move an IBKR paper account toward a saved plan's targets. You preview each order with IBKR, confirm it, and answer any question IBKR asks yourself; I cannot send, confirm or cancel orders.");
+      c.list(["Paper accounts only; live accounts are refused.", "Only StockHub's supported ETFs, long only, market or limit orders.", "A per-order cap, a daily cap, a kill switch and an audit log."]);
+      c.open = { code: "ORD", label: "Open Paper Orders" };
+    } else {
+      c.p("My Portfolio reads an Interactive Brokers account through IBKR's Client Portal Gateway running on your computer: balances and positions, read-only. Sync adds the positions to a broker-reported portfolio so it can be compared with a plan.");
+      c.open = { code: "PORT", label: "Open My Portfolio" };
+    }
+    c.source("Copilot permissions", "PRD 6.6.1: open a screen (level 1); never trade (level 3)");
+    return c.done();
   }
 
   // the copy-trade backtest open on the Personas screen (level 0: explain what is on screen)
@@ -183,8 +202,9 @@ function refuse(kind: GuardKind, m: string, ctx: CopilotContext): Answer {
     c.list([
       "Change plan inputs or weights in the Simulation Lab's left pane or Allocation tab.",
       "Record contributions or trades on the My Portfolio Ledger tab; paper rebalances are previewed before you confirm them.",
-      "StockHub has no broker connection and cannot execute real trades.",
+      "Paper-account orders to Interactive Brokers can only be sent by you, one confirmed order at a time, from the Paper Orders screen (ORD). Live accounts are refused.",
     ]);
+    c.open = { code: "ORD", label: "Open Paper Orders" };
   } else if (kind === "certainty") {
     c.title = "No one can promise a result";
     c.p("I can't tell you what you will earn. Markets are uncertain, and StockHub's projections describe a range of model-based possibilities, not a forecast.");
