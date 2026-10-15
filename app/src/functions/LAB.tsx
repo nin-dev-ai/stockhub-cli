@@ -13,6 +13,7 @@ import { BacktestView } from "./lab/BacktestView";
 import { AllocationView } from "./lab/AllocationView";
 import { ProjectionView } from "./lab/ProjectionView";
 import { MethodologyDrawer } from "./lab/MethodologyDrawer";
+import { SavePlanPanel } from "./lab/SavePlanPanel";
 
 type Tab = "backtest" | "allocation" | "projection";
 const TABS: { key: Tab; label: string }[] = [
@@ -26,7 +27,7 @@ export function LAB() {
   const defs = useMemo(() => basket.map((id) => findStrategy(id, drafts)).filter((d): d is StrategyDef => !!d), [basket, drafts]);
   const eng = useLabEngine(defs, inputs, override);
   const [tab, setTab] = useState<Tab>("backtest");
-  const [showReport, setShowReport] = useState(false);
+  const [drawer, setDrawer] = useState<"report" | "save" | null>(null);
 
   const bundle = eng.bt?.result;
   const hasErrors = eng.errors.length > 0;
@@ -62,7 +63,10 @@ export function LAB() {
           <button disabled={hasErrors || eng.running} onClick={() => go("backtest", eng.runBacktest)} className={cn(btn, "border-term-amber text-term-amber hover:bg-term-amberSubtle")}>Run Backtest</button>
           <button disabled={hasErrors || eng.running || defs.length < 1} onClick={() => go("allocation", eng.runOptimize)} className={cn(btn, "border-term-amber text-term-amber hover:bg-term-amberSubtle")}>Optimize Allocation</button>
           <button disabled={hasErrors || eng.running} onClick={() => go("projection", eng.runProjection)} className={cn(btn, "border-term-amber text-term-amber hover:bg-term-amberSubtle")}>Run Projection</button>
-          <button onClick={() => setShowReport(true)} className={cn(btn, "border-term-border text-term-muted hover:text-term-text ml-auto")}>View Methodology</button>
+          <button disabled={!proj?.fan || !bundle || !eng.weights || eng.running} onClick={() => setDrawer("save")}
+            title={proj?.fan ? "Save inputs, weights and this projection as a snapshot in My Portfolio" : "Run a projection for the current inputs first"}
+            className={cn(btn, "border-term-amber text-term-amber hover:bg-term-amberSubtle ml-auto")}>Save Plan</button>
+          <button onClick={() => setDrawer("report")} className={cn(btn, "border-term-border text-term-muted hover:text-term-text")}>View Methodology</button>
         </div>
         <div className="px-4 py-2 border-b border-term-borderSoft"><JobBar jobs={[eng.bt, eng.opt, eng.proj]} onCancel={eng.cancel} />
           {!eng.bt && !eng.opt && !eng.proj && <div className="text-[11px] text-term-muted">Set your plan on the left, then run the backtest. Optimization and projection run the backtest first when needed.</div>}
@@ -89,9 +93,12 @@ export function LAB() {
         </div>
       </div>
 
-      {showReport && (
+      {drawer && (
         <div className="absolute top-0 right-0 bottom-0 w-[min(640px,92%)] z-30 shadow-panel">
-          <MethodologyDrawer report={report} projection={proj ?? null} onClose={() => setShowReport(false)} />
+          {drawer === "report" && <MethodologyDrawer report={report} projection={proj ?? null} onClose={() => setDrawer(null)} />}
+          {drawer === "save" && bundle && proj && eng.weights && (
+            <SavePlanPanel bundle={bundle} projection={proj} inputs={inputs} weights={eng.weights} weightsSource={eng.weightsSource} onClose={() => setDrawer(null)} />
+          )}
         </div>
       )}
     </div>

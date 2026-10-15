@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseCommand, FUNCTIONS, FN_BY_CODE } from "./functions";
+import { parseCommand, FUNCTIONS, FN_BY_CODE, sectionOf } from "./functions";
 
 describe("parseCommand", () => {
   it("returns null for empty input", () => {
@@ -64,5 +64,15 @@ describe("function registry", () => {
       const parsed = parseCommand(fn.needsSymbol ? `AAPL ${fn.code}` : fn.code, null);
       expect(parsed?.code).toBe(fn.code);
     }
+  });
+});
+
+describe("primary sections", () => {
+  it("maps each Phase 2 screen to its own section and everything else to Explore", () => {
+    expect(sectionOf("STRAT")).toBe("strategies");
+    expect(sectionOf("LAB")).toBe("lab");
+    expect(sectionOf("PORT")).toBe("portfolio");
+    expect(sectionOf("CC")).toBe("explore");
+    expect(sectionOf("GP")).toBe("explore");
   });
 });

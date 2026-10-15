@@ -28,6 +28,7 @@ import { FXC } from "@/functions/FXC";
 import { CRYPTO } from "@/functions/CRYPTO";
 import { STRAT } from "@/functions/STRAT";
 import { LAB } from "@/functions/LAB";
+import { PORT } from "@/functions/PORT";
 
 const SCREENS: Record<string, (symbol?: string) => JSX.Element> = {
   CC: () => <CC />,
@@ -50,6 +51,7 @@ const SCREENS: Record<string, (symbol?: string) => JSX.Element> = {
   CRYPTO: () => <CRYPTO />,
   STRAT: () => <STRAT />,
   LAB: () => <LAB />,
+  PORT: () => <PORT />,
 };
 
 export default function App() {

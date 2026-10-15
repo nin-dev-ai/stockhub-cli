@@ -19,6 +19,7 @@ StockHub is a local financial intelligence dashboard. It brings market data, com
 - Market views for world indices, movers, crypto, FX, and the US yield curve.
 - Command parsing, autocomplete, keyboard shortcuts, and persistent workspace tabs.
 - Signal classifications for technicals, valuation, fundamentals, analysts, leverage, and dividends.
+- Phase 2 strategy terminal (Strategies, Simulation Lab, My Portfolio); see [PRD_phase2.md](PRD_phase2.md) for its requirements and delivery status.
 
 The definitive function list lives in [`app/src/lib/functions.ts`](../app/src/lib/functions.ts); screen wiring lives in [`app/src/App.tsx`](../app/src/App.tsx).
 

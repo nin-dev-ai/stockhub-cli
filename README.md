@@ -108,6 +108,7 @@ Type any of these in the command bar:
 
 | `STRAT` | Strategies: curated rules-based ideas, backtests, robustness, basket |
 | `LAB`   | Simulation Lab: backtest a basket, optimize weights, project a range of outcomes |
+| `PORT`  | My Portfolio: saved plans, paper and manually reported holdings, plan vs observed |
 
 Syntax: `[SYMBOL] CODE` — e.g., `TSLA KEY`, or `WEI` (no symbol), or just `NVDA` (defaults to INTEL).
 
@@ -123,9 +124,13 @@ These are historical tests on dividend-adjusted prices with modeled costs, not f
 
 ### Simulation Lab (`LAB`)
 
-Open a basket in the Lab, enter a starting amount (for example $200), a monthly contribution (for example $50), a horizon of 1 to 30 years and a risk objective. **Run Backtest** shows what the plan would have done with your cash flows next to equal weight and SPY buy-and-hold. **Optimize Allocation** proposes long-only, no-leverage weights for lower volatility, balanced risk and growth, names the constraints that bind, flags strategies that overlap in what they own, and checks the result out of sample; you can override the weights. **Run Projection** simulates thousands of possible paths from historical monthly returns and shows a lower, median and upper range (10th, 50th, 90th percentile) with stress scenarios. **View Methodology** lists every assumption, seed and version, and exports JSON and CSV.
+Open a basket in the Lab, enter a starting amount (for example $200), a monthly contribution (for example $50), a horizon of 1 to 30 years and a risk objective. **Run Backtest** shows what the plan would have done with your cash flows next to equal weight and SPY buy-and-hold. **Optimize Allocation** proposes long-only, no-leverage weights for lower volatility, balanced risk and growth, names the constraints that bind, flags strategies that overlap in what they own, and checks the result out of sample; you can override the weights. **Run Projection** simulates thousands of possible paths from historical monthly returns and shows a lower, median and upper range (10th, 50th, 90th percentile) with stress scenarios. **View Methodology** lists every assumption, seed and version, and exports JSON and CSV. **Save Plan** stores the plan and its projection in My Portfolio.
 
 The ranges are model-based possibilities, not forecasts: the lower line is not a worst case and the upper line is not a maximum. With too little history, no projection is shown.
+
+### My Portfolio (`PORT`)
+
+A saved plan keeps its inputs, weights, strategy versions and projection as a snapshot that cannot change; a fingerprint shows it is intact. Track it as a **paper** portfolio (hypothetical trades at market closes, with one-click contributions and a previewed rebalance to the plan's targets) or as **manually reported** real holdings you enter yourself, which StockHub labels as not broker-verified. You can also record holdings you already own without a plan. The overview charts the original range, your observed value and contributions, and the latest reforecast, and splits the gap from the plan's median into contribution difference, projection error and allocation difference. **Reforecast** re-runs the plan on current data over 1 to 20 years and adds a new snapshot without touching earlier ones. The ledger exports to CSV. Everything is stored in this browser; there is no broker connection or order execution.
 
 ---
 
