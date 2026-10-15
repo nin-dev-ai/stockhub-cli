@@ -1,7 +1,7 @@
 import { CATALOG } from "@/quant/catalog";
 import { INSTRUMENT_BY_TICKER, INSTRUMENTS } from "@/quant/instruments";
 import { describeRules } from "@/quant/rules";
-import { allocationTickers, requiredTickers, retarget, validateStrategy, type Allocation, type Schedule, type StrategyDef } from "@/quant/strategy";
+import { allocationTickers, MAX_SPREAD, primaryRisky, requiredTickers, retarget, validateStrategy, withSpread, type Allocation, type Schedule, type StrategyDef } from "@/quant/strategy";
 
 /**
  * Rule-based translation of a plain-English idea into the versioned strategy DSL (AI-04).
@@ -331,6 +331,19 @@ export function variantFromText(text: string, base: StrategyDef): DraftResult {
   for (const m of text.matchAll(/\b(?:replace|swap)\s+([\w&$ -]{2,40}?)\s+(?:with|for|by)\s+([\w&$ -]{2,40})/gi)) {
     const from = tick(m[1]), to = tick(m[2]);
     if (to && from) map[from] = to;
+  }
+  // several equity ETFs named without an explicit swap: run the rules on all of them side by side
+  const risky = findTickers(text).filter((t) => !isDefensive(t)).slice(0, MAX_SPREAD);
+  const main = primaryRisky(base);
+  if (Object.keys(map).length === 0 && risky.length >= 2 && main && !base.spread) {
+    const def = withSpread(base, risky)!;
+    res.understood.push(`Runs the rules separately on ${risky.join(", ")} in place of ${main}, with the money split equally, and adds the results; the report shows each ETF's part and how closely they moved together.`);
+    res.assumptions.push(`All rules and parameters are kept from ${name}; they were tuned on ${main}.`, "The ETF sleeves are not rebalanced against each other.");
+    const late = risky.filter((t) => INSTRUMENT_BY_TICKER[t].inception >= "2005");
+    if (late.length) res.assumptions.push(`${late.join(", ")} started trading in ${late.map((t) => INSTRUMENT_BY_TICKER[t].inception.slice(0, 4)).join(", ")}, so the backtest window will be shorter.`);
+    res.def = def;
+    res.errors = validateStrategy(def).errors;
+    return res;
   }
   if (Object.keys(map).length === 0) {
     for (const t of findTickers(text).filter((x) => !used.includes(x))) {

@@ -1,15 +1,16 @@
 import { INSTRUMENT_BY_TICKER } from "@/quant/instruments";
 import { DEFAULT_LAB, validateLab, type LabInputs } from "@/quant/lab";
 import { findTickers } from "./drafting";
+import { MAX_SPREAD } from "@/quant/strategy";
 
 /**
- * Lab inputs the Copilot may propose (permission level 1): the ETF, starting amount, monthly
- * contribution and horizon. Each is undone by the Lab's Reset; nothing else in the plan
+ * Lab inputs the Copilot may propose (permission level 1): the ETF (or several to spread across),
+ * starting amount, monthly contribution and horizon. Each is undone by the Lab's Reset; nothing else in the plan
  * (costs, risk-free rate, weights) can be changed from the Copilot.
  */
-export type LabChange = Partial<Pick<LabInputs, "etf" | "initial" | "monthly" | "years">>;
+export type LabChange = Partial<Pick<LabInputs, "etf" | "alsoEtfs" | "initial" | "monthly" | "years">>;
 export const LAB_CHANGE_FIELDS: Record<keyof LabChange, string> = {
-  etf: "ETF", initial: "Starting amount", monthly: "Monthly contribution", years: "Horizon",
+  etf: "ETF", alsoEtfs: "Also run on", initial: "Starting amount", monthly: "Monthly contribution", years: "Horizon",
 };
 
 export interface LabChangeResult { change: LabChange; understood: string[]; errors: string[] }
@@ -26,10 +27,11 @@ export function labChangeFromText(text: string): LabChangeResult {
   const change: LabChange = {};
   const understood: string[] = [];
 
-  // ETF: an explicit ticker or a known alias ("the Nasdaq"), only when the message is about running on it
-  if (/\b(on|to|with|using|into|switch|use|run)\b/i.test(text)) {
-    const etf = findTickers(text).find((t) => INSTRUMENT_BY_TICKER[t]);
-    if (etf) change.etf = etf;
+  // ETF: an explicit ticker or a known alias ("the Nasdaq"), only when the message is about running on it;
+  // several named ETFs spread the plan across them, a single one also clears an earlier spread
+  if (/\b(on|to|with|using|into|switch|use|run|across|spread|split)\b/i.test(text)) {
+    const etfs = findTickers(text).filter((t) => INSTRUMENT_BY_TICKER[t]).slice(0, MAX_SPREAD);
+    if (etfs.length) { change.etf = etfs[0]; change.alsoEtfs = etfs.slice(1); }
   }
   const monthly = new RegExp(String.raw`(${AMT})\s*(?:a|per|each|every|\/)\s*month|monthly(?:\s+contributions?)?\s*(?:of|to|=|:|at)?\s*(${AMT})|contribut\w*\s*(?:of|to|=|:|at)?\s*(${AMT})`, "i").exec(text);
   if (monthly) { const v = amount(monthly[1] ?? monthly[2] ?? monthly[3]); if (v != null) change.monthly = v; }
@@ -38,7 +40,10 @@ export function labChangeFromText(text: string): LabChangeResult {
   const years = /(\d{1,2})[- ]?(?:years?|yrs?)\b/i.exec(text);
   if (years) change.years = Number(years[1]);
 
-  if (change.etf) understood.push(`${LAB_CHANGE_FIELDS.etf} → ${change.etf} (${INSTRUMENT_BY_TICKER[change.etf].name}); it replaces SPY in basket strategies that trade it.`);
+  if (change.etf && change.alsoEtfs?.length) {
+    const all = [change.etf, ...change.alsoEtfs];
+    understood.push(`ETFs → ${all.join(", ")}: basket strategies whose main ETF is SPY run separately on each, with the money split equally, and the results are added.`);
+  } else if (change.etf) understood.push(`${LAB_CHANGE_FIELDS.etf} → ${change.etf} (${INSTRUMENT_BY_TICKER[change.etf].name}); it replaces SPY in basket strategies that trade it.`);
   if (change.initial != null) understood.push(`${LAB_CHANGE_FIELDS.initial} → $${change.initial.toLocaleString("en-US")}.`);
   if (change.monthly != null) understood.push(`${LAB_CHANGE_FIELDS.monthly} → $${change.monthly.toLocaleString("en-US")}.`);
   if (change.years != null) understood.push(`${LAB_CHANGE_FIELDS.years} → ${change.years} years.`);

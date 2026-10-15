@@ -1,7 +1,7 @@
 import type { ContributionFrequency, RunConfig } from "./backtest";
 import { DEFAULT_CONFIG } from "./backtest";
 import { INSTRUMENT_BY_TICKER } from "./instruments";
-import { applyTarget, type StrategyDef } from "./strategy";
+import { applyTarget, MAX_SPREAD, primaryRisky, withSpread, type StrategyDef } from "./strategy";
 import type { Objective } from "./optimizer";
 import { blendPath, blendReturns, evaluateWeights, monthlyReturns, type Sleeve, type Weights } from "./portfolio";
 import type { ProjectionInput, ProjectionMethod } from "./projection";
@@ -10,6 +10,8 @@ import type { BacktestResult } from "./service";
 export interface LabInputs {
   /** ETF that replaces SPY in every basket strategy that trades it (and becomes the benchmark). */
   etf: string;
+  /** More ETFs to spread SPY-trading strategies across together with `etf` (money split equally); empty runs on `etf` alone. */
+  alsoEtfs: string[];
   initial: number;
   /** Value already held in ETFs; treated as extra starting capital invested per the plan from day one. */
   existing: number;
@@ -30,7 +32,7 @@ export interface LabInputs {
 }
 
 export const DEFAULT_LAB: LabInputs = {
-  etf: "SPY", initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, riskFreeRate: 0,
+  etf: "SPY", alsoEtfs: [], initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, riskFreeRate: 0,
   slippageBps: 2, fixedFee: 0, fractional: true, inflation: 0.025, goal: null,
   method: "bootstrap", paths: 2000, seed: 42, blockMonths: 6,
 };
@@ -52,12 +54,26 @@ export function validateLab(i: LabInputs): string[] {
   if (bad(i.slippageBps, [0, 200])) e.push("Slippage must be between 0 and 200 bps.");
   if (bad(i.fixedFee, [0, 100])) e.push("Fixed fee must be between $0 and $100.");
   if (!INSTRUMENT_BY_TICKER[i.etf]) e.push(`${i.etf} is not a supported ETF.`);
+  const also = i.alsoEtfs ?? [];
+  for (const t of also) if (!INSTRUMENT_BY_TICKER[t]) e.push(`${t} is not a supported ETF.`);
+  if (also.includes(i.etf) || new Set(also).size !== also.length) e.push("Each ETF can be picked only once.");
+  if (also.length + 1 > MAX_SPREAD) e.push(`Spread across at most ${MAX_SPREAD} ETFs.`);
   if (i.goal != null && (!Number.isFinite(i.goal) || i.goal <= 0)) e.push("Goal must be a positive amount.");
   return e;
 }
 
-/** The basket as the Lab runs it: SPY swapped for the chosen ETF wherever a strategy trades it. */
-export const labStrategies = (defs: StrategyDef[], i: LabInputs): StrategyDef[] => defs.map((d) => applyTarget(d, { SPY: i.etf }));
+/** The ETFs the Lab runs SPY-trading strategies on: one, or several with the money split equally. */
+export const labEtfs = (i: LabInputs): string[] => [i.etf, ...(i.alsoEtfs ?? []).filter((t) => t !== i.etf)];
+
+/**
+ * The basket as the Lab runs it: SPY swapped for the chosen ETF wherever a strategy trades it, or,
+ * with several ETFs chosen, strategies whose main ETF is SPY spread across all of them (rotations
+ * across many ETFs only get the swap).
+ */
+export const labStrategies = (defs: StrategyDef[], i: LabInputs): StrategyDef[] => {
+  const etfs = labEtfs(i);
+  return defs.map((d) => (etfs.length > 1 && primaryRisky(d) === "SPY" && !d.spread ? withSpread(d, etfs, undefined, "SPY") : null) ?? applyTarget(d, { SPY: i.etf }));
+};
 
 export const startingCapital = (i: LabInputs) => i.initial + i.existing;
 

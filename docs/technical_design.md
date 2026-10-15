@@ -60,7 +60,7 @@ State for baskets, drafts and the screen-wide ETF switch (`target`, applied by `
 
 ### Lab ETF choice
 
-`LabInputs.etf` (default SPY) and `labStrategies` apply `applyTarget(def, { SPY: etf })` to the basket before backtesting; `CORE_ETFS` in `instruments.ts` lists the one-click choices and leads every ETF dropdown.
+`LabInputs.etf` (default SPY) and `labStrategies` apply `applyTarget(def, { SPY: etf })` to the basket before backtesting; when `LabInputs.alsoEtfs` lists more ETFs, strategies whose main ETF (`primaryRisky`) is SPY are spread across `[etf, ...alsoEtfs]` with `withSpread` (equal split, benchmark stays SPY) and the rest only get the swap; `CORE_ETFS` in `instruments.ts` lists the one-click choices and leads every ETF dropdown.
 
 ### Copilot
 
@@ -72,7 +72,7 @@ State for baskets, drafts and the screen-wide ETF switch (`target`, applied by `
 | `assistant.ts` | `respond(message, context)`: guardrails, intent routing, and answer builders. A `Composer` formats every figure from engine fields and records it; `verifyFigures` then rejects any number in the text that is not in those records, vetted rule/glossary text or the user's message, and `hasUnsafeCertainty` rejects promise language |
 | `guardrails.ts` | Classifies the user's message only (injection, action, certainty, advice); context text is never routed as an instruction. Draft strategies' free text is not quoted |
 | `drafting.ts` | Pattern-based translation of a description into the strategy schema, with assumptions, unsupported parts, validation, edits to a copy of the strategy in context, a rule-field diff, and `variantFromText` ("on QQQ", "X instead of Y") which retargets a named or open strategy |
-| `labChanges.ts` | `labChangeFromText`: reads the four Lab inputs the Copilot may propose (ETF, starting amount, monthly contribution, horizon) and validates them with `validateLab` |
+| `labChanges.ts` | `labChangeFromText`: reads the Lab inputs the Copilot may propose (ETF, or several to spread across as `alsoEtfs`, starting amount, monthly contribution, horizon) and validates them with `validateLab` |
 | `glossary.ts` | Curated definitions and alias matching |
 
 Permission levels are fixed in PRD 6.6.1. On the Personas screen, questions about loaded trades are answered from the published rows (`personaTrades`; issuer names are registered with `Composer.data`). Lab-input requests become a `labChange` proposal; the panel's `LabChangeCard` shows current and proposed values and calls `labStore.setInputs` only on Apply. The action guard no longer refuses "plan"/"inputs" wording because those requests become proposals; edits to portfolios, weights, assumptions, ledgers, transactions and snapshots are still refused. `personaRequest` routes "follow / track / what is X trading" to a persona answer; the panel's `PersonaCard` follows through `personaStore` only on click. User drafts' names are never quoted (`curatedName`).

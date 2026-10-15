@@ -233,6 +233,11 @@ describe("ETF variants from text", () => {
     expect(respond("apply it to BIL", ctx).draft?.def?.allocation).toMatchObject({ risky: "SPY", safe: "BIL" });
   });
   it("reads an explicit swap", () => {
+    const sp = variantFromText("run the golden cross on SPY, QQQ and DIA", CATALOG_BY_ID.golden_cross_spy);
+    expect(sp.def?.spread?.targets.map((t) => t.ticker)).toEqual(["SPY", "QQQ", "DIA"]);
+    expect(sp.errors).toEqual([]);
+    expect(sp.understood.join()).toMatch(/separately on SPY, QQQ, DIA/);
+    expect(variantFromText("run it on QQQ and DIA", CATALOG_BY_ID.momentum_rotation).def?.spread).toBeUndefined();
     const r = variantFromText("use TLT instead of AGG", CATALOG_BY_ID.rebalance_quarterly_6040);
     expect(r.def?.allocation).toEqual({ type: "static", weights: { SPY: 0.6, TLT: 0.4 } });
     expect(r.def?.benchmark).toBe("SPY");
@@ -279,7 +284,7 @@ describe("personas", () => {
 describe("Lab input changes (permission level 1)", () => {
   it("reads ETF, amounts and horizon from one sentence", () => {
     expect(labChangeFromText("Run my plan on the Nasdaq with $500 a month for 10 years, starting with $2,000").change)
-      .toEqual({ etf: "QQQ", monthly: 500, years: 10, initial: 2000 });
+      .toEqual({ etf: "QQQ", alsoEtfs: [], monthly: 500, years: 10, initial: 2000 });
     expect(labChangeFromText("set the monthly contribution to 1.5k").change).toEqual({ monthly: 1500 });
     expect(labChangeFromText("invest $500 a month").change).toEqual({ monthly: 500 });
   });
@@ -287,10 +292,17 @@ describe("Lab input changes (permission level 1)", () => {
     const a = respond("change my plan to $300 a month on DIA", empty);
     expect(a.kind).toBe("lab_change");
     expect(a.verified).toBe(true);
-    expect(a.labChange).toEqual({ etf: "DIA", monthly: 300 });
+    expect(a.labChange).toEqual({ etf: "DIA", alsoEtfs: [], monthly: 300 });
     const bad = respond("set the plan horizon to 60 years", empty);
     expect(bad.labChange).toBeUndefined();
     expect(text(bad)).toMatch(/outside the allowed range/);
+  });
+  it("spreads the plan across several named ETFs", () => {
+    expect(labChangeFromText("run my plan across SPY, QQQ and DIA").change).toEqual({ etf: "SPY", alsoEtfs: ["QQQ", "DIA"] });
+    const a = respond("run my plan across the S&P 500, the Nasdaq and DIA with $200 a month", empty);
+    expect(a.kind).toBe("lab_change");
+    expect(a.labChange).toMatchObject({ etf: "SPY", alsoEtfs: ["QQQ", "DIA"], monthly: 200 });
+    expect(text(a)).toMatch(/split equally/);
   });
   it("still refuses edits to records", () => {
     expect(classifyGuard("change my plan to $300 a month")).toBeNull();

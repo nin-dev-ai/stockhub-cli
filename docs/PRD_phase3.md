@@ -213,7 +213,7 @@ This implements the future trading rules in 6.6.1 for **paper accounts only**:
 | Milestone | Status |
 | --- | --- |
 | E0 — Phase 2 hardening | Delivered. A headless-Chrome pass over STRAT, LAB, PERS, PORT and the Copilot found and fixed: one failed ticker blocking every strategy (an empty provider answer was cached), clipped card summaries, cramped card footers, a stale PERS description, and unlabelled 13F share classes. Apply to Lab and persona summaries work end to end. |
-| E1 — Strategy across ETFs | In progress: engine, validation and spread report delivered |
+| E1 — Strategy across ETFs | Delivered: `spread` definitions, sleeve engine and report (per-ETF results, correlation, single-ETF and buy-and-hold baselines, drawdown verdict); STRAT *Spread across several ETFs*; Lab *Spread across more ETFs*; Copilot spread drafts and Lab spread proposals. Checked in the browser on live data. |
 | E2 — House members as personas | Not started |
 | E3 — Copy-trade backtest | Not started |
 | E4 — IBKR read-only | Not started |

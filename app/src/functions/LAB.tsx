@@ -27,7 +27,7 @@ export function LAB() {
   const { basket, drafts } = useStrategies();
   const { inputs, override, setInputs, setOverride, reset } = useLab();
   const basketDefs = useMemo(() => basket.map((id) => findStrategy(id, drafts)).filter((d): d is StrategyDef => !!d), [basket, drafts]);
-  const defs = useMemo(() => labStrategies(basketDefs, inputs), [basketDefs, inputs.etf]); // eslint-disable-line react-hooks/exhaustive-deps
+  const defs = useMemo(() => labStrategies(basketDefs, inputs), [basketDefs, inputs.etf, inputs.alsoEtfs.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const eng = useLabEngine(defs, inputs, override);
   const [tab, setTab] = useState<Tab>("backtest");
   const [drawer, setDrawer] = useState<"report" | "save" | null>(null);
@@ -69,7 +69,7 @@ export function LAB() {
     <div className="relative h-full flex min-h-0">
       <InputsPane inputs={inputs} set={setInputs} errors={eng.errors} onReset={reset}
         basketNames={defs.map((d) => ({ id: d.id, name: d.name }))}
-        unchanged={defs.filter((d, k) => d === basketDefs[k] && inputs.etf !== "SPY").map((d) => d.name)} />
+        unchanged={defs.filter((d, k) => d === basketDefs[k] && (inputs.etf !== "SPY" || inputs.alsoEtfs.length > 0)).map((d) => d.name)} />
 
       <div className="flex-1 min-w-0 flex flex-col min-h-0">
         <div className="px-4 py-2 border-b border-term-border flex flex-wrap items-center gap-2">

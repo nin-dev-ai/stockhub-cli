@@ -3,6 +3,8 @@ import type { LabInputs } from "@/quant/lab";
 import { cn } from "@/lib/cn";
 import { CORE_ETFS } from "@/quant/instruments";
 import { EtfSelect } from "@/components/quant/EtfSelect";
+import { EtfMultiPick } from "@/components/quant/EtfMultiPick";
+import { MAX_SPREAD } from "@/quant/strategy";
 
 function Num({ label, value, onChange, prefix, suffix, step = 1, min = 0, hint, scale = 1 }: {
   label: string; value: number | null; onChange: (v: number) => void; prefix?: string; suffix?: string; step?: number; min?: number; hint?: string; scale?: number;
@@ -55,16 +57,22 @@ export function InputsPane({ inputs: i, set, basketNames, unchanged, errors, onR
           {CORE_ETFS.map((c) => (
             <label key={c.ticker} title={c.blurb} className={cn("flex items-center gap-2 px-2 py-1 border cursor-pointer text-[11px]",
               i.etf === c.ticker ? "border-term-amber text-term-amber bg-term-amberSubtle" : "border-term-border text-term-text hover:border-term-amberDim")}>
-              <input type="radio" name="lab-etf" checked={i.etf === c.ticker} onChange={() => set({ etf: c.ticker })} className="accent-[#ff8c00]" />
+              <input type="radio" name="lab-etf" checked={i.etf === c.ticker} onChange={() => set({ etf: c.ticker, alsoEtfs: i.alsoEtfs.filter((t) => t !== c.ticker) })} className="accent-[#ff8c00]" />
               <span className="w-9 font-bold">{c.ticker}</span><span className="text-term-muted">{c.label}</span>
             </label>
           ))}
           <label className="text-[10px] text-term-muted">Other ETF
-            <EtfSelect ariaLabel="Other ETF" value={isCore ? "" : i.etf} onChange={(v) => v && set({ etf: v })} originalLabel="—" originalValue="" />
+            <EtfSelect ariaLabel="Other ETF" value={isCore ? "" : i.etf} onChange={(v) => v && set({ etf: v, alsoEtfs: i.alsoEtfs.filter((t) => t !== v) })} originalLabel="—" originalValue="" />
           </label>
         </div>
+        <div className="mt-2">
+          <div className="sub-header mb-1">Spread across more ETFs</div>
+          <EtfMultiPick value={i.alsoEtfs} exclude={[i.etf]} max={MAX_SPREAD - 1} ariaLabel="Also run on"
+            onChange={(v) => set({ alsoEtfs: v.filter((t) => t !== i.etf) })}
+            note={i.alsoEtfs.length ? `Runs on ${[i.etf, ...i.alsoEtfs].join(", ")} with the money split equally; each ETF is its own sleeve.` : "Optional: add ETFs to run the same rules on side by side."} />
+        </div>
         <div className="text-[10px] text-term-muted mt-1 leading-snug">
-          Replaces SPY in every basket strategy that trades it, and becomes the benchmark. Parameters were tuned on SPY.
+          {i.alsoEtfs.length ? "Spreads every basket strategy that trades SPY across these ETFs; the benchmark stays SPY." : "Replaces SPY in every basket strategy that trades it, and becomes the benchmark."} Parameters were tuned on SPY.
           {unchanged.length > 0 && <> Not affected (they do not trade SPY): {unchanged.join(", ")}.</>}
         </div>
       </div>
