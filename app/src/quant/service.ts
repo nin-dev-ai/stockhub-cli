@@ -65,7 +65,9 @@ export function runBacktestOn(
   const need = requiredTickers(strategy);
   const missing = need.filter((t) => !dataset.panel.closes[t]);
   if (missing.length > 0) throw new DataError(`Missing price data for ${missing.join(", ")}.`, dataset.version.qualityFlags);
-  if (hasErrors(dataset.version.qualityFlags)) throw new DataError("The dataset has errors and cannot be used.", dataset.version.qualityFlags);
+  // only flags about this strategy's tickers (or the whole dataset) apply; a failed ticker elsewhere does not block it
+  const relevant = dataset.version.qualityFlags.filter((f) => need.some((t) => f.message.startsWith(`${t}:`)) || !/^[A-Z]+:/.test(f.message));
+  if (hasErrors(relevant)) throw new DataError("The dataset has errors and cannot be used.", relevant);
 
   const full = subPanel(dataset.panel, need);
   const panel = slicePanel(full, cfg.start, cfg.end);
@@ -75,7 +77,7 @@ export function runBacktestOn(
 
   const diff = (a: number | null, b: number | null) => (a != null && b != null ? a - b : null);
   const years = run.metrics.years;
-  const flags: QualityFlag[] = [...dataset.version.qualityFlags.filter((f) => need.some((t) => f.message.startsWith(`${t}:`)) || !/^[A-Z]+:/.test(f.message)), ...run.flags];
+  const flags: QualityFlag[] = [...relevant, ...run.flags];
   if (years < 1) flags.push({ code: "short_window", severity: "warn", message: `Only ${years.toFixed(2)} years of data: annualized metrics are unavailable.` });
   if (strategy.experimental) flags.push({ code: "experimental", severity: "warn", message: "Experimental strategy: a good backtest is weak evidence." });
   const warm = run.decisions.slice(0, 3).some((d) => /Warm-up/.test(d.reason));
