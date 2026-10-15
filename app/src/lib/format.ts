@@ -52,3 +52,25 @@ export function dirClass(v: number | null | undefined): "up" | "down" | "flat" {
   if (v == null || Number.isNaN(v)) return "flat";
   return v >= 0 ? "up" : "down";
 }
+
+/** Decimal to percent without a leading plus sign (rates, drawdowns, weights). */
+export function fmtRate(v: number | null | undefined, digits = 1) {
+  if (v == null || Number.isNaN(v)) return "n/a";
+  return (v * 100).toFixed(digits) + "%";
+}
+
+/** Percentage points difference from a decimal difference, e.g. 0.012 -> "+1.2 pts". */
+export function fmtPts(v: number | null | undefined, digits = 1) {
+  if (v == null || Number.isNaN(v)) return "n/a";
+  return `${v > 0 ? "+" : ""}${(v * 100).toFixed(digits)} pts`;
+}
+
+export function fmtMoney(v: number | null | undefined, digits = 0) {
+  if (v == null || Number.isNaN(v)) return "—";
+  return "$" + v.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+export function fmtRatio(v: number | null | undefined, digits = 2) {
+  if (v == null || Number.isNaN(v)) return "n/a";
+  return v.toFixed(digits);
+}

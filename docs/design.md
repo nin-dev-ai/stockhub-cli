@@ -4,6 +4,14 @@
 
 The interface is a dark, amber-accented terminal workspace. [`App.tsx`](../app/src/App.tsx) stacks the command bar, quick bar, workspace tabs, active function panel, and status bar. A function opens as a tab so users can move between market and ticker views without losing context.
 
+## Primary navigation
+
+A strip under the command bar switches between the product's sections: **Explore** (the original terminal) and **Strategies**. Each section opens ordinary workspace tabs, so tabs, the command bar and the quick bar work everywhere. `sectionOf` in [`functions.ts`](../app/src/lib/functions.ts) assigns every function code to a section.
+
+## Strategies screen (`STRAT`)
+
+A filter rail (search, sort, type, risk level, robustness) beside a grid of strategy cards, with a basket bar at the bottom and a drawer on the right. The default sort ranks the robustness verdict first, then Sharpe, then drawdown, never return alone. Cards show CAGR, the difference from the benchmark, max drawdown, Sharpe, the sample window and a short run id. The drawer shows a four-step flow (data, signal, schedule, orders), the exact rules and JSON definition, evidence charts and metrics, robustness, a reason for each trade, assumptions with the dataset version, and warnings. Every result is labelled as a historical backtest. Metrics the sample cannot support show "n/a" with the reason.
+
 ## Interaction conventions
 
 - Entering a ticker alone opens `INTEL` for that symbol.

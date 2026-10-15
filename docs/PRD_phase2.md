@@ -494,7 +494,7 @@ This section is maintained alongside the code. It records how the open decisions
 ### Conventions the engine implements
 
 - **Price basis:** dividend-adjusted (total-return) daily closes from OpenBB `adjustment=splits_and_dividends`; dividends are reinvested implicitly. Indices are not investable and are never traded directly.
-- **Timing:** a decision uses data through the close of day *t*; the order fills at the close of the next trading day *t+1*, after slippage. Contributions arrive at the start of a day and are invested at that day's close at the targets decided the day before.
+- **Timing:** a decision uses data through the close of day *t*; the order fills at the close of the next trading day *t+1*, after slippage. Period boundaries (month, quarter, year) are detected from the dates of past closes, so a monthly rule acts on the first trading day of the month and fills the day after. A contribution is credited at the close of its scheduled day (the first trading day of the period) and is invested at the next close toward the targets, without selling. Initial capital is credited at the first close and invested at the second.
 - **Costs:** per-trade commission (bps), slippage (bps) and an optional fixed fee. ETF expense ratios are already in the adjusted prices. Taxes are excluded.
 - **Cash and rates:** cash earns 0% and the Sharpe/Sortino risk-free rate is 0% unless the user changes it; both are shown in every report.
 - **Shares:** fractional shares are assumed and disclosed, since small balances could not otherwise buy one share of a high-priced ETF.
@@ -510,7 +510,7 @@ Updated as each milestone lands; see the git history for detail.
 
 | Milestone | Status |
 | --- | --- |
-| A — Strategy core | Planned |
+| A — Strategy core | Delivered: engine, 12-strategy catalog, robustness, Strategies screen with basket, compare and drafts |
 | B — Simulation and optimization | Planned |
 | C — Portfolio tracking | Planned |
 | D — AI education and strategy authoring | Planned |

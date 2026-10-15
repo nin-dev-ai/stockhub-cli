@@ -3,13 +3,14 @@ export type FunctionCode =
   | "DES" | "GP" | "QR" | "HP"
   | "FA" | "KEY" | "DVD" | "EE" | "NI"
   | "WEI" | "MOV" | "OMON"
-  | "CURV" | "FXC" | "CRYPTO";
+  | "CURV" | "FXC" | "CRYPTO"
+  | "STRAT";
 
 export interface FunctionDef {
   code: FunctionCode;
   name: string;
   needsSymbol: boolean;
-  group: "Security" | "Markets" | "Macro" | "System";
+  group: "Security" | "Markets" | "Macro" | "System" | "Strategy";
   summary: string;
 }
 
@@ -35,7 +36,14 @@ export const FUNCTIONS: FunctionDef[] = [
   { code: "FXC",  name: "FX Cross Rates",        needsSymbol: false, group: "Markets", summary: "Major FX pairs matrix" },
 
   { code: "CURV", name: "US Yield Curve",        needsSymbol: false, group: "Macro", summary: "Treasury par yield curve" },
+
+  { code: "STRAT", name: "Strategies",           needsSymbol: false, group: "Strategy", summary: "Curated rules-based strategies: rules, backtests, robustness, basket" },
 ];
+
+/** Primary navigation sections; every function belongs to exactly one. */
+export type Section = "explore" | "strategies";
+export const STRATEGY_CODES: FunctionCode[] = ["STRAT"];
+export const sectionOf = (code: FunctionCode): Section => (STRATEGY_CODES.includes(code) ? "strategies" : "explore");
 
 export const FN_BY_CODE: Record<string, FunctionDef> = Object.fromEntries(FUNCTIONS.map((f) => [f.code, f]));
 

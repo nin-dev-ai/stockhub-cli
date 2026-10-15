@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { CommandBar } from "@/components/CommandBar";
+import { PrimaryNav } from "@/components/PrimaryNav";
 import { QuickBar } from "@/components/QuickBar";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { StatusBar } from "@/components/StatusBar";
@@ -25,6 +26,7 @@ import { OMON } from "@/functions/OMON";
 import { CURV } from "@/functions/CURV";
 import { FXC } from "@/functions/FXC";
 import { CRYPTO } from "@/functions/CRYPTO";
+import { STRAT } from "@/functions/STRAT";
 
 const SCREENS: Record<string, (symbol?: string) => JSX.Element> = {
   CC: () => <CC />,
@@ -45,6 +47,7 @@ const SCREENS: Record<string, (symbol?: string) => JSX.Element> = {
   CURV: () => <CURV />,
   FXC: () => <FXC />,
   CRYPTO: () => <CRYPTO />,
+  STRAT: () => <STRAT />,
 };
 
 export default function App() {
@@ -55,6 +58,7 @@ export default function App() {
   return (
     <div className="h-screen flex flex-col">
       <CommandBar />
+      <PrimaryNav />
       <QuickBar />
       <WorkspaceTabs />
       <div className="flex-1 min-h-0 p-1 flex">

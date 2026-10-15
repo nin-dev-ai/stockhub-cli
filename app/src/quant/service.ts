@@ -102,17 +102,24 @@ export function runBacktestOn(
 
 const runCache = new Map<string, BacktestResult>();
 
-/** Load data and run. Identical inputs and data return the cached result (idempotent by runId). */
-export async function runBacktest(strategy: StrategyDef, partial?: Partial<RunConfig>, opts: { robustness?: boolean } = {}): Promise<BacktestResult> {
-  const v = validateStrategy(strategy);
-  if (!v.ok) throw new ValidationError(v.errors);
-  const dataset = await loadDataset(requiredTickers(strategy));
+/** Synchronous run over a loaded dataset, memoized by strategy, config, data version and options. */
+export function runBacktestCached(
+  dataset: Dataset, strategy: StrategyDef, partial?: Partial<RunConfig>, opts: { robustness?: boolean } = {},
+): BacktestResult {
   const key = `${hashId({ s: strategy, c: mergeConfig(partial), d: dataset.version.id })}|${opts.robustness ? 1 : 0}`;
   const hit = runCache.get(key);
   if (hit) return hit;
   const res = runBacktestOn(dataset, strategy, partial, opts);
   runCache.set(key, res);
   return res;
+}
+
+/** Load data and run. Identical inputs and data return the cached result (idempotent by runId). */
+export async function runBacktest(strategy: StrategyDef, partial?: Partial<RunConfig>, opts: { robustness?: boolean } = {}): Promise<BacktestResult> {
+  const v = validateStrategy(strategy);
+  if (!v.ok) throw new ValidationError(v.errors);
+  const dataset = await loadDataset(requiredTickers(strategy));
+  return runBacktestCached(dataset, strategy, partial, opts);
 }
 
 export { validateStrategy };

@@ -42,16 +42,26 @@ const SCHEDULE_TEXT: Record<string, string> = {
   quarterly: "on the first trading day of each quarter", annual: "on the first trading day of each year", none: "never",
 };
 
+export interface RuleParts { signal: string[]; schedule: string[]; execution: string }
+
+export function describeRuleParts(d: StrategyDef): RuleParts {
+  const signal = allocationRules(d.allocation);
+  const schedule: string[] = [];
+  const { schedule: sch, thresholdPct, minTradeWeight } = d.rebalance;
+  if (thresholdPct !== undefined) schedule.push(`Rebalance when any holding drifts more than ${pct(thresholdPct)} from its target weight.`);
+  else if (sch === "none") schedule.push("No rebalancing; holdings drift with the market. New cash is invested toward the targets.");
+  else if (sch === "daily") schedule.push(`Re-evaluate ${SCHEDULE_TEXT.daily}; trade only when the target changes${minTradeWeight ? ` by more than ${pct(minTradeWeight)}` : ""}.`);
+  else schedule.push(`Rebalance to the targets ${SCHEDULE_TEXT[sch]}.`);
+  if (d.entry && d.entry.deployMonths > 0) schedule.push(`Initial capital is invested in ${d.entry.deployMonths} equal monthly tranches; the undeployed part stays in cash.`);
+  if (d.reserve) schedule.push(`${pct(d.reserve.fraction)} of each contribution is held in cash and invested in ${d.reserve.riskyTicker} when it is more than ${pct(-d.reserve.releaseDrawdown)} below its prior peak.`);
+  return {
+    signal, schedule,
+    execution: "Decisions use data through the close; orders fill at the next trading day's close after slippage. Contributions are invested toward the targets without selling.",
+  };
+}
+
 /** Plain-English rules generated from the machine-readable definition so the two cannot drift apart. */
 export function describeRules(d: StrategyDef): string[] {
-  const out = [...allocationRules(d.allocation)];
-  const { schedule, thresholdPct, minTradeWeight } = d.rebalance;
-  if (thresholdPct !== undefined) out.push(`Rebalance when any holding drifts more than ${pct(thresholdPct)} from its target weight.`);
-  else if (schedule === "none") out.push("No rebalancing; holdings drift with the market. New cash is invested toward the targets.");
-  else if (schedule === "daily") out.push(`Re-evaluate ${SCHEDULE_TEXT.daily}; trade only when the target changes${minTradeWeight ? ` by more than ${pct(minTradeWeight)}` : ""}.`);
-  else out.push(`Rebalance to the targets ${SCHEDULE_TEXT[schedule]}.`);
-  if (d.entry && d.entry.deployMonths > 0) out.push(`Initial capital is invested in ${d.entry.deployMonths} equal monthly tranches; the undeployed part stays in cash.`);
-  if (d.reserve) out.push(`${pct(d.reserve.fraction)} of each contribution is held in cash and invested in ${d.reserve.riskyTicker} when it is more than ${pct(-d.reserve.releaseDrawdown)} below its prior peak.`);
-  out.push("Decisions use data through the close; orders fill at the next trading day's close after slippage. Contributions are invested toward the targets without selling.");
-  return out;
+  const p = describeRuleParts(d);
+  return [...p.signal, ...p.schedule, p.execution];
 }

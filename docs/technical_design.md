@@ -21,6 +21,23 @@ The shell scripts in the repository root install, start, and stop the local serv
 
 React Query handles data fetching and refresh intervals inside function screens. The browser calls the local Vite server, which forwards API requests to OpenBB. Most fetchers explicitly request the `yfinance` provider; treasury rates use `federal_reserve`, and symbol search uses `sec`. Company news bypasses OpenBB: `fetchNewsCompany` reads Yahoo Finance's RSS feed, then Google News if Yahoo is empty or fails, and `app/src/lib/news.ts` parses the XML. [`vite.config.ts`](../app/vite.config.ts) proxies `/rss/yahoo` and `/rss/google` (Yahoo requires a browser `User-Agent`), so news only works through the Vite dev server. Provider availability and credentials affect returned data. The route shapes in `api.ts` target OpenBB 4.x (`/equity/price/quote?provider=...`); OpenBB 5 serves provider-first routes, so `setup.sh` pins `openbb>=4.3,<5`. Revisit the pin and `api.ts` together when migrating.
 
+## Quant engine (Phase 2)
+
+The strategy engine is a UI-free TypeScript library in `app/src/quant/` that runs in the browser and is tested with Vitest.
+
+| Module | Responsibility |
+| --- | --- |
+| `instruments.ts` | US-ETF/USD universe, index-to-proxy map, static exposure vectors |
+| `data.ts`, `dataSource.ts` | Dividend-adjusted history via OpenBB (`adjustment=splits_and_dividends`), alignment on common dates, content-hash dataset id, quality flags, local price cache |
+| `strategy.ts`, `rules.ts`, `catalog.ts` | Versioned JSON strategy schema, validation (no leverage, long-only), plain-English rules generated from the definition, the 12 curated strategies |
+| `backtest.ts` | Deterministic daily simulation: decide on data through close t, fill at close t+1 with slippage and fees, time-weighted returns separate from contributions, locked cash for DCA and reserves, decision and trade reasons |
+| `metrics.ts`, `indicators.ts` | Metrics that return null with a reason when the sample is too short; indicators that cannot see the future |
+| `robustness.ts` | Train/test split, rolling 3-year windows, parameter sensitivity, verdict |
+| `service.ts` | `runBacktestOn` / `runBacktest`: validation, run id = hash(strategy, dataset, config, engine version), benchmark on identical cash flows, conventions and flags |
+| `ranking.ts`, `useBacktests.ts` | Evidence-first ordering; progressive runs over one shared dataset |
+
+State for baskets and drafts is in `app/src/store/strategyStore.ts` (browser storage). Run `LIVE=1 npx vitest run src/quant/live.test.ts` from `app/` to run the catalog against the local API.
+
 ## Change points
 
 - To add a function, register it in `functions.ts`, create its screen in `app/src/functions/`, and wire it in `App.tsx`.

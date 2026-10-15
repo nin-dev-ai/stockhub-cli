@@ -106,9 +106,19 @@ Type any of these in the command bar:
 | `FXC`   | Major FX pairs                             |
 | `CURV`  | US Treasury yield curve + spreads          |
 
+| `STRAT` | Strategies: curated rules-based ideas, backtests, robustness, basket |
+
 Syntax: `[SYMBOL] CODE` — e.g., `TSLA KEY`, or `WEI` (no symbol), or just `NVDA` (defaults to INTEL).
 
 Keyboard: `↑/↓` walks history, `⇥` autocompletes codes, `/` focuses the command bar, `<GO>` or `Enter` executes.
+
+---
+
+## Strategies (`STRAT`)
+
+A catalog of 12 rules-based strategies on US-listed ETFs (USD): buy-and-hold, dollar-cost averaging, a 200-day trend filter, 60/40 rebalancing by schedule and by drift threshold, a drawdown cash reserve, momentum rotation, volatility targeting (no leverage), a seasonal rule (experimental), a cash buffer, a 12-month stocks-or-bonds rule, and a permanent portfolio. Open a card to see the exact rules in plain English and as JSON, the evidence against an SPY buy-and-hold benchmark, robustness checks, and a reason for every trade. Add up to three to a basket and compare them on the same dates. Fork a strategy into an editable draft stored in your browser.
+
+These are historical tests on dividend-adjusted prices with modeled costs, not forecasts or advice. Signals use data through the close and fill at the next close. The full method, including conventions and limits, is in [docs/PRD_phase2.md](docs/PRD_phase2.md) and [docs/technical_design.md](docs/technical_design.md).
 
 ---
 
@@ -155,6 +165,7 @@ Tight 5-7 minute walk-through for the video:
 
 - **Polling, not streaming.** Yahoo Finance has no WebSocket in OpenBB, so quotes refresh every 3–60s depending on the panel. For live ticks you'd need a broker feed (IBKR, Alpaca) — not wired in yet.
 - **Yahoo symbol quirks.** A handful of Asian indices (`^N225`, `^HSI`, `^AXJO`, `^TWII`) and a few crypto tickers don't return via OpenBB's Yahoo provider; those cells show "—".
+- **Backtests are history, not forecasts.** Strategy results depend on the data window (the common history starts 2004-11-18, limited by GLD), modeled costs, and a fixed ETF universe that is not point-in-time. Indian instruments such as Nifty 50 are not offered because validated data is not available.
 - **Rules are heuristics.** The INTEL signals are rules of thumb, not predictions. Tweak the thresholds in `signals.ts` to match your own framework.
 - **News comes from RSS, not OpenBB.** OpenBB's `yfinance` news provider returned no data in testing, so company news (`NI`, INTEL headlines, CC headlines) reads Yahoo Finance's public RSS feed and falls back to Google News. No key needed, but the feeds are unofficial and are only proxied by the dev server (`./start.sh`), not `npm run preview`.
 - **OpenBB 4.x only.** `setup.sh` pins `openbb>=4.3,<5`. OpenBB 5 uses different API routes and every data call would return 404.
