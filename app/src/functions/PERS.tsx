@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCopilotContext } from "@/copilot/context";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Search } from "lucide-react";
@@ -12,6 +12,9 @@ import {
   type Persona, type PersonaTrade,
 } from "@/quant/personas";
 import { allPersonas, usePersonas } from "@/store/personaStore";
+import { CopyTradePanel } from "./personas/CopyTradePanel";
+import type { CopyTradeResult } from "@/quant/copyTrade";
+import type { CopyContext } from "@/copilot/context";
 import { useWorkspace } from "@/store/workspaceStore";
 
 const SIDE_TONE: Record<PersonaTrade["side"], string> = { buy: "up", sell: "down", other: "text-term-muted" };
@@ -136,10 +139,25 @@ export function PERS() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   })), [stamp, active.map((p) => p.id).join("|")]);
 
+  const [copyFor, setCopyFor] = useState<string | null>(null);
+  const [copy, setCopy] = useState<CopyContext | null>(null);
+  const onCopyResult = useCallback((r: CopyTradeResult | null) => {
+    const p = personas.find((x) => x.id === copyFor);
+    if (!r || !p) { setCopy(null); return; }
+    const m = (x: CopyTradeResult["filed"]["run"]) => ({ finalValue: x.finalValue, totalReturn: x.metrics.totalReturn, maxDrawdown: x.metrics.maxDrawdown });
+    setCopy({
+      personaId: p.id, name: p.name, start: r.filed.window.start, end: r.filed.window.end, years: r.filed.window.years,
+      filed: m(r.filed.run), traded: m(r.traded.run), benchmark: { ticker: r.filed.benchmark.ticker, ...m(r.filed.benchmark.run) },
+      initial: r.filed.config.initial, lagCost: r.lagCost, medianLagDays: r.medianLagDays, tickers: r.tickers, unpriced: r.unpriced, skipped: r.skipped,
+    });
+  }, [copyFor, personas]);
+  useEffect(() => { if (!copyFor) setCopy(null); }, [copyFor]);
+
   // the loaded trades are what the Copilot may explain on this screen
   const setCopilotPersonas = useCopilotContext((s) => s.setPersonas);
   useEffect(() => {
     setCopilotPersonas({
+      copy,
       personas: active.map((p) => {
         const d = data[p.id];
         return {
@@ -149,7 +167,7 @@ export function PERS() {
       }),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, setCopilotPersonas]);
+  }, [data, copy, setCopilotPersonas]);
   useEffect(() => () => setCopilotPersonas(null), [setCopilotPersonas]);
 
   const [query, setQuery] = useState("");
@@ -247,6 +265,13 @@ export function PERS() {
                               <div><div className="sub-header">Buy / sell</div><div className="num"><span className="up">{s.buys}</span> / <span className="down">{s.sells}</span></div></div>
                               <div><div className="sub-header">Latest</div><div className="num">{s.latest ?? "n/a"}</div></div>
                               {d.reports === 0 && <div className="col-span-3 text-term-muted leading-snug">No trade reports filed this year or last.</div>}
+                              {s.buys > 0 && (
+                                <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setCopyFor(copyFor === p.id ? null : p.id); }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setCopyFor(copyFor === p.id ? null : p.id); } }}
+                                  className="col-span-3 mt-1 text-center border border-term-amberDim text-term-amber hover:bg-term-amberSubtle text-[10px] uppercase tracking-widest py-0.5">
+                                  {copyFor === p.id ? "Hide copy backtest" : "Backtest copying"}
+                                </span>
+                              )}
                               {(d.unread?.length ?? 0) > 0 && (
                                 <div className="col-span-3 text-term-muted leading-snug">
                                   {d.unread!.filter((u) => u.reason === "scanned").length > 0 && <>{d.unread!.filter((u) => u.reason === "scanned").length} scanned paper report(s), not read. </>}
@@ -271,6 +296,11 @@ export function PERS() {
                 );
               })}
             </div>
+          )}
+
+          {copyFor && active.some((p) => p.id === copyFor) && data[copyFor] && !data[copyFor].loading && (
+            <CopyTradePanel key={copyFor} persona={active.find((p) => p.id === copyFor)!} trades={data[copyFor].trades}
+              onClose={() => setCopyFor(null)} onResult={onCopyResult} />
           )}
 
           {active.some((p) => p.source.kind === "fund") && <div className="text-[10px] text-term-muted leading-snug">{FUND_NOTE}</div>}

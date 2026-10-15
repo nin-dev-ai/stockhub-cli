@@ -278,6 +278,20 @@ describe("personas", () => {
     expect(text(a)).toMatch(/amount range/);
     expect(a.sources.map((s) => s.label)).toContain("Clerk of the House");
   });
+  it("explains the copy-trade backtest on screen with traced figures, or says how to run one", () => {
+    const base: CopilotContext = { ...empty, screen: "PERS", personas: { personas: [] } };
+    const none = respond("what if I had copied Pelosi?", base);
+    expect(text(none)).toMatch(/Backtest copying/);
+    const copy = { personaId: "pelosi", name: "Nancy Pelosi", start: "2025-01-02", end: "2026-10-15", years: 1.8, initial: 10000,
+      filed: { finalValue: 12500, totalReturn: 0.25, maxDrawdown: -0.18 }, traded: { finalValue: 13100, totalReturn: 0.31, maxDrawdown: -0.17 },
+      benchmark: { ticker: "SPY", finalValue: 12000, totalReturn: 0.2, maxDrawdown: -0.12 }, lagCost: 600, medianLagDays: 27, tickers: ["NVDA"], unpriced: ["VSNT"], skipped: [] };
+    const a = respond("what if I had copied Pelosi?", { ...base, personas: { personas: [], copy } });
+    expect(a.verified).toBe(true);
+    expect(text(a)).toMatch(/Acting when each report was filed: \$12,500 \(25\.0% total return/);
+    expect(text(a)).toMatch(/delay cost \$600; the median report came 27 days/);
+    expect(text(a)).toMatch(/VSNT/);
+    expect(text(a)).toMatch(/not a recommendation/);
+  });
   it("summarizes a House member's loaded trades with ranges, not values", () => {
     const ctx: CopilotContext = { ...empty, screen: "PERS", personas: { personas: [
       { id: "pelosi", name: "Nancy Pelosi", role: "US House · CA-11 · PTR", kind: "house", latest: "2026-08-21", prior: null, holdings: null, error: null, loading: false,

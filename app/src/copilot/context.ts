@@ -32,7 +32,15 @@ export interface PersonaEntry {
   latest: string | null; prior: string | null; holdings: number | null;
   trades: PersonaTrade[]; error: string | null; loading: boolean;
 }
-export interface PersonasContext { personas: PersonaEntry[] }
+/** The copy-trade backtest open on the Personas screen, if any. */
+export interface CopyContext {
+  personaId: string; name: string; start: string; end: string; years: number;
+  filed: { finalValue: number; totalReturn: number | null; maxDrawdown: number | null };
+  traded: { finalValue: number; totalReturn: number | null; maxDrawdown: number | null };
+  benchmark: { ticker: string; finalValue: number; totalReturn: number | null; maxDrawdown: number | null };
+  initial: number; lagCost: number; medianLagDays: number | null; tickers: string[]; unpriced: string[]; skipped: string[];
+}
+export interface PersonasContext { personas: PersonaEntry[]; copy?: CopyContext | null }
 
 export interface CopilotContext {
   screen: FunctionCode | null;
