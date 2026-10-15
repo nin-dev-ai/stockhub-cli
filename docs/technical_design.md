@@ -66,13 +66,14 @@ State for baskets, drafts and the screen-wide ETF switch (`target`, applied by `
 
 | Module | Responsibility |
 | --- | --- |
-| `context.ts` | Store that screens publish structured results to (open strategy and backtest, Lab inputs/weights/optimization/projection, portfolio attribution); the panel passes only the active screen's entry |
+| `context.ts` | Store that screens publish structured results to (open strategy and backtest, Lab inputs/weights/optimization/projection, portfolio attribution, persona buys and sells loaded on the Personas screen); the panel passes only the active screen's entry |
 | `assistant.ts` | `respond(message, context)`: guardrails, intent routing, and answer builders. A `Composer` formats every figure from engine fields and records it; `verifyFigures` then rejects any number in the text that is not in those records, vetted rule/glossary text or the user's message, and `hasUnsafeCertainty` rejects promise language |
 | `guardrails.ts` | Classifies the user's message only (injection, action, certainty, advice); context text is never routed as an instruction. Draft strategies' free text is not quoted |
 | `drafting.ts` | Pattern-based translation of a description into the strategy schema, with assumptions, unsupported parts, validation, edits to a copy of the strategy in context, a rule-field diff, and `variantFromText` ("on QQQ", "X instead of Y") which retargets a named or open strategy |
+| `labChanges.ts` | `labChangeFromText`: reads the four Lab inputs the Copilot may propose (ETF, starting amount, monthly contribution, horizon) and validates them with `validateLab` |
 | `glossary.ts` | Curated definitions and alias matching |
 
-`personaRequest` routes "follow / track / what is X trading" to a persona answer; the panel's `PersonaCard` follows through `personaStore` only on click. User drafts' names are never quoted (`curatedName`).
+Permission levels are fixed in PRD 6.6.1. On the Personas screen, questions about loaded trades are answered from the published rows (`personaTrades`; issuer names are registered with `Composer.data`). Lab-input requests become a `labChange` proposal; the panel's `LabChangeCard` shows current and proposed values and calls `labStore.setInputs` only on Apply. The action guard no longer refuses "plan"/"inputs" wording because those requests become proposals; edits to portfolios, weights, assumptions, ledgers, transactions and snapshots are still refused. `personaRequest` routes "follow / track / what is X trading" to a persona answer; the panel's `PersonaCard` follows through `personaStore` only on click. User drafts' names are never quoted (`curatedName`).
 
 The UI is `app/src/components/CopilotPanel.tsx`; drafts reuse `DraftEditor` and save through `strategyStore`. An LLM adapter could replace intent routing and phrasing while keeping the context store, Composer verification and confirmation flow.
 

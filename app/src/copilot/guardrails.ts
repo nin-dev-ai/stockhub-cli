@@ -23,7 +23,8 @@ const ADVICE = [
 
 const ACTION = [
   /\b(place|submit|execute|send) (an? )?(order|trade)s?\b/i, /^\s*(buy|sell) \d/i, /\b(buy|sell) .{0,20} for me\b/i,
-  /\b(rebalance|update|change|modify|edit|delete|set) (my|the) (portfolio|weights?|assumptions?|plan|inputs?|ledger|holdings)\b/i,
+  // Lab inputs (ETF, amounts, horizon) are proposed for one-click apply instead, so "plan" and "inputs" are not refused here
+  /\b(rebalance|update|change|modify|edit|delete|set) (my|the) (portfolio|weights?|assumptions?|ledger|holdings|transactions?|snapshots?)\b/i,
   /\b(publish|share) (my|the|this) strategy\b/i, /\b(save|add|record) .{0,20} (transaction|contribution|trade) for me\b/i,
 ];
 

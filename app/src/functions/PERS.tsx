@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useCopilotContext } from "@/copilot/context";
 import { useQueries } from "@tanstack/react-query";
 import { ExternalLink, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -93,6 +94,22 @@ export function PERS() {
     return [p.id, { ...base, trades }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   })), [stamp, active.map((p) => p.id).join("|")]);
+
+  // the loaded trades are what the Copilot may explain on this screen
+  const setCopilotPersonas = useCopilotContext((s) => s.setPersonas);
+  useEffect(() => {
+    setCopilotPersonas({
+      personas: active.map((p) => {
+        const d = data[p.id];
+        return {
+          id: p.id, name: p.name, role: p.role, kind: p.source.kind, latest: d?.latest ?? null, prior: d?.prior ?? null, holdings: d?.holdings ?? null,
+          trades: (d?.trades ?? []).filter((t) => t.side !== "other"), error: d?.error ?? null, loading: d?.loading ?? true,
+        };
+      }),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, setCopilotPersonas]);
+  useEffect(() => () => setCopilotPersonas(null), [setCopilotPersonas]);
 
   const [query, setQuery] = useState("");
   const [side, setSide] = useState<"all" | "buy" | "sell">("all");
