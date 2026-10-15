@@ -1,6 +1,6 @@
 import { drawdownSeries, rollingVol, rsi, sma, trailingReturn } from "./indicators";
 import { computeMetrics, yearsBetween } from "./metrics";
-import type { Allocation, Schedule, StrategyDef } from "./strategy";
+import { sleeveDef, type Allocation, type Schedule, type StrategyDef } from "./strategy";
 import type { Metrics, Panel, QualityFlag } from "./types";
 
 export type ContributionFrequency = "none" | "weekly" | "monthly" | "quarterly";
@@ -54,7 +54,11 @@ export interface SimResult {
   gain: number;
   moneyWeightedReturn: number | null;
   flags: QualityFlag[];
+  /** Spread strategies: each ETF's own run, in the order of `spread.targets`. */
+  sleeves?: Sleeve[];
 }
+
+export interface Sleeve { ticker: string; weight: number; equity: number[]; returns: number[]; metrics: Metrics; finalValue: number; totalContributed: number }
 
 const EPS = 1e-9;
 
@@ -222,6 +226,56 @@ const maxAbsDiff = (a: Weights, b: Weights) => {
  *  - Contributions are credited at the close of the scheduled day and invested like any other cash.
  */
 export function simulate(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult {
+  return def.spread ? simulateSpread(def, panel, cfg) : simulateOne(def, panel, cfg);
+}
+
+/**
+ * A spread strategy is one run per ETF, each funded with its weight's share of the initial capital
+ * and of every contribution; the combined portfolio is their sum. Costs per trade apply per sleeve.
+ */
+function simulateSpread(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult {
+  const targets = def.spread!.targets;
+  const runs = targets.map((t) => simulateOne(sleeveDef(def, t.ticker), panel, {
+    ...cfg, initial: cfg.initial * t.weight, contribution: { ...cfg.contribution, amount: cfg.contribution.amount * t.weight },
+  }));
+  const bad = runs.find((r) => r.flags.some((f) => f.severity === "error"));
+  if (bad) return { ...bad, sleeves: [] };
+  const dates = runs[0].dates, n = dates.length;
+  const sum = (pick: (r: SimResult) => number[]) => dates.map((_, t) => runs.reduce((s, r) => s + pick(r)[t], 0));
+  const equity = sum((r) => r.equity), invested = sum((r) => r.invested);
+  const returns: number[] = [];
+  for (let t = 1; t < n; t++) {
+    const flow = invested[t] - invested[t - 1];
+    returns.push(equity[t - 1] > EPS ? (equity[t] - flow) / equity[t - 1] - 1 : 0);
+  }
+  // exposure averaged with each sleeve's share of the combined value on each day
+  const share = runs.map((r) => r.equity.reduce((s, v, t) => s + (equity[t] > EPS ? v / equity[t] : 0), 0) / n);
+  const avgExposure: Record<string, number> = {};
+  runs.forEach((r, i) => { for (const [k, w] of Object.entries(r.avgExposure)) avgExposure[k] = (avgExposure[k] ?? 0) + w * share[i]; });
+  const tag = (i: number, s: string) => `[${targets[i].ticker}] ${s}`;
+  const flows: { t: number; amount: number }[] = [];
+  for (let t = 0; t < n; t++) { const f = invested[t] - (t > 0 ? invested[t - 1] : 0); if (f > 0) flows.push({ t, amount: f }); }
+  const years = yearsBetween(dates[0], dates[n - 1]);
+  const finalValue = equity[n - 1], contributed = invested[n - 1];
+  const avgEq = equity.reduce((a, b) => a + b, 0) / n;
+  const traded = runs.reduce((s, r) => s + r.trades.reduce((x, tr) => x + tr.notional, 0), 0);
+  const seen = new Set<string>();
+  return {
+    dates, equity, invested, returns,
+    metrics: computeMetrics(returns, dates, { riskFreeRate: cfg.riskFreeRate }),
+    trades: runs.flatMap((r, i) => r.trades.map((tr) => ({ ...tr, reason: tag(i, tr.reason) }))).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
+    decisions: runs.flatMap((r, i) => r.decisions.map((d) => ({ ...d, reason: tag(i, d.reason) }))).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)),
+    tradeCount: runs.reduce((s, r) => s + r.tradeCount, 0),
+    turnover: years >= 1 && avgEq > 0 ? traded / avgEq / years : null,
+    costsPaid: runs.reduce((s, r) => s + r.costsPaid, 0),
+    avgExposure, finalValue, totalContributed: contributed, gain: finalValue - contributed,
+    moneyWeightedReturn: years >= 1 ? irr(flows, dates, finalValue) : null,
+    flags: runs.flatMap((r) => r.flags).filter((f) => !seen.has(f.code) && !!seen.add(f.code)),
+    sleeves: runs.map((r, i) => ({ ticker: targets[i].ticker, weight: targets[i].weight, equity: r.equity, returns: r.returns, metrics: r.metrics, finalValue: r.finalValue, totalContributed: r.totalContributed })),
+  };
+}
+
+function simulateOne(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult {
   const n = panel.dates.length;
   const dates = panel.dates;
   const flags: QualityFlag[] = [];
