@@ -97,6 +97,13 @@ export const fetchQuote = (s: string) =>
   get<Quote[] | Quote>("/equity/price/quote", { symbol: s, provider: "yfinance" })
     .then((r) => (Array.isArray(r) ? r[0] : r));
 
+/** Dividend-adjusted (total-return) daily closes, used by the quant engine. */
+export const fetchAdjustedHistory = (s: string, start: string) =>
+  get<Candle[]>("/equity/price/historical", {
+    symbol: s, provider: "yfinance", interval: "1d", start_date: start,
+    adjustment: "splits_and_dividends",
+  });
+
 export const fetchHistorical = (s: string, o: { interval?: string; start_date?: string } = {}) => {
   const start = o.start_date ?? new Date(Date.now() - 365 * 864e5).toISOString().slice(0, 10);
   return get<Candle[]>("/equity/price/historical", {
