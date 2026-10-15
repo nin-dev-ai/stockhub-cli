@@ -174,6 +174,19 @@ function makeSignal(a: Allocation, panel: Panel): (t: number) => Signal {
         return { weights: w, reason: `${a.smaDays}d average: ${notes.join(", ")}` };
       };
     }
+    case "schedule": {
+      const steps = a.steps;
+      let i = -1;
+      return (t) => {
+        while (i + 1 < steps.length && steps[i + 1].date <= panel.dates[t]) i++;
+        if (i < 0) return safeAll(a.safe, `Before the first scheduled date (${steps[0].date}), holding ${a.safe}`);
+        const st = steps[i];
+        const used = Object.values(st.weights).reduce((s, v) => s + v, 0);
+        const weights: Weights = { ...st.weights };
+        if (used < 1 - 1e-9) weights[a.safe] = (weights[a.safe] ?? 0) + 1 - used;
+        return { weights, reason: st.note ?? `Holdings as of ${st.date}` };
+      };
+    }
     case "crossover": {
       const fast = sma(c[a.risky], a.fastDays), slow = sma(c[a.risky], a.slowDays);
       return (t) => {

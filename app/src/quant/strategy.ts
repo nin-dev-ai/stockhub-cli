@@ -18,7 +18,13 @@ export type Allocation =
   /** Hold risky while the fast moving average is above the slow one. */
   | { type: "crossover"; risky: string; safe: string; fastDays: number; slowDays: number }
   /** Buy short pullbacks: enter when RSI drops below entryRsi (optionally only above a long average), exit above exitRsi. */
-  | { type: "mean_reversion"; risky: string; safe: string; rsiDays: number; entryRsi: number; exitRsi: number; trendDays: number };
+  | { type: "mean_reversion"; risky: string; safe: string; rsiDays: number; entryRsi: number; exitRsi: number; trendDays: number }
+  /**
+   * Dated target weights (any US-listed ticker, stocks included), e.g. copying a persona's reported
+   * trades from the day each report became public. Each step holds until the next; the unallocated
+   * part, and everything before the first step, is held in `safe`.
+   */
+  | { type: "schedule"; safe: string; steps: { date: string; weights: Record<string, number>; note?: string }[] };
 
 export interface StrategyDef {
   schema: 1;
@@ -66,6 +72,7 @@ export function allocationTickers(a: Allocation): string[] {
     case "momentum": return [...a.universe, a.safe];
     case "risk_parity": return [...a.assets];
     case "multi_trend": return [...a.assets, a.safe];
+    case "schedule": return [...new Set([...a.steps.flatMap((s) => Object.keys(s.weights)), a.safe])];
   }
 }
 
@@ -205,6 +212,20 @@ export function validateStrategy(d: unknown): Validation {
         if (!inRange(a.exitRsi, 50, 99)) e("exitRsi must be between 50 and 99.");
         if (!isInt(a.trendDays) || !(a.trendDays === 0 || inRange(a.trendDays, 20, 400))) e("trendDays must be 0 (no filter) or an integer from 20 to 400.");
         break;
+      case "schedule": {
+        known(a.safe, "safe");
+        const steps = Array.isArray(a.steps) ? a.steps : [];
+        if (steps.length < 1 || steps.length > 1000) e("schedule needs 1 to 1000 steps.");
+        let prev = "";
+        for (const st of steps) {
+          if (typeof st?.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(st.date) || st.date <= prev) { e("schedule step dates must be ISO dates in increasing order."); break; }
+          prev = st.date;
+          const w = Object.entries(st.weights ?? {});
+          if (w.some(([t]) => !/^[A-Z][A-Z0-9.\-]{0,9}$/.test(t))) { e(`schedule step ${st.date} names an invalid ticker.`); break; }
+          if (w.some(([, v]) => !inRange(v, 0, 1)) || w.reduce((s, [, v]) => s + v, 0) > 1 + 1e-6) { e(`schedule step ${st.date} weights must be 0-100% each and at most 100% in total.`); break; }
+        }
+        break;
+      }
       default: e(`unknown allocation type "${(a as { type?: string }).type}".`);
     }
   }

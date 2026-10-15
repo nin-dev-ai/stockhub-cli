@@ -7,6 +7,11 @@ function allocationRules(a: Allocation): string[] {
   switch (a.type) {
     case "static":
       return [`Target weights: ${Object.entries(a.weights).map(([t, w]) => `${t} ${pct(w)}`).join(", ")}.`];
+    case "schedule":
+      return [
+        `Follows ${a.steps.length} dated changes of holdings from ${a.steps[0]?.date ?? "n/a"} to ${a.steps[a.steps.length - 1]?.date ?? "n/a"}; each set of weights holds until the next change.`,
+        `Before the first change, and for any unallocated part, hold ${a.safe}.`,
+      ];
     case "trend":
       return [
         `Compare ${a.risky}'s adjusted close with its ${a.smaDays}-day simple moving average at each close.`,
