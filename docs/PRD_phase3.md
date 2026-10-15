@@ -215,7 +215,7 @@ This implements the future trading rules in 6.6.1 for **paper accounts only**:
 | E0 — Phase 2 hardening | Delivered. A headless-Chrome pass over STRAT, LAB, PERS, PORT and the Copilot found and fixed: one failed ticker blocking every strategy (an empty provider answer was cached), clipped card summaries, cramped card footers, a stale PERS description, and unlabelled 13F share classes. Apply to Lab and persona summaries work end to end. |
 | E1 — Strategy across ETFs | Delivered: `spread` definitions, sleeve engine and report (per-ETF results, correlation, single-ETF and buy-and-hold baselines, drawdown verdict); STRAT *Spread across several ETFs*; Lab *Spread across more ETFs*; Copilot spread drafts and Lab spread proposals. Checked in the browser on live data. |
 | E2 — House members as personas | Delivered: Clerk index and PTR parser with a golden fixture, `/clerk` proxy, five presets and member search, amount ranges, scanned reports linked, Copilot follow and summaries. Checked in the browser on live data (Pelosi: 7 reports, 39 trades). |
-| E3 — Copy-trade backtest | Not started |
+| E3 — Copy-trade backtest | In progress: `schedule` rule type and copy-trade engine (filed-date and trade-date versions, lag cost, coverage) with a no-look-ahead test |
 | E4 — IBKR read-only | Not started |
 | E5 — Paper orders | Not started |
 | E6 — LLM Copilot adapter | Not started |
