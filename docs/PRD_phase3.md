@@ -1,8 +1,8 @@
 # StockHub — Phase 3 Plan: Combine, Follow, Connect
 
 **Document:** Phase 3 plan and research notes
-**Version:** 0.1 (draft for review) · **Date:** 16 October 2026
-**Status:** Approved 16 October 2026 with the recommended defaults in [Section 6](#6-decisions-needed) (IBKR, House first, LLM optional). Progress is tracked in [Section 7](#7-delivery-status).
+**Version:** 1.0 · **Date:** 16 October 2026
+**Status:** Delivered 16 October 2026 with the recommended defaults in [Section 6](#6-decisions-needed) (IBKR, House first, LLM optional). Milestone status is in [Section 7](#7-delivery-status), acceptance results in [Section 8](#8-acceptance-results) and follow-ups in [Section 9](#9-follow-ups).
 **Starting point:** Phase 2 as delivered ([PRD_phase2.md](PRD_phase2.md), Section 15), plus the Personas screen (`PERS`), core-ETF choice in the Lab and the Copilot permission levels (6.6.1).
 
 ---
@@ -219,6 +219,31 @@ This implements the future trading rules in 6.6.1 for **paper accounts only**:
 | E4 — IBKR read-only | Delivered: `/ibkr` gateway proxy, read-only client (allow-list, tested to block order paths, 8 s timeout), Broker panel in My Portfolio, broker-reported portfolio mode (also offered by Save Plan), sync into dated ledger entries. Verified end to end against a mock gateway returning the documented shapes; not yet run against a real IBKR account. Found during testing: macOS AirPlay Receiver holds port 5000, IBKR's default, so the setup steps move the gateway to 5001. |
 | E5 — Paper orders | Delivered: Paper Orders screen (`ORD`) with rebalance proposals from a saved plan, IBKR preview, per-order confirmation, IBKR questions shown verbatim and answered only by the user, hard limits in code (paper only, ETF allow-list, whole shares, long only, market or limit, per-order and daily caps), kill switch that cancels open orders, append-only audit log with JSON export; Copilot can only open the screen. Verified end to end against a mock gateway; not yet run against a real IBKR paper account. |
 | E6 — LLM Copilot adapter | Delivered as *phrasing only*: the rule-based Copilot still decides the answer, figures and actions; Claude rewords it with no tools; replies with any number not in the computed answer, or certainty or buy/sell language, fall back to the rule-based wording; refusals are never sent; key held by the dev-server proxy. Off without `STOCKHUB_LLM_KEY`. Tested with fake replies and a mock endpoint; not yet against the real API. |
+
+---
+
+## 8. Acceptance results
+
+| ID | Result | Evidence |
+| --- | --- | --- |
+| P3-01 | Pass | `spread.test.ts`: one target equals the plain retargeted run; the report window is the common window. |
+| P3-02 | Pass | `spread.test.ts` and the STRAT drawer (live: SPY+QQQ+DIA golden cross). |
+| P3-03 | Pass | `congress.test.ts` golden fixture; PERS shows ranges, trade and filing dates, and links scanned reports (Ro Khanna). |
+| P3-04 | Pass | `copyTrade.test.ts` and `livePhase3.test.ts` assert no position before its filing date; the panel reports coverage and the lag cost. |
+| P3-05 | Pass | No credential is stored: the IBKR session lives in the gateway, and the LLM key is added by the dev-server proxy (checked: absent from every served script). |
+| P3-06 | Pass | Broker-reported is its own mode, group and badge; syncs only append ledger entries. |
+| P3-07 | Pass (mock) | `orders.test.ts`: live ids, unlisted tickers, shorts, odd quantities, other order types, missing contracts, caps and the kill switch are rejected, and blocked orders send nothing; each order needs its own confirmation in `ORD`. Verified against a mock gateway, not a real paper account. |
+| P3-08 | Pass | The Copilot only opens screens (`Answer.open`); order requests are refused; LLM phrasing has no tools and cannot add cards. |
+| P3-09 | Partly | House and copy-trade screens name their source and dates; the broker panel shows connection state. Retrieval times are not shown for every source. |
+
+## 9. Follow-ups
+
+- Run the IBKR read-only sync and paper orders against a real IBKR paper account, and the LLM phrasing against the real API, before relying on them.
+- Senate PTRs from eFD, with a server-side session for its click-through agreement.
+- A CUSIP-to-ticker source so fund (13F) personas can be copy-traded.
+- Copy-trade strategies as Lab slots once enough history exists (60 months for projections).
+- Show retrieval times for every persona source (P3-09).
+- Live trading remains a separate decision after paper trading has run cleanly, with security and compliance review.
 
 ---
 
