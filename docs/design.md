@@ -6,7 +6,7 @@ The interface is a dark, amber-accented terminal workspace. [`App.tsx`](../app/s
 
 ## Primary navigation
 
-A strip under the command bar switches between the product's sections: **Explore** (the original terminal) and **Strategies**. Each section opens ordinary workspace tabs, so tabs, the command bar and the quick bar work everywhere. `sectionOf` in [`functions.ts`](../app/src/lib/functions.ts) assigns every function code to a section.
+A strip under the command bar switches between the product's sections: **Explore** (the original terminal), **Strategies**, **Simulation Lab** and **My Portfolio**. Each section opens ordinary workspace tabs, so tabs, the command bar and the quick bar work everywhere. `sectionOf` in [`functions.ts`](../app/src/lib/functions.ts) assigns every function code to a section.
 
 ## Strategies screen (`STRAT`)
 
@@ -14,7 +14,11 @@ A filter rail (search, sort, type, risk level, robustness) beside a grid of stra
 
 ## Simulation Lab screen (`LAB`)
 
-An inputs pane (starting amount, existing holdings, monthly contribution, horizon, basket, risk objective, weight cap, advanced assumptions) beside a canvas with three tabs and four actions: Run Backtest, Optimize Allocation, Run Projection and View Methodology. Long-running actions show progress and can be cancelled. Every result carries a label: *Historical backtest*, *Historical weights* or *Future simulation (model-based)*. The projection fan chart labels the 10th, 50th and 90th percentiles and states that the lower line is not a worst case. Weight overrides must sum to 100% and are previewed before they apply. With no basket, the Lab explains the next step and links to Strategies.
+An inputs pane (starting amount, existing holdings, monthly contribution, horizon, basket, risk objective, weight cap, advanced assumptions) beside a canvas with three tabs and five actions: Run Backtest, Optimize Allocation, Run Projection, Save Plan and View Methodology. Save Plan is enabled only once a projection exists for the current inputs and weights; it opens a drawer to name the plan and choose paper or manually reported tracking. Long-running actions show progress and can be cancelled. Every result carries a label: *Historical backtest*, *Historical weights* or *Future simulation (model-based)*. The projection fan chart labels the 10th, 50th and 90th percentiles and states that the lower line is not a worst case. Weight overrides must sum to 100% and are previewed before they apply. With no basket, the Lab explains the next step and links to Strategies.
+
+## My Portfolio screen (`PORT`)
+
+A rail lists paper plans and manually reported records in separate groups, with a form to record existing holdings without a plan. The main area has three tabs. **Plan vs Observed** shows value, net contributed, gain and cash tiles; a timeline with the original plan's 10th–90th percentile band and median, planned and actual contributions, the observed value and the latest reforecast; a table that splits observed minus planned median into contribution difference, projection error, allocation difference and FX (not applicable); and holdings against plan targets. Paper plans add contribution and rebalance actions; trades are previewed and need confirmation. **Ledger** adds, filters, deletes and exports entries, and refuses entries that would overdraw cash or sell units not held. **Snapshots** lists every snapshot with its integrity badge, inputs, versions and percentiles, and runs reforecasts over selectable horizons. Every view carries its mode badge: *Paper (hypothetical)* in cyan or *Manually reported · not broker-verified* in amber.
 
 ## Interaction conventions
 

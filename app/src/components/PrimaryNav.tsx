@@ -8,6 +8,7 @@ const ITEMS: Item[] = [
   { section: "explore", label: "Explore", hint: "Markets, instruments, charts", code: "CC" },
   { section: "strategies", label: "Strategies", hint: "Rules-based ideas with evidence", code: "STRAT" },
   { section: "lab", label: "Simulation Lab", hint: "Backtest, optimize and project a plan", code: "LAB" },
+  { section: "portfolio", label: "My Portfolio", hint: "Saved plans, holdings and plan vs observed", code: "PORT" },
 ];
 
 export function PrimaryNav() {

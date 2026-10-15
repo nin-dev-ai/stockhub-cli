@@ -512,5 +512,5 @@ Updated as each milestone lands; see the git history for detail.
 | --- | --- |
 | A — Strategy core | Delivered: engine, 12-strategy catalog, robustness, Strategies screen with basket, compare and drafts |
 | B — Simulation and optimization | Delivered: basket-to-Lab flow, overlap analysis, constrained optimizer with baselines and out-of-sample check, bootstrap and parametric projections with fan chart and scenarios, calculation report with JSON and CSV export |
-| C — Portfolio tracking | Planned |
+| C — Portfolio tracking | Delivered: My Portfolio screen, Save Plan from the Lab, paper and manually reported portfolios kept apart, validated ledger with CSV export, content-addressed immutable snapshots, plan vs observed vs reforecast timeline, attribution of the gap, reforecast over selectable horizons |
 | D — AI education and strategy authoring | Planned |

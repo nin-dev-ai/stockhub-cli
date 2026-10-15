@@ -39,8 +39,16 @@ The strategy engine is a UI-free TypeScript library in `app/src/quant/` that run
 | `optimizer.ts` | Exhaustive 1% grid search over capped long-only weights for three objectives, binding constraints, baselines, out-of-sample refit |
 | `projection.ts` | Seeded block-bootstrap or parametric simulation of terminal wealth: fan percentiles, real values, loss and goal probabilities, stress scenarios, refusal on short history |
 | `jobs.ts`, `lab.ts`, `useLab.ts`, `report.ts` | Idempotent in-thread job queue with progress and cancellation (ids hash kind, input and engine version); Lab input validation and composition; calculation report and CSV export |
+| `tracking.ts`, `useTracking.ts` | Portfolio ledger (no leverage, no short sales), valuation over adjusted closes, plan targets and paper rebalancing, content-addressed frozen projection snapshots, plan replay on realized returns, attribution against a snapshot, timeline alignment, reforecast |
 
-State for baskets and drafts is in `app/src/store/strategyStore.ts` and Lab inputs in `app/src/store/labStore.ts` (browser storage). Jobs run on the main thread and yield between chunks; the engine has no DOM dependency, so moving them into a Web Worker is a contained change. Run `LIVE=1 npx vitest run src/quant/live.test.ts` from `app/` to run the catalog against the local API.
+State for baskets and drafts is in `app/src/store/strategyStore.ts`, Lab inputs in `app/src/store/labStore.ts`, and portfolios with their snapshots in `app/src/store/portfolioStore.ts` (browser storage; snapshots are append-only and re-frozen on load). Jobs run on the main thread and yield between chunks; the engine has no DOM dependency, so moving them into a Web Worker is a contained change. Run `LIVE=1 npx vitest run src/quant/live.test.ts` from `app/` to run the catalog against the local API.
+
+### Portfolio tracking
+
+- **Snapshots.** A snapshot holds the inputs, weights, full strategy definitions and hashes, dataset id, plan targets and the projection's fan and percentiles. Its id is the hash of its content, so `verifySnapshot` detects any later edit, and it is deep-frozen in memory. Reforecasts are new snapshots that point to the original.
+- **Valuation.** Value is cash plus units times the adjusted close. Paper trades are priced at the adjusted close; because adjusted histories are rescaled after each later dividend, paper lots are re-expressed in current adjusted units, which reinvests distributions like the backtester. Manual records use their units as entered, so cash dividends should be recorded as entries.
+- **Attribution.** Observed value minus the original median = contribution difference (actual minus planned money in) + projection error (the plan's weights replayed on realized returns with the actual cash flows, versus the median path) + allocation difference (observed minus that replay). FX is not applicable while the universe is USD only.
+- **Reforecast.** Re-runs the snapshot's strategies on current data, then projects from the current value with the plan's monthly contribution over the chosen horizon.
 
 ## Change points
 

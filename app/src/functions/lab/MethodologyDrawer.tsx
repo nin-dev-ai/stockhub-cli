@@ -1,13 +1,7 @@
 import { X } from "lucide-react";
 import { projectionCsv, type CalculationReport } from "@/quant/report";
 import type { ProjectionResult } from "@/quant/projection";
-
-function download(name: string, text: string, type: string) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
-  const a = document.createElement("a");
-  a.href = url; a.download = name; a.click();
-  URL.revokeObjectURL(url);
-}
+import { download } from "@/lib/download";
 
 const Row = ({ k, v }: { k: string; v: React.ReactNode }) => (
   <div className="flex gap-3 py-1 border-b border-term-borderSoft text-[11px]"><span className="sub-header w-40 shrink-0">{k}</span><span className="text-term-text break-all">{v}</span></div>
