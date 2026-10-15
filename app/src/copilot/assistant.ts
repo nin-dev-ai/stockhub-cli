@@ -2,6 +2,7 @@ import { CATALOG } from "@/quant/catalog";
 import { OBJECTIVES } from "@/quant/optimizer";
 import { describeRules } from "@/quant/rules";
 import { MODE_LABEL } from "@/quant/tracking";
+import { HOUSE_NOTE } from "@/quant/congress";
 import { FUND_NOTE, POLITICIAN_NOTE, PRESET_PERSONAS, UNAVAILABLE_PEOPLE, type Persona } from "@/quant/personas";
 import { requiredTickers, type StrategyDef } from "@/quant/strategy";
 import type { CopilotContext, LabContext, PersonaEntry, PersonasContext, PortfolioContext, StrategyContext } from "./context";
@@ -387,20 +388,24 @@ function persona(m: string, who: { known: Persona | null; name: string; politici
   const p = who.known;
   if (who.politician) {
     c.p(c.vetted(POLITICIAN_NOTE));
-    c.p(c.vetted(`Personas that can be followed are people whose trades are in free SEC filings: fund managers through 13F (${PRESET_PERSONAS.filter((x) => x.source.kind === "fund").map((x) => x.name).join(", ")}) and corporate insiders through Form 4 (${PRESET_PERSONAS.filter((x) => x.source.kind === "insider").map((x) => x.name).join(", ")}).`));
+    c.p(c.vetted(`Personas that can be followed are people whose trades are in free official filings: fund managers through 13F (${PRESET_PERSONAS.filter((x) => x.source.kind === "fund").map((x) => x.name).join(", ")}), corporate insiders through Form 4 (${PRESET_PERSONAS.filter((x) => x.source.kind === "insider").map((x) => x.name).join(", ")}), and US House members through their Periodic Transaction Reports (${PRESET_PERSONAS.filter((x) => x.source.kind === "house").map((x) => x.name).join(", ")}, or any member found by name on the Personas screen).`));
   } else if (p?.source.kind === "fund") {
     c.p(c.vetted(`${p.name}'s persona reads ${p.source.firm}'s Form 13F filings from SEC EDGAR and shows what changed between the latest two quarters: new positions, additions, trims and full sales, with share changes, value and portfolio weight.`));
     c.note(c.vetted(FUND_NOTE));
-  } else if (p) {
+  } else if (p?.source.kind === "house") {
+    c.p(c.vetted(`${p.name}'s persona reads their Periodic Transaction Reports from the Clerk of the House (filed this year or last): each trade's date, filing date, owner, asset and amount range, with a link to the report.`));
+    c.note(c.vetted(HOUSE_NOTE));
+  } else if (p?.source.kind === "insider") {
     c.p(c.vetted(`${p.name}'s persona reads the Form 4 filings for ${p.source.company} from SEC EDGAR: each trade's date, shares, price and value, with a link to the filing. Insiders file within two business days, so these are the freshest public trades.`));
     c.note(c.vetted("Grants, option exercises, tax withholding and gifts are hidden by default; the Personas screen can show them."));
   } else {
-    c.p(c.vetted(`${who.name} is not a preset. If their trades are in SEC filings, add them on the Personas screen: a fund manager by their firm's CIK (13F), or a company insider by the company's ticker and their name (Form 4).`));
+    c.p(c.vetted(`${who.name} is not a preset. Add them on the Personas screen: a fund manager by their firm's CIK (13F), a company insider by the company's ticker and their name (Form 4), or a US House member by name or district.`));
   }
   if (p?.note) c.note(c.vetted(p.note));
   if (/\b(mirror|copy)\b/i.test(m)) c.note(c.vetted("Copying trades automatically is not supported: StockHub is not connected to a broker and places no orders. Following is for research."));
   c.persona = { known: p };
-  c.source("SEC EDGAR", "Form 13F and Form 4 via OpenBB, no key");
+  if (p?.source.kind === "house") c.source("Clerk of the House", "Periodic Transaction Reports, no key");
+  else c.source("SEC EDGAR", "Form 13F and Form 4 via OpenBB, no key");
   return c.done();
 }
 
@@ -429,6 +434,11 @@ function personaTrades(m: string, entries: PersonaEntry[]): Answer {
     if (e.kind === "fund") {
       if (!e.prior) { items.push(`${e.name}: only one quarter is filed, so there are no changes to compare.`); continue; }
       items.push(`${e.name}: from ${qtr(e.prior)} to ${qtr(e.latest)}, ${c.int(buys.length)} new or added positions and ${c.int(sells.length)} trimmed or sold, out of ${c.int(e.holdings ?? 0)} holdings. Largest by value: ${top.join(", ") || "none"}.`);
+    } else if (e.kind === "house") {
+      if (e.trades.length === 0) { items.push(`${e.name}: no purchases or sales in the reports read.`); continue; }
+      const last = [...e.trades].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))[0];
+      const names = [...new Map(e.trades.filter((t) => t.symbol).map((t) => [t.symbol!, t])).keys()].slice(0, 5).map(c.data);
+      items.push(`${e.name}: ${c.int(buys.length)} purchases and ${c.int(sells.length)} sales in the reports read${names.length ? `, in ${names.join(", ")}` : ""}. Latest: ${last.action.toLowerCase()} of ${c.data(last.symbol ?? last.asset)}${last.amount ? ` (${c.data(last.amount)})` : ""} on ${c.date(last.date ?? "")}, filed ${c.date(last.filed ?? "")}.`);
     } else if (e.trades.length === 0) {
       items.push(`${e.name}: no open-market buys or sells in the filings loaded.`);
     } else {
@@ -438,8 +448,10 @@ function personaTrades(m: string, entries: PersonaEntry[]): Answer {
   }
   c.list(items);
   if (entries.some((e) => e.kind === "fund")) c.note(c.vetted(FUND_NOTE));
+  if (entries.some((e) => e.kind === "house")) c.note(c.vetted(HOUSE_NOTE));
   c.note("These are filed trades, not recommendations, and they say nothing about why the person traded.");
-  c.source("SEC EDGAR", "filings loaded on the Personas screen");
+  if (entries.some((e) => e.kind !== "house")) c.source("SEC EDGAR", "filings loaded on the Personas screen");
+  if (entries.some((e) => e.kind === "house")) c.source("Clerk of the House", "reports loaded on the Personas screen");
   return c.done();
 }
 

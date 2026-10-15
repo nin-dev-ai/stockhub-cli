@@ -262,13 +262,35 @@ describe("personas", () => {
     expect(text(a)).toMatch(/13F/);
     expect(respond("what is Jensen Huang selling?", empty).persona?.known?.id).toBe("huang");
   });
-  it("explains that politicians have no free public feed", () => {
-    for (const q of ["what is Nancy Pelosi trading?", "follow Donald Trump", "show me what senators are buying"]) {
+  it("explains that senators and the President have no free feed yet, and points to House members", () => {
+    for (const q of ["follow Donald Trump", "show me what senators are buying"]) {
       const a = respond(q, empty);
       expect(a.kind, q).toBe("persona");
       expect(a.persona?.known, q).toBeNull();
-      expect(text(a), q).toMatch(/no free public API/);
+      expect(text(a), q).toMatch(/not available yet/);
+      expect(text(a), q).toMatch(/Nancy Pelosi/);
     }
+  });
+  it("follows House members from the Clerk's reports", () => {
+    const a = respond("what is Nancy Pelosi trading?", empty);
+    expect(a.persona?.known?.id).toBe("pelosi");
+    expect(text(a)).toMatch(/Periodic Transaction Reports/);
+    expect(text(a)).toMatch(/amount range/);
+    expect(a.sources.map((s) => s.label)).toContain("Clerk of the House");
+  });
+  it("summarizes a House member's loaded trades with ranges, not values", () => {
+    const ctx: CopilotContext = { ...empty, screen: "PERS", personas: { personas: [
+      { id: "pelosi", name: "Nancy Pelosi", role: "US House · CA-11 · PTR", kind: "house", latest: "2026-08-21", prior: null, holdings: null, error: null, loading: false,
+        trades: [
+          { date: "2026-07-24", filed: "2026-08-21", symbol: "BE", asset: "Bloom Energy", side: "buy", action: "Purchase", shares: null, price: null, value: null, amount: "$1,000,001–$5,000,000", detail: "Spouse", url: null },
+          { date: "2025-12-24", filed: "2026-01-23", symbol: "AAPL", asset: "Apple", side: "sell", action: "Partial sale", shares: null, price: null, value: null, amount: "$5,000,001–$25,000,000", detail: "Spouse", url: null },
+        ] },
+    ] } };
+    const a = respond("summarize these trades", ctx);
+    expect(a.verified).toBe(true);
+    expect(text(a)).toMatch(/1 purchases and 1 sales/);
+    expect(text(a)).toMatch(/purchase of BE \(\$1,000,001–\$5,000,000\) on 2026-07-24, filed 2026-08-21/);
+    expect(text(a)).toMatch(/Amounts are ranges/);
   });
   it("points an unknown name to the add form and says copying is not supported", () => {
     const a = respond("follow Tim Cook and copy his trades", empty);

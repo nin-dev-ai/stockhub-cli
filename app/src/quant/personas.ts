@@ -5,12 +5,18 @@
  *    comparing the latest two quarters (new, added, trimmed, sold out).
  *  - Corporate insiders file Form 4 within two business days of trading their company's stock,
  *    with exact shares and prices.
+ *  - US House members file Periodic Transaction Reports with the Clerk of the House within 45 days,
+ *    with amount ranges (see congress.ts).
  * Nothing here is generated: a persona whose filings return nothing shows nothing.
  */
 
+import { memberKey } from "./congress";
+
 export type PersonaSource =
   | { kind: "fund"; cik: string; firm: string }
-  | { kind: "insider"; symbol: string; company: string };
+  | { kind: "insider"; symbol: string; company: string }
+  /** `key` is `memberKey(last, first, stateDst)` as the Clerk's index spells the name. */
+  | { kind: "house"; key: string; first: string; last: string; stateDst: string };
 
 export interface Persona {
   id: string;
@@ -30,6 +36,10 @@ const fund = (id: string, name: string, firm: string, cik: string, note?: string
 const insider = (id: string, name: string, company: string, symbol: string, lastName: string, firstNames: string[], note?: string): Persona =>
   ({ id, name, role: `${company} (${symbol}) · Form 4`, source: { kind: "insider", symbol, company }, lastName, firstNames, note });
 
+const district = (sd: string) => `${sd.slice(0, 2)}-${Number(sd.slice(2)) || sd.slice(2)}`;
+const house = (id: string, name: string, first: string, last: string, stateDst: string, note?: string): Persona =>
+  ({ id, name, role: `US House · ${district(stateDst)} · PTR`, source: { kind: "house", key: memberKey(last, first, stateDst), first, last, stateDst }, note });
+
 export const FUND_NOTE = "13F shows the firm's US long holdings at each quarter end, filed up to 45 days later. Changes between quarters are inferred, not individual trades, and exclude shorts, cash and most non-US assets.";
 
 export const PRESET_PERSONAS: Persona[] = [
@@ -44,6 +54,11 @@ export const PRESET_PERSONAS: Persona[] = [
   insider("zuckerberg", "Mark Zuckerberg", "Meta Platforms", "META", "zuckerberg", ["mark"], "Many sales are pre-scheduled under a Rule 10b5-1 plan, often through his foundation's entities."),
   insider("musk", "Elon Musk", "Tesla", "TSLA", "musk", ["elon"]),
   insider("bezos", "Jeff Bezos", "Amazon", "AMZN", "bezos", ["jeffrey", "jeff"]),
+  house("pelosi", "Nancy Pelosi", "Nancy", "Pelosi", "CA11", "Most reported trades are her spouse's, including stock options."),
+  house("gottheimer", "Josh Gottheimer", "Josh", "Gottheimer", "NJ05"),
+  house("khanna", "Ro Khanna", "Rohit", "Khanna", "CA17", "Files on paper: reports are scanned images, so they are linked but not read."),
+  house("mccaul", "Michael McCaul", "Michael T.", "McCaul", "TX10"),
+  house("crenshaw", "Dan Crenshaw", "Daniel", "Crenshaw", "TX02"),
 ];
 
 export interface PersonaTrade {
@@ -59,6 +74,8 @@ export interface PersonaTrade {
   shares: number | null;
   price: number | null;
   value: number | null;
+  /** House PTRs: the reported amount range, since no exact value is disclosed. */
+  amount?: string;
   detail: string;
   url: string | null;
 }
@@ -205,6 +222,12 @@ export const byRecency = (a: PersonaTrade, b: PersonaTrade) =>
 
 /** People whose trades have no free public API; named so the Copilot can say why. */
 export const UNAVAILABLE_PEOPLE: Record<string, string> = {
-  pelosi: "Nancy Pelosi", trump: "Donald Trump", tuberville: "Tommy Tuberville", khanna: "Ro Khanna", gottheimer: "Josh Gottheimer", greene: "Marjorie Taylor Greene", crenshaw: "Dan Crenshaw",
+  trump: "Donald Trump", vance: "JD Vance", tuberville: "Tommy Tuberville", mcconnell: "Mitch McConnell", warren: "Elizabeth Warren", senate: "US senators",
 };
-export const POLITICIAN_NOTE = "Politicians' trades are not available: congressional disclosures have no free public API (the free Stock Watcher datasets are offline and other feeds need a paid key), and the President's reports are PDFs filed with the Office of Government Ethics.";
+export const POLITICIAN_NOTE = "Senators' and the President's trades are not available yet: the Senate's disclosure site requires accepting an agreement in an interactive session, and the President's reports are PDFs filed with the Office of Government Ethics. US House members' trades are available from the Clerk of the House.";
+
+/** Follow any House member found in the Clerk's index. */
+export function customHouse(m: { first: string; last: string; stateDst: string }): Persona {
+  const first = m.first.split(/\s+/)[0];
+  return { ...house(`custom_house_${memberKey(m.last, m.first, m.stateDst).replace(/[^a-z0-9]/gi, "_").toLowerCase()}`, `${first} ${m.last}`, m.first, m.last, m.stateDst), custom: true };
+}

@@ -246,8 +246,8 @@ export function ptrTrades(rows: PtrRow[], filing: HouseFiling): PersonaTrade[] {
     return {
       date: r.date, filed: filing.filed, symbol: r.ticker, asset: r.asset,
       side: t.side, action: `${t.action}${r.assetType === "OP" ? " (options)" : ""}`,
-      shares: null, price: null, value: null,
-      detail: [bandText(r.band, r.amount), r.owner, r.assetType ? ASSET_TYPE[r.assetType] ?? r.assetType : "", r.description].filter(Boolean).join(" · "),
+      shares: null, price: null, value: null, amount: bandText(r.band, r.amount),
+      detail: [r.owner, r.assetType ? ASSET_TYPE[r.assetType] ?? r.assetType : "", r.notified && r.notified !== r.date ? `notified ${r.notified}` : "", r.description].filter(Boolean).join(" · "),
       url: ptrPdfUrl(filing.year, filing.docId),
     };
   });
