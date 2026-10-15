@@ -52,6 +52,14 @@ State for baskets, drafts and the screen-wide ETF switch (`target`, applied by `
 - **Attribution.** Observed value minus the original median = contribution difference (actual minus planned money in) + projection error (the plan's weights replayed on realized returns with the actual cash flows, versus the median path) + allocation difference (observed minus that replay). FX is not applicable while the universe is USD only.
 - **Reforecast.** Re-runs the snapshot's strategies on current data, then projects from the current value with the plan's monthly contribution over the chosen horizon.
 
+### Personas
+
+`app/src/quant/personas.ts` holds the preset personas, `normalizeTrade` (tolerant of provider field names; `--` tickers become null), name matching on last name plus known first names within the chamber, and summaries. `fetchGovernmentTrades` in `lib/api.ts` calls OpenBB's `/equity/ownership/government_trades` with `provider=fmp` per chamber (limit 1000); a missing key surfaces as `ApiError.needsKey`. `functions/PERS.tsx` loads only the chambers of followed personas; follows and added personas persist in `store/personaStore.ts`. A persona with `chamber: null` (the President) has no feed and never shows trades.
+
+### Lab ETF choice
+
+`LabInputs.etf` (default SPY) and `labStrategies` apply `applyTarget(def, { SPY: etf })` to the basket before backtesting; `CORE_ETFS` in `instruments.ts` lists the one-click choices and leads every ETF dropdown.
+
 ### Copilot
 
 `app/src/copilot/` is a deterministic assistant with no network calls.
@@ -61,8 +69,10 @@ State for baskets, drafts and the screen-wide ETF switch (`target`, applied by `
 | `context.ts` | Store that screens publish structured results to (open strategy and backtest, Lab inputs/weights/optimization/projection, portfolio attribution); the panel passes only the active screen's entry |
 | `assistant.ts` | `respond(message, context)`: guardrails, intent routing, and answer builders. A `Composer` formats every figure from engine fields and records it; `verifyFigures` then rejects any number in the text that is not in those records, vetted rule/glossary text or the user's message, and `hasUnsafeCertainty` rejects promise language |
 | `guardrails.ts` | Classifies the user's message only (injection, action, certainty, advice); context text is never routed as an instruction. Draft strategies' free text is not quoted |
-| `drafting.ts` | Pattern-based translation of a description into the strategy schema, with assumptions, unsupported parts, validation, edits to a copy of the strategy in context, and a rule-field diff |
+| `drafting.ts` | Pattern-based translation of a description into the strategy schema, with assumptions, unsupported parts, validation, edits to a copy of the strategy in context, a rule-field diff, and `variantFromText` ("on QQQ", "X instead of Y") which retargets a named or open strategy |
 | `glossary.ts` | Curated definitions and alias matching |
+
+`personaRequest` routes "follow / track / what is X trading" to a persona answer; the panel's `PersonaCard` follows through `personaStore` only on click. User drafts' names are never quoted (`curatedName`).
 
 The UI is `app/src/components/CopilotPanel.tsx`; drafts reuse `DraftEditor` and save through `strategyStore`. An LLM adapter could replace intent routing and phrasing while keeping the context store, Composer verification and confirmation flow.
 

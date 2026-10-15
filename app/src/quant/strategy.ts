@@ -239,5 +239,14 @@ export function retarget(d: StrategyDef, map: Record<string, string>): StrategyD
   };
 }
 
+/**
+ * Retarget only the ETFs the strategy trades, so one map can be applied to a whole list:
+ * a strategy that merely benchmarks against SPY is returned unchanged.
+ */
+export function applyTarget(d: StrategyDef, map: Record<string, string>): StrategyDef {
+  const traded = new Set([...allocationTickers(d.allocation), ...(d.reserve ? [d.reserve.riskyTicker] : [])]);
+  return retarget(d, Object.fromEntries(Object.entries(map).filter(([k]) => traded.has(k))));
+}
+
 /** True when the strategy trades or benchmarks against the ticker. */
 export const usesTicker = (d: StrategyDef, t: string) => requiredTickers(d).includes(t);

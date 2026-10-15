@@ -97,6 +97,10 @@ export const fetchQuote = (s: string) =>
   get<Quote[] | Quote>("/equity/price/quote", { symbol: s, provider: "yfinance" })
     .then((r) => (Array.isArray(r) ? r[0] : r));
 
+/** Congressional periodic transaction reports (STOCK Act) via FMP; needs an fmp_api_key in OpenBB. */
+export const fetchGovernmentTrades = (chamber: "house" | "senate", limit = 1000) =>
+  get<Record<string, unknown>[]>("/equity/ownership/government_trades", { provider: "fmp", chamber, limit });
+
 /** Dividend-adjusted (total-return) daily closes, used by the quant engine. */
 export const fetchAdjustedHistory = (s: string, start: string) =>
   get<Candle[]>("/equity/price/historical", {

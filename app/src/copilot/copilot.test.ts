@@ -9,7 +9,7 @@ import { syntheticDataset } from "@/quant/testData";
 import { attribute, makeSnapshot } from "@/quant/tracking";
 import { respond, suggestions, namedStrategy, type Answer } from "./assistant";
 import type { CopilotContext } from "./context";
-import { diffStrategy, draftFromText, modifyFromText } from "./drafting";
+import { variantFromText, diffStrategy, draftFromText, modifyFromText } from "./drafting";
 import { findTerms } from "./glossary";
 import { classifyGuard, extractNumbers, hasUnsafeCertainty, verifyFigures } from "./guardrails";
 
@@ -212,6 +212,61 @@ describe("strategy drafting (AI-04)", () => {
     expect(a.verified).toBe(true);
     expect(a.draft?.def?.allocation.type).toBe("trend");
     expect(text(a)).toMatch(/Nothing is saved or run until you confirm/);
+  });
+});
+
+describe("ETF variants from text", () => {
+  it("runs a named strategy on another ETF and benchmarks against it", () => {
+    const a = respond("Run the golden cross on the Nasdaq", empty);
+    expect(a.kind).toBe("draft");
+    expect(a.verified).toBe(true);
+    const d = a.draft!.def!;
+    expect(d.allocation).toMatchObject({ type: "crossover", risky: "QQQ", safe: "SHY" });
+    expect(d.benchmark).toBe("QQQ");
+    expect(a.draft!.errors).toEqual([]);
+  });
+  it("applies the open strategy to an ETF and swaps the defensive one by kind", () => {
+    const ctx = { ...empty, screen: "STRAT" as const, strategy: { def: CATALOG_BY_ID.trend_200d_spy, result: null, draft: false } };
+    expect(respond("Try this on DIA", ctx).draft?.def?.allocation).toMatchObject({ risky: "DIA", safe: "SHY" });
+    expect(respond("apply it to BIL", ctx).draft?.def?.allocation).toMatchObject({ risky: "SPY", safe: "BIL" });
+  });
+  it("reads an explicit swap", () => {
+    const r = variantFromText("use TLT instead of AGG", CATALOG_BY_ID.rebalance_quarterly_6040);
+    expect(r.def?.allocation).toEqual({ type: "static", weights: { SPY: 0.6, TLT: 0.4 } });
+    expect(r.def?.benchmark).toBe("SPY");
+  });
+  it("says so when there is nothing to replace", () => {
+    const r = variantFromText("use BIL instead of SHY", CATALOG_BY_ID.buy_hold_spy);
+    expect(r.def).toBeNull();
+    expect(r.unsupported.join(" ")).toMatch(/does not use SHY/);
+  });
+  it("still treats a plain parameter change as an edit", () => {
+    const ctx = { ...empty, screen: "STRAT" as const, strategy: { def: CATALOG_BY_ID.trend_200d_spy, result: null, draft: false } };
+    expect(respond("use a 150-day average instead", ctx).title).toBe("Proposed change");
+  });
+});
+
+describe("personas", () => {
+  it("offers to follow a preset persona without taking the action itself", () => {
+    const a = respond("Follow Nancy Pelosi's trades", empty);
+    expect(a.kind).toBe("persona");
+    expect(a.verified).toBe(true);
+    expect(a.persona?.known?.id).toBe("pelosi");
+    expect(text(a)).toMatch(/value ranges/);
+  });
+  it("asks for the chamber for a new name and says copying is not supported", () => {
+    const a = respond("create a persona following Senator Dan Crenshaw and copy his trades", empty);
+    expect(a.persona?.known).toBeNull();
+    expect(a.persona?.options.map((p) => p.chamber)).toEqual(["house", "senate"]);
+    expect(text(a)).toMatch(/places no orders/);
+  });
+  it("explains why a persona without a feed shows no trades", () => {
+    const a = respond("what is Donald Trump trading?", empty);
+    expect(a.persona?.known?.id).toBe("trump");
+    expect(text(a)).toMatch(/Office of Government Ethics/);
+  });
+  it("leaves unrelated questions alone", () => {
+    expect(respond("Why is my portfolio different from the plan?", empty).kind).not.toBe("persona");
   });
 });
 

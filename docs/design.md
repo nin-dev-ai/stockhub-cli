@@ -6,7 +6,7 @@ The interface is a dark, amber-accented terminal workspace. [`App.tsx`](../app/s
 
 ## Primary navigation
 
-A strip under the command bar switches between the product's sections: **Explore** (the original terminal), **Strategies**, **Simulation Lab** and **My Portfolio**. Each section opens ordinary workspace tabs, so tabs, the command bar and the quick bar work everywhere. `sectionOf` in [`functions.ts`](../app/src/lib/functions.ts) assigns every function code to a section.
+A strip under the command bar switches between the product's sections: **Explore** (the original terminal), **Strategies**, **Personas**, **Simulation Lab** and **My Portfolio**. Each section opens ordinary workspace tabs, so tabs, the command bar and the quick bar work everywhere. `sectionOf` in [`functions.ts`](../app/src/lib/functions.ts) assigns every function code to a section.
 
 ## Strategies screen (`STRAT`)
 
@@ -20,9 +20,13 @@ An inputs pane (starting amount, existing holdings, monthly contribution, horizo
 
 A rail lists paper plans and manually reported records in separate groups, with a form to record existing holdings without a plan. The main area has three tabs. **Plan vs Observed** shows value, net contributed, gain and cash tiles; a timeline with the original plan's 10th–90th percentile band and median, planned and actual contributions, the observed value and the latest reforecast; a table that splits observed minus planned median into contribution difference, projection error, allocation difference and FX (not applicable); and holdings against plan targets. Paper plans add contribution and rebalance actions; trades are previewed and need confirmation. **Ledger** adds, filters, deletes and exports entries, and refuses entries that would overdraw cash or sell units not held. **Snapshots** lists every snapshot with its integrity badge, inputs, versions and percentiles, and runs reforecasts over selectable horizons. Every view carries its mode badge: *Paper (hypothetical)* in cyan or *Manually reported · not broker-verified* in amber.
 
+## Personas screen (`PERS`)
+
+A rail of personas with checkboxes (preset and user-added, with a remove control for added ones), an add-by-name form with a chamber choice, and a source note. The main area has a filter bar (ticker or asset search, All / Purchases / Sales), one summary card per followed persona (click to filter the table to that persona), and a merged table sorted by disclosure date. Purchases are green, sales red; tickers open a chart tab; each row links to its filing. Without an FMP key the main area shows a *Connect the disclosure feed* panel with setup steps instead of data. A persona without a feed says why on its card.
+
 ## Copilot panel
 
-A **Copilot** toggle at the right of the primary navigation opens a 360px panel beside the active screen; the open state persists, the conversation does not. A strip names what the Copilot can see: the screen and, only for that screen, the open strategy, Lab results or portfolio. Answers show a title, short paragraphs and lists, a *Figures traced to engine* badge when they quote results, and a sources line. Withheld answers carry a red *Withheld* badge. A drafted strategy appears as a card with a diff against the curated strategy it resembles (or the strategy it edits), the editable JSON with generated rules, and Save draft / Cancel; nothing is saved without that click. Suggested prompts change with the screen and with what has been calculated.
+A **Copilot** toggle at the right of the primary navigation opens a 360px panel beside the active screen; the open state persists, the conversation does not. A strip names what the Copilot can see: the screen and, only for that screen, the open strategy, Lab results or portfolio. Answers show a title, short paragraphs and lists, a *Figures traced to engine* badge when they quote results, and a sources line. Withheld answers carry a red *Withheld* badge. An ETF variant or drafted strategy appears as a card with a diff against the curated strategy it resembles (or the strategy it edits), the editable JSON with generated rules, and Save draft / Cancel; nothing is saved without that click. A persona answer shows a *Follow* button (or *Follow as House member / Senator* for a new name) that follows the persona and opens the Personas screen. Suggested prompts change with the screen and with what has been calculated.
 
 ## Interaction conventions
 

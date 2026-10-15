@@ -147,3 +147,19 @@ describe("retarget", () => {
     expect(validateStrategy(r).errors.join(" ")).toMatch(/must be different/);
   });
 });
+
+describe("Lab ETF choice", () => {
+  it("swaps SPY for the chosen core ETF in strategies that trade it and leaves the rest", async () => {
+    const { DEFAULT_LAB, labStrategies, validateLab } = await import("./lab");
+    const { CORE_ETFS } = await import("./instruments");
+    expect(CORE_ETFS.map((c) => c.ticker)).toEqual(["SPY", "QQQ", "DIA", "VTI", "MDY"]);
+    for (const c of CORE_ETFS) expect(INSTRUMENT_BY_TICKER[c.ticker].inception < "2002-01-01", c.ticker).toBe(true);
+    const basket = [CATALOG_BY_ID.trend_200d_spy, CATALOG_BY_ID.three_fund];
+    expect(labStrategies(basket, DEFAULT_LAB)).toEqual(basket);
+    const [trend, three] = labStrategies(basket, { ...DEFAULT_LAB, etf: "QQQ" });
+    expect(trend.allocation).toMatchObject({ risky: "QQQ" });
+    expect(trend.benchmark).toBe("QQQ");
+    expect(three).toBe(CATALOG_BY_ID.three_fund);
+    expect(validateLab({ ...DEFAULT_LAB, etf: "NOPE" }).join(" ")).toMatch(/not a supported ETF/);
+  });
+});

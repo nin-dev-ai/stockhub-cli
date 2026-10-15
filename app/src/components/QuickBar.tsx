@@ -18,6 +18,7 @@ const BUTTONS: Btn[] = [
   { code: "FXC",    label: "FX" },
   { code: "CURV",   label: "Yields" },
   { code: "STRAT",  label: "Strategies" },
+  { code: "PERS",   label: "Personas" },
   { code: "LAB",    label: "Lab" },
   { code: "PORT",   label: "Portfolio" },
   { code: "HELP",   label: "Help" },
