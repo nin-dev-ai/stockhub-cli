@@ -2,7 +2,7 @@ import { CATALOG } from "@/quant/catalog";
 import { OBJECTIVES } from "@/quant/optimizer";
 import { describeRules } from "@/quant/rules";
 import { MODE_LABEL } from "@/quant/tracking";
-import { customPersona, PRESET_PERSONAS, type Persona } from "@/quant/personas";
+import { FUND_NOTE, POLITICIAN_NOTE, PRESET_PERSONAS, UNAVAILABLE_PEOPLE, type Persona } from "@/quant/personas";
 import { requiredTickers, type StrategyDef } from "@/quant/strategy";
 import type { CopilotContext, LabContext, PortfolioContext, StrategyContext } from "./context";
 import { draftFromText, findTickers, modifyFromText, variantFromText, type DraftResult } from "./drafting";
@@ -25,8 +25,8 @@ export interface Answer {
   blocks: Block[];
   sources: Source[];
   draft?: DraftResult;
-  /** A persona to follow, offered for confirmation; `options` when the chamber is unknown. */
-  persona?: { known: Persona | null; options: Persona[] };
+  /** A persona to follow, offered for confirmation; `known: null` offers to open the Personas screen. */
+  persona?: { known: Persona | null };
   verified: boolean;
   unverified: string[];
 }
@@ -52,7 +52,7 @@ class Composer {
   note(text: string) { this.blocks.push({ type: "note", text }); return this; }
   source(label: string, detail?: string) { this.sources.push({ label, detail }); return this; }
 
-  persona?: { known: Persona | null; options: Persona[] };
+  persona?: { known: Persona | null };
 
   done(draft?: DraftResult): Answer {
     const text = this.blocks.map((b) => (b.type === "list" ? b.items.join("\n") : b.text)).join("\n");
@@ -342,12 +342,15 @@ function draft(m: string, ctx: CopilotContext, edit: boolean, takenIds: string[]
 const PERSONA_VERB = /\b(follow|track|watch|monitor|mirror|copy|persona|trades?|trading|bought|sold|buying|selling|doing|portfolio|positions?)\b/i;
 const TITLE = "(?:rep\\.?|representative|senator|sen\\.?|congress(?:wo)?man|speaker)";
 
-/** A preset persona named in the message, or a new name after "follow"/"persona for". */
-export function personaRequest(m: string): { known: Persona | null; name: string } | null {
+/** A preset persona named in the message, a politician (no public feed), or a new name after "follow". */
+export function personaRequest(m: string): { known: Persona | null; name: string; politician?: boolean } | null {
   if (!PERSONA_VERB.test(m)) return null;
   const words = m.toLowerCase().replace(/[^a-z ]/g, " ").split(/\s+/);
-  const known = PRESET_PERSONAS.find((p) => words.includes(p.lastName));
+  const known = PRESET_PERSONAS.find((p) => words.includes(p.name.toLowerCase().split(" ").pop()!));
   if (known) return { known, name: known.name };
+  const pol = Object.keys(UNAVAILABLE_PEOPLE).find((k) => words.includes(k));
+  if (pol) return { known: null, name: UNAVAILABLE_PEOPLE[pol], politician: true };
+  if (/\b(congress|senators?|politicians?|representatives?)\b/i.test(m)) return { known: null, name: "members of Congress", politician: true };
   // verbs and titles in any case; the name itself must be capitalized
   const ci = (w: string) => w.replace(/[a-z]/, (ch) => `[${ch}${ch.toUpperCase()}]`);
   const verbs = ["follow", "track", "watch", "monitor", "mirror", "copy", "following", "persona for", "persona of", "persona following"].map(ci).join("|");
@@ -356,20 +359,25 @@ export function personaRequest(m: string): { known: Persona | null; name: string
   return hit ? { known: null, name: hit[1] } : null;
 }
 
-function persona(m: string, who: { known: Persona | null; name: string }): Answer {
-  const c = new Composer("persona", `Follow ${who.name}`, m);
+function persona(m: string, who: { known: Persona | null; name: string; politician?: boolean }): Answer {
+  const c = new Composer("persona", who.politician ? "Not available from a public source" : `Follow ${who.name}`, m);
   const p = who.known;
-  if (p && !p.chamber) {
-    c.p(c.vetted(p.note ?? ""));
-    c.p("You can still follow the persona; its card will say so until a feed for these filings is connected.");
+  if (who.politician) {
+    c.p(c.vetted(POLITICIAN_NOTE));
+    c.p(c.vetted(`Personas that can be followed are people whose trades are in free SEC filings: fund managers through 13F (${PRESET_PERSONAS.filter((x) => x.source.kind === "fund").map((x) => x.name).join(", ")}) and corporate insiders through Form 4 (${PRESET_PERSONAS.filter((x) => x.source.kind === "insider").map((x) => x.name).join(", ")}).`));
+  } else if (p?.source.kind === "fund") {
+    c.p(c.vetted(`${p.name}'s persona reads ${p.source.firm}'s Form 13F filings from SEC EDGAR and shows what changed between the latest two quarters: new positions, additions, trims and full sales, with share changes, value and portfolio weight.`));
+    c.note(c.vetted(FUND_NOTE));
+  } else if (p) {
+    c.p(c.vetted(`${p.name}'s persona reads the Form 4 filings for ${p.source.company} from SEC EDGAR: each trade's date, shares, price and value, with a link to the filing. Insiders file within two business days, so these are the freshest public trades.`));
+    c.note(c.vetted("Grants, option exercises, tax withholding and gifts are hidden by default; the Personas screen can show them."));
   } else {
-    c.p(`The Personas screen shows ${who.name}'s disclosed trades from STOCK Act periodic transaction reports, merged with anyone else you follow into one timeline: disclosure and trade dates, the delay between them, ticker, purchase or sale, the disclosed value range and whose account traded.`);
-    if (!p) c.p("This name is not one of the presets, so pick the chamber they file in. Matching uses the first and last name as filed.");
-    c.note("Filings report value ranges, not exact amounts, and can arrive weeks after the trade, so they show what was done, not what is being done now.");
+    c.p(c.vetted(`${who.name} is not a preset. If their trades are in SEC filings, add them on the Personas screen: a fund manager by their firm's CIK (13F), or a company insider by the company's ticker and their name (Form 4).`));
   }
-  if (/\b(mirror|copy)\b/i.test(m)) c.note("Copying trades automatically is not supported: StockHub is not connected to a broker and places no orders. Following is for research.");
-  c.persona = { known: p, options: p ? [] : (["house", "senate"] as const).map((ch) => customPersona(who.name, ch)).filter((x): x is Persona => !!x) };
-  c.source("Disclosure feed", "Financial Modeling Prep via OpenBB (needs an FMP key)");
+  if (p?.note) c.note(c.vetted(p.note));
+  if (/\b(mirror|copy)\b/i.test(m)) c.note(c.vetted("Copying trades automatically is not supported: StockHub is not connected to a broker and places no orders. Following is for research."));
+  c.persona = { known: p };
+  c.source("SEC EDGAR", "Form 13F and Form 4 via OpenBB, no key");
   return c.done();
 }
 
@@ -412,6 +420,6 @@ export function suggestions(ctx: CopilotContext): string[] {
     if (!ctx.lab.optimization && !ctx.lab.projection) out.push("Explain the backtest results");
   }
   if (ctx.screen === "PORT" && ctx.portfolio) out.push("Why is my portfolio different from the plan?");
-  out.push("Run the golden cross on the Nasdaq", "Follow Nancy Pelosi's trades", "What is a Sharpe ratio?", "Create a strategy: hold SPY above its 200-day moving average, otherwise bonds");
+  out.push("Run the golden cross on the Nasdaq", "Follow Warren Buffett's trades", "What is a Sharpe ratio?", "Create a strategy: hold SPY above its 200-day moving average, otherwise bonds");
   return [...new Set(out)].slice(0, 5);
 }

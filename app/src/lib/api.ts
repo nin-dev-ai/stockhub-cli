@@ -97,9 +97,14 @@ export const fetchQuote = (s: string) =>
   get<Quote[] | Quote>("/equity/price/quote", { symbol: s, provider: "yfinance" })
     .then((r) => (Array.isArray(r) ? r[0] : r));
 
-/** Congressional periodic transaction reports (STOCK Act) via FMP; needs an fmp_api_key in OpenBB. */
-export const fetchGovernmentTrades = (chamber: "house" | "senate", limit = 1000) =>
-  get<Record<string, unknown>[]>("/equity/ownership/government_trades", { provider: "fmp", chamber, limit });
+/** Form 13F holdings for the two most recent quarters, from SEC EDGAR (free, no key). */
+export const fetchForm13F = (cik: string) =>
+  get<Record<string, unknown>[]>("/equity/ownership/form_13f", { provider: "sec", symbol: cik, limit: 2 });
+
+/** Form 4 insider transactions for a company from SEC EDGAR (free, no key); about the last four months. */
+export const fetchInsiderTrades = (symbol: string) =>
+  get<Record<string, unknown>[]>("/equity/ownership/insider_trading", { provider: "sec", symbol, limit: 1000 })
+    .catch((e) => { if (e instanceof ApiError && /no form 4 data/i.test(e.message)) return []; throw e; });
 
 /** Dividend-adjusted (total-return) daily closes, used by the quant engine. */
 export const fetchAdjustedHistory = (s: string, start: string) =>

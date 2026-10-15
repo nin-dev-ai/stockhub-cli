@@ -10,28 +10,21 @@ import { FN_BY_CODE } from "@/lib/functions";
 import { allStrategies, useStrategies } from "@/store/strategyStore";
 import { useWorkspace } from "@/store/workspaceStore";
 import { usePersonas } from "@/store/personaStore";
-import type { Persona } from "@/quant/personas";
 
 /** Following changes only what the Personas screen shows; it still needs the user's click. */
 function PersonaCard({ answer }: { answer: Answer }) {
-  const { followed, toggle, addCustom } = usePersonas();
+  const { followed, follow } = usePersonas();
   const openTab = useWorkspace((s) => s.openTab);
   const [done, setDone] = useState<string | null>(null);
-  const { known, options } = answer.persona!;
-  const follow = (p: Persona) => {
-    if (p.custom) addCustom(p);
-    else if (!followed.includes(p.id)) toggle(p.id);
-    setDone(p.name);
-    openTab("PERS");
-  };
-  if (done) return <div className="text-[10px] text-term-green">Following {done}. Opened the Personas screen.</div>;
+  const { known } = answer.persona!;
+  if (done) return <div className="text-[10px] text-term-green">{done}</div>;
   const btn = "px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px]";
   return (
     <div className="border border-term-amberDim p-2 flex flex-wrap items-center gap-2">
-      <Badge tone="amber">Needs your confirmation</Badge>
-      {known
-        ? <button onClick={() => follow(known)} className={btn}>{followed.includes(known.id) ? "Open Personas" : `Follow ${known.name}`}</button>
-        : options.map((p) => <button key={p.id} onClick={() => follow(p)} className={btn}>Follow as {p.chamber === "house" ? "House member" : "Senator"}</button>)}
+      {known && !followed.includes(known.id) && <Badge tone="amber">Needs your confirmation</Badge>}
+      {known && !followed.includes(known.id)
+        ? <button onClick={() => { follow(known.id); setDone(`Following ${known.name}. Opened the Personas screen.`); openTab("PERS"); }} className={btn}>Follow {known.name}</button>
+        : <button onClick={() => { setDone("Opened the Personas screen."); openTab("PERS"); }} className={btn}>Open Personas</button>}
     </div>
   );
 }

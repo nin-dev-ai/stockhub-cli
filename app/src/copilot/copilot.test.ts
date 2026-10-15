@@ -248,22 +248,26 @@ describe("ETF variants from text", () => {
 
 describe("personas", () => {
   it("offers to follow a preset persona without taking the action itself", () => {
-    const a = respond("Follow Nancy Pelosi's trades", empty);
+    const a = respond("Follow Warren Buffett's trades", empty);
     expect(a.kind).toBe("persona");
     expect(a.verified).toBe(true);
-    expect(a.persona?.known?.id).toBe("pelosi");
-    expect(text(a)).toMatch(/value ranges/);
+    expect(a.persona?.known?.id).toBe("buffett");
+    expect(text(a)).toMatch(/13F/);
+    expect(respond("what is Jensen Huang selling?", empty).persona?.known?.id).toBe("huang");
   });
-  it("asks for the chamber for a new name and says copying is not supported", () => {
-    const a = respond("create a persona following Senator Dan Crenshaw and copy his trades", empty);
+  it("explains that politicians have no free public feed", () => {
+    for (const q of ["what is Nancy Pelosi trading?", "follow Donald Trump", "show me what senators are buying"]) {
+      const a = respond(q, empty);
+      expect(a.kind, q).toBe("persona");
+      expect(a.persona?.known, q).toBeNull();
+      expect(text(a), q).toMatch(/no free public API/);
+    }
+  });
+  it("points an unknown name to the add form and says copying is not supported", () => {
+    const a = respond("follow Tim Cook and copy his trades", empty);
     expect(a.persona?.known).toBeNull();
-    expect(a.persona?.options.map((p) => p.chamber)).toEqual(["house", "senate"]);
+    expect(text(a)).toMatch(/not a preset/);
     expect(text(a)).toMatch(/places no orders/);
-  });
-  it("explains why a persona without a feed shows no trades", () => {
-    const a = respond("what is Donald Trump trading?", empty);
-    expect(a.persona?.known?.id).toBe("trump");
-    expect(text(a)).toMatch(/Office of Government Ethics/);
   });
   it("leaves unrelated questions alone", () => {
     expect(respond("Why is my portfolio different from the plan?", empty).kind).not.toBe("persona");
