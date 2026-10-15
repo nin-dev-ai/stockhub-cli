@@ -28,7 +28,7 @@ The strategy engine is a UI-free TypeScript library in `app/src/quant/` that run
 | Module | Responsibility |
 | --- | --- |
 | `instruments.ts` | US-ETF/USD universe (about 40 ETFs grouped by asset class for pickers), index-to-proxy map, static exposure vectors |
-| `data.ts`, `dataSource.ts` | Dividend-adjusted history via OpenBB (`adjustment=splits_and_dividends`), alignment on common dates, content-hash dataset id, quality flags, local price cache |
+| `data.ts`, `dataSource.ts` | Dividend-adjusted history via OpenBB (`adjustment=splits_and_dividends`), alignment on common dates, content-hash dataset id, quality flags, local price cache. An empty provider answer is retried once and never cached; a ticker that still fails becomes an empty, error-flagged series, and only strategies that trade or benchmark it refuse to run |
 | `strategy.ts`, `rules.ts`, `catalog.ts` | Versioned JSON strategy schema, validation (no leverage, long-only), plain-English rules generated from the definition, the 21 curated strategies, and `retarget`, which swaps ETFs in a definition (merging weights and repeated assets that land on the same ETF) to make a variant with a new id and a caveat |
 | `backtest.ts` | Deterministic daily simulation: decide on data through close t, fill at close t+1 with slippage and fees, time-weighted returns separate from contributions, locked cash for DCA and reserves, decision and trade reasons |
 | `metrics.ts`, `indicators.ts` | Metrics that return null with a reason when the sample is too short; indicators that cannot see the future |

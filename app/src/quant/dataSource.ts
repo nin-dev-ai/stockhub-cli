@@ -18,8 +18,11 @@ function writeCache(c: Record<string, CacheEntry>) {
 async function loadTicker(ticker: string, start: string): Promise<RawBar[]> {
   const cache = readCache();
   const hit = cache[ticker];
-  if (hit && hit.start <= start && Date.now() - hit.fetchedAt < TTL_MS) return hit.bars;
-  const rows = await fetchAdjustedHistory(ticker, start);
+  if (hit && hit.bars.length > 0 && hit.start <= start && Date.now() - hit.fetchedAt < TTL_MS) return hit.bars;
+  let rows = await fetchAdjustedHistory(ticker, start);
+  // the provider sometimes answers a burst of requests with an empty result; retry once, never cache it
+  if (rows.length === 0) rows = await fetchAdjustedHistory(ticker, start);
+  if (rows.length === 0) throw new Error(`${ticker}: the provider returned no prices.`);
   const bars = rows.map((r) => ({ date: r.date, close: r.close }));
   writeCache({ ...readCache(), [ticker]: { fetchedAt: Date.now(), start, bars } });
   return bars;
@@ -35,7 +38,8 @@ export async function loadDataset(tickers: string[], start = DEFAULT_START): Pro
       p.catch(() => memo.delete(k));
       memo.set(k, p);
     }
-    raw[t] = await memo.get(k)!;
+    // a failed ticker becomes an empty series: it is flagged, and only strategies that need it fail
+    raw[t] = await memo.get(k)!.catch(() => []);
   }));
   return buildDataset(raw, { provider: "yfinance via OpenBB", fetchedAt: new Date().toISOString() });
 }

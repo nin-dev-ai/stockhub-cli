@@ -117,6 +117,16 @@ describe("errors and data quality", () => {
     const only = syntheticDataset(5, 1, ["SPY"]);
     expect(() => runBacktestOn(only, CATALOG_BY_ID.trend_200d_spy)).toThrow(DataError);
   });
+  it("runs strategies that do not need a ticker whose history failed to load", () => {
+    const days = bdays("2015-01-02", 600);
+    const bars = (k: number): RawBar[] => days.map((date, i) => ({ date, close: 100 + k + i * 0.05 }));
+    const partial = buildDataset({ SPY: bars(0), SHY: bars(1), XLB: [] }, { provider: "test", fetchedAt: "2017-05-01T00:00:00Z" });
+    expect(partial.version.qualityFlags.some((f) => f.severity === "error" && f.message.startsWith("XLB:"))).toBe(true);
+    const r = runBacktestOn(partial, CATALOG_BY_ID.buy_hold_spy);
+    expect(r.flags.some((f) => f.message.startsWith("XLB:"))).toBe(false);
+    const needsXlb = { ...CATALOG_BY_ID.buy_hold_spy, id: "xlb", allocation: { type: "static" as const, weights: { XLB: 1 } } };
+    expect(() => runBacktestOn(partial, needsXlb)).toThrow(DataError);
+  });
   it("surfaces data-quality flags and short-window warnings", () => {
     const short = syntheticDataset(0.5, 1);
     const r = runBacktestOn(short, CATALOG_BY_ID.buy_hold_spy, { initial: 1000 });

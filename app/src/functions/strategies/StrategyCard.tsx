@@ -53,7 +53,7 @@ export function StrategyCard({ def, result, error, draft, variant, inBasket, sel
           {inBasket ? <Check size={13} /> : <Plus size={13} />}
         </button>
       </div>
-      <div className="px-3 pb-2 text-[11px] text-term-text leading-snug line-clamp-2">{def.summary}</div>
+      <div className="px-3 pb-2"><p className="text-[11px] text-term-text leading-snug line-clamp-2">{def.summary}</p></div>
       {error ? (
         <div className="px-3 pb-3 text-[11px] text-term-red">Could not run: {error}</div>
       ) : !result ? (
@@ -67,9 +67,9 @@ export function StrategyCard({ def, result, error, draft, variant, inBasket, sel
         </div>
       )}
       {result && (
-        <div className="px-3 pb-2 flex items-center justify-between text-[10px] text-term-muted">
+        <div className="px-3 pb-2 flex items-center justify-between gap-3 text-[10px] text-term-muted">
           <span className="num">{result.window.start} → {result.window.end} · {result.run.tradeCount} trades</span>
-          <span title={`Dataset ${result.dataset.id} · engine ${result.engineVersion} · run ${result.runId}`}>method {result.runId.slice(0, 6)}</span>
+          <span className="shrink-0" title={`Dataset ${result.dataset.id} · engine ${result.engineVersion} · run ${result.runId}`}>method {result.runId.slice(0, 6)}</span>
         </div>
       )}
     </div>

@@ -39,7 +39,7 @@ export const FUNCTIONS: FunctionDef[] = [
 
   { code: "LAB",   name: "Simulation Lab",       needsSymbol: false, group: "Strategy", summary: "Backtest a basket, optimize weights, project a range of outcomes" },
   { code: "PORT",  name: "My Portfolio",         needsSymbol: false, group: "Strategy", summary: "Saved plans, paper and manually reported holdings, plan vs observed" },
-  { code: "PERS",  name: "Personas",             needsSymbol: false, group: "Strategy", summary: "Follow public figures' disclosed trades (congressional STOCK Act filings) in one timeline" },
+  { code: "PERS",  name: "Personas",             needsSymbol: false, group: "Strategy", summary: "Follow public figures' disclosed trades (SEC 13F and Form 4 filings) in one timeline" },
   { code: "STRAT", name: "Strategies",           needsSymbol: false, group: "Strategy", summary: "Curated rules-based strategies: rules, backtests, robustness, basket" },
 ];
 
