@@ -107,6 +107,7 @@ Type any of these in the command bar:
 | `CURV`  | US Treasury yield curve + spreads          |
 
 | `STRAT` | Strategies: curated rules-based ideas, backtests, robustness, basket |
+| `LAB`   | Simulation Lab: backtest a basket, optimize weights, project a range of outcomes |
 
 Syntax: `[SYMBOL] CODE` — e.g., `TSLA KEY`, or `WEI` (no symbol), or just `NVDA` (defaults to INTEL).
 
@@ -119,6 +120,12 @@ Keyboard: `↑/↓` walks history, `⇥` autocompletes codes, `/` focuses the co
 A catalog of 12 rules-based strategies on US-listed ETFs (USD): buy-and-hold, dollar-cost averaging, a 200-day trend filter, 60/40 rebalancing by schedule and by drift threshold, a drawdown cash reserve, momentum rotation, volatility targeting (no leverage), a seasonal rule (experimental), a cash buffer, a 12-month stocks-or-bonds rule, and a permanent portfolio. Open a card to see the exact rules in plain English and as JSON, the evidence against an SPY buy-and-hold benchmark, robustness checks, and a reason for every trade. Add up to three to a basket and compare them on the same dates. Fork a strategy into an editable draft stored in your browser.
 
 These are historical tests on dividend-adjusted prices with modeled costs, not forecasts or advice. Signals use data through the close and fill at the next close. The full method, including conventions and limits, is in [docs/PRD_phase2.md](docs/PRD_phase2.md) and [docs/technical_design.md](docs/technical_design.md).
+
+### Simulation Lab (`LAB`)
+
+Open a basket in the Lab, enter a starting amount (for example $200), a monthly contribution (for example $50), a horizon of 1 to 30 years and a risk objective. **Run Backtest** shows what the plan would have done with your cash flows next to equal weight and SPY buy-and-hold. **Optimize Allocation** proposes long-only, no-leverage weights for lower volatility, balanced risk and growth, names the constraints that bind, flags strategies that overlap in what they own, and checks the result out of sample; you can override the weights. **Run Projection** simulates thousands of possible paths from historical monthly returns and shows a lower, median and upper range (10th, 50th, 90th percentile) with stress scenarios. **View Methodology** lists every assumption, seed and version, and exports JSON and CSV.
+
+The ranges are model-based possibilities, not forecasts: the lower line is not a worst case and the upper line is not a maximum. With too little history, no projection is shown.
 
 ---
 

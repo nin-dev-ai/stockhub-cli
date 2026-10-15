@@ -12,6 +12,10 @@ A strip under the command bar switches between the product's sections: **Explore
 
 A filter rail (search, sort, type, risk level, robustness) beside a grid of strategy cards, with a basket bar at the bottom and a drawer on the right. The default sort ranks the robustness verdict first, then Sharpe, then drawdown, never return alone. Cards show CAGR, the difference from the benchmark, max drawdown, Sharpe, the sample window and a short run id. The drawer shows a four-step flow (data, signal, schedule, orders), the exact rules and JSON definition, evidence charts and metrics, robustness, a reason for each trade, assumptions with the dataset version, and warnings. Every result is labelled as a historical backtest. Metrics the sample cannot support show "n/a" with the reason.
 
+## Simulation Lab screen (`LAB`)
+
+An inputs pane (starting amount, existing holdings, monthly contribution, horizon, basket, risk objective, weight cap, advanced assumptions) beside a canvas with three tabs and four actions: Run Backtest, Optimize Allocation, Run Projection and View Methodology. Long-running actions show progress and can be cancelled. Every result carries a label: *Historical backtest*, *Historical weights* or *Future simulation (model-based)*. The projection fan chart labels the 10th, 50th and 90th percentiles and states that the lower line is not a worst case. Weight overrides must sum to 100% and are previewed before they apply. With no basket, the Lab explains the next step and links to Strategies.
+
 ## Interaction conventions
 
 - Entering a ticker alone opens `INTEL` for that symbol.

@@ -4,7 +4,7 @@ export type FunctionCode =
   | "FA" | "KEY" | "DVD" | "EE" | "NI"
   | "WEI" | "MOV" | "OMON"
   | "CURV" | "FXC" | "CRYPTO"
-  | "STRAT";
+  | "STRAT" | "LAB";
 
 export interface FunctionDef {
   code: FunctionCode;
@@ -37,13 +37,16 @@ export const FUNCTIONS: FunctionDef[] = [
 
   { code: "CURV", name: "US Yield Curve",        needsSymbol: false, group: "Macro", summary: "Treasury par yield curve" },
 
+  { code: "LAB",   name: "Simulation Lab",       needsSymbol: false, group: "Strategy", summary: "Backtest a basket, optimize weights, project a range of outcomes" },
   { code: "STRAT", name: "Strategies",           needsSymbol: false, group: "Strategy", summary: "Curated rules-based strategies: rules, backtests, robustness, basket" },
 ];
 
 /** Primary navigation sections; every function belongs to exactly one. */
-export type Section = "explore" | "strategies";
+export type Section = "explore" | "strategies" | "lab";
 export const STRATEGY_CODES: FunctionCode[] = ["STRAT"];
-export const sectionOf = (code: FunctionCode): Section => (STRATEGY_CODES.includes(code) ? "strategies" : "explore");
+export const LAB_CODES: FunctionCode[] = ["LAB"];
+export const sectionOf = (code: FunctionCode): Section =>
+  STRATEGY_CODES.includes(code) ? "strategies" : LAB_CODES.includes(code) ? "lab" : "explore";
 
 export const FN_BY_CODE: Record<string, FunctionDef> = Object.fromEntries(FUNCTIONS.map((f) => [f.code, f]));
 

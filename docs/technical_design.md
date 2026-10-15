@@ -35,8 +35,12 @@ The strategy engine is a UI-free TypeScript library in `app/src/quant/` that run
 | `robustness.ts` | Train/test split, rolling 3-year windows, parameter sensitivity, verdict |
 | `service.ts` | `runBacktestOn` / `runBacktest`: validation, run id = hash(strategy, dataset, config, engine version), benchmark on identical cash flows, conventions and flags |
 | `ranking.ts`, `useBacktests.ts` | Evidence-first ordering; progressive runs over one shared dataset |
+| `portfolio.ts`, `overlap.ts` | Weight validation (long-only, sum to 100%), blending of strategy return streams, cash-flow paths; overlap by asset class and return correlation |
+| `optimizer.ts` | Exhaustive 1% grid search over capped long-only weights for three objectives, binding constraints, baselines, out-of-sample refit |
+| `projection.ts` | Seeded block-bootstrap or parametric simulation of terminal wealth: fan percentiles, real values, loss and goal probabilities, stress scenarios, refusal on short history |
+| `jobs.ts`, `lab.ts`, `useLab.ts`, `report.ts` | Idempotent in-thread job queue with progress and cancellation (ids hash kind, input and engine version); Lab input validation and composition; calculation report and CSV export |
 
-State for baskets and drafts is in `app/src/store/strategyStore.ts` (browser storage). Run `LIVE=1 npx vitest run src/quant/live.test.ts` from `app/` to run the catalog against the local API.
+State for baskets and drafts is in `app/src/store/strategyStore.ts` and Lab inputs in `app/src/store/labStore.ts` (browser storage). Jobs run on the main thread and yield between chunks; the engine has no DOM dependency, so moving them into a Web Worker is a contained change. Run `LIVE=1 npx vitest run src/quant/live.test.ts` from `app/` to run the catalog against the local API.
 
 ## Change points
 

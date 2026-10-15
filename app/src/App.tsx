@@ -27,6 +27,7 @@ import { CURV } from "@/functions/CURV";
 import { FXC } from "@/functions/FXC";
 import { CRYPTO } from "@/functions/CRYPTO";
 import { STRAT } from "@/functions/STRAT";
+import { LAB } from "@/functions/LAB";
 
 const SCREENS: Record<string, (symbol?: string) => JSX.Element> = {
   CC: () => <CC />,
@@ -48,6 +49,7 @@ const SCREENS: Record<string, (symbol?: string) => JSX.Element> = {
   FXC: () => <FXC />,
   CRYPTO: () => <CRYPTO />,
   STRAT: () => <STRAT />,
+  LAB: () => <LAB />,
 };
 
 export default function App() {

@@ -210,6 +210,7 @@ describe("lab composition", () => {
   it("validates inputs and maps them to a backtest config", () => {
     expect(validateLab(DEFAULT_LAB)).toEqual([]);
     expect(validateLab({ ...DEFAULT_LAB, initial: 0, monthly: 0 }).join()).toMatch(/initial amount or a monthly/);
+    expect(backtestConfig({ ...DEFAULT_LAB, existing: 300 }).initial).toBe(500);
     expect(validateLab({ ...DEFAULT_LAB, years: 40 }).join()).toMatch(/1 to 30/);
     expect(backtestConfig(DEFAULT_LAB).contribution).toEqual({ amount: 50, frequency: "monthly" });
   });

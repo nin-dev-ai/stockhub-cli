@@ -7,6 +7,7 @@ interface Item { section: Section; label: string; hint: string; code: FunctionCo
 const ITEMS: Item[] = [
   { section: "explore", label: "Explore", hint: "Markets, instruments, charts", code: "CC" },
   { section: "strategies", label: "Strategies", hint: "Rules-based ideas with evidence", code: "STRAT" },
+  { section: "lab", label: "Simulation Lab", hint: "Backtest, optimize and project a plan", code: "LAB" },
 ];
 
 export function PrimaryNav() {

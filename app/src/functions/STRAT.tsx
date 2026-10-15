@@ -7,6 +7,7 @@ import { SCORECARD_CONFIG } from "@/quant/service";
 import { forkStrategy, type StrategyDef } from "@/quant/strategy";
 import { useBacktests } from "@/quant/useBacktests";
 import { allStrategies, isDraft, MAX_BASKET, useStrategies } from "@/store/strategyStore";
+import { useWorkspace } from "@/store/workspaceStore";
 import { FlagList } from "@/components/quant/Badges";
 import { StrategyCard } from "./strategies/StrategyCard";
 import { StrategyDetail } from "./strategies/StrategyDetail";
@@ -42,6 +43,7 @@ function FilterGroup({ title, options, selected, toggle }: { title: string; opti
 }
 
 export function STRAT() {
+  const openTab = useWorkspace((s) => s.openTab);
   const { basket, drafts, addToBasket, removeFromBasket, clearBasket, saveDraft, deleteDraft } = useStrategies();
   const defs = useMemo(() => allStrategies(drafts), [drafts]);
   const { dataset, results, errors, running } = useBacktests(defs, SCORECARD_CONFIG, { robustness: true });
@@ -173,6 +175,8 @@ export function STRAT() {
           <span className="ml-auto flex gap-2">
             <button disabled={basket.length < 2} onClick={() => setPanel({ kind: "compare" })}
               className="px-3 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle disabled:opacity-30 disabled:cursor-not-allowed">Compare</button>
+            <button disabled={basket.length < 1} onClick={() => openTab("LAB")}
+              className="px-3 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle disabled:opacity-30 disabled:cursor-not-allowed">Open in Lab</button>
             {basket.length > 0 && <button onClick={clearBasket} className="px-3 py-1 border border-term-border text-term-muted hover:text-term-text">Clear</button>}
           </span>
         </div>
