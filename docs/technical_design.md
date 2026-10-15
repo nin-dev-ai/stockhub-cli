@@ -50,6 +50,20 @@ State for baskets and drafts is in `app/src/store/strategyStore.ts`, Lab inputs 
 - **Attribution.** Observed value minus the original median = contribution difference (actual minus planned money in) + projection error (the plan's weights replayed on realized returns with the actual cash flows, versus the median path) + allocation difference (observed minus that replay). FX is not applicable while the universe is USD only.
 - **Reforecast.** Re-runs the snapshot's strategies on current data, then projects from the current value with the plan's monthly contribution over the chosen horizon.
 
+### Copilot
+
+`app/src/copilot/` is a deterministic assistant with no network calls.
+
+| Module | Responsibility |
+| --- | --- |
+| `context.ts` | Store that screens publish structured results to (open strategy and backtest, Lab inputs/weights/optimization/projection, portfolio attribution); the panel passes only the active screen's entry |
+| `assistant.ts` | `respond(message, context)`: guardrails, intent routing, and answer builders. A `Composer` formats every figure from engine fields and records it; `verifyFigures` then rejects any number in the text that is not in those records, vetted rule/glossary text or the user's message, and `hasUnsafeCertainty` rejects promise language |
+| `guardrails.ts` | Classifies the user's message only (injection, action, certainty, advice); context text is never routed as an instruction. Draft strategies' free text is not quoted |
+| `drafting.ts` | Pattern-based translation of a description into the strategy schema, with assumptions, unsupported parts, validation, edits to a copy of the strategy in context, and a rule-field diff |
+| `glossary.ts` | Curated definitions and alias matching |
+
+The UI is `app/src/components/CopilotPanel.tsx`; drafts reuse `DraftEditor` and save through `strategyStore`. An LLM adapter could replace intent routing and phrasing while keeping the context store, Composer verification and confirmation flow.
+
 ## Change points
 
 - To add a function, register it in `functions.ts`, create its screen in `app/src/functions/`, and wire it in `App.tsx`.
@@ -59,6 +73,6 @@ State for baskets and drafts is in `app/src/store/strategyStore.ts`, Lab inputs 
 
 ## Verification
 
-Run `npm test` from `app/` for unit coverage of the deterministic core (signal rules in `signals.ts`, the command parser in `functions.ts`, and the formatters in `format.ts`; tests live beside the source as `*.test.ts` and run under Vitest). Run `npm run build` from `app/` for TypeScript and production build validation. For behavior that depends on providers, run the local services and check the affected screen with representative symbols and error cases.
+Run `npm test` from `app/` for unit coverage of the deterministic core (signal rules in `signals.ts`, the command parser in `functions.ts`, and the formatters in `format.ts`; tests live beside the source as `*.test.ts`, or `*.test.tsx` for DOM smoke tests under happy-dom, and run under Vitest). Run `npm run build` from `app/` for TypeScript and production build validation. For behavior that depends on providers, run the local services and check the affected screen with representative symbols and error cases.
 
 GitHub Actions runs the same tests and frontend build on pushes and pull requests using Node.js 20 (`.github/workflows/frontend-build.yml`).

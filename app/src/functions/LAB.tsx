@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useCopilotContext } from "@/copilot/context";
 import { Badge } from "@/components/quant/Badges";
 import { cn } from "@/lib/cn";
 import { buildReport } from "@/quant/report";
@@ -37,6 +38,15 @@ export function LAB() {
     inputs, weights: eng.weights, weightsSource: eng.weightsSource as never,
     backtests: bundle?.results ?? [], optimization: eng.opt?.result ?? null, projection: eng.proj?.result ?? null,
   }), [inputs, eng.weights, eng.weightsSource, bundle, eng.opt?.result, eng.proj?.result]);
+
+  const setCopilotLab = useCopilotContext((s) => s.setLab);
+  useEffect(() => {
+    setCopilotLab({
+      inputs, weights: eng.weights, weightsSource: eng.weightsSource, backtests: bundle?.results ?? [],
+      planMetrics: eng.plan?.metrics ?? null, optimization: eng.opt?.result ?? null, projection: eng.proj?.result ?? null,
+    });
+  }, [inputs, eng.weights, eng.weightsSource, bundle, eng.plan, eng.opt?.result, eng.proj?.result, setCopilotLab]);
+  useEffect(() => () => setCopilotLab(null), [setCopilotLab]);
 
   if (defs.length === 0) {
     return (

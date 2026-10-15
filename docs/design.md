@@ -20,6 +20,10 @@ An inputs pane (starting amount, existing holdings, monthly contribution, horizo
 
 A rail lists paper plans and manually reported records in separate groups, with a form to record existing holdings without a plan. The main area has three tabs. **Plan vs Observed** shows value, net contributed, gain and cash tiles; a timeline with the original plan's 10th–90th percentile band and median, planned and actual contributions, the observed value and the latest reforecast; a table that splits observed minus planned median into contribution difference, projection error, allocation difference and FX (not applicable); and holdings against plan targets. Paper plans add contribution and rebalance actions; trades are previewed and need confirmation. **Ledger** adds, filters, deletes and exports entries, and refuses entries that would overdraw cash or sell units not held. **Snapshots** lists every snapshot with its integrity badge, inputs, versions and percentiles, and runs reforecasts over selectable horizons. Every view carries its mode badge: *Paper (hypothetical)* in cyan or *Manually reported · not broker-verified* in amber.
 
+## Copilot panel
+
+A **Copilot** toggle at the right of the primary navigation opens a 360px panel beside the active screen; the open state persists, the conversation does not. A strip names what the Copilot can see: the screen and, only for that screen, the open strategy, Lab results or portfolio. Answers show a title, short paragraphs and lists, a *Figures traced to engine* badge when they quote results, and a sources line. Withheld answers carry a red *Withheld* badge. A drafted strategy appears as a card with a diff against the curated strategy it resembles (or the strategy it edits), the editable JSON with generated rules, and Save draft / Cancel; nothing is saved without that click. Suggested prompts change with the screen and with what has been calculated.
+
 ## Interaction conventions
 
 - Entering a ticker alone opens `INTEL` for that symbol.

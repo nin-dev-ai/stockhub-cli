@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useCopilotContext } from "@/copilot/context";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { CATALOG } from "@/quant/catalog";
@@ -95,6 +96,14 @@ export function STRAT() {
   const basketResults = basketDefs.map((d) => results[d.id]).filter(Boolean);
   const ds = dataset.data?.version;
   const detailDef = panel?.kind === "detail" ? defs.find((d) => d.id === panel.id) : undefined;
+
+  // the open strategy and its result are what the Copilot may explain
+  const setCopilotStrategy = useCopilotContext((s) => s.setStrategy);
+  const detailResult = detailDef ? results[detailDef.id] ?? null : null;
+  useEffect(() => {
+    setCopilotStrategy(detailDef ? { def: detailDef, result: detailResult, draft: isDraft(detailDef.id) } : null);
+  }, [detailDef, detailResult, setCopilotStrategy]);
+  useEffect(() => () => setCopilotStrategy(null), [setCopilotStrategy]);
 
   if (dataset.isError) {
     return (
