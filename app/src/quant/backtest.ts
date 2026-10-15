@@ -1,4 +1,4 @@
-import { drawdownSeries, rollingVol, sma, trailingReturn } from "./indicators";
+import { drawdownSeries, rollingVol, rsi, sma, trailingReturn } from "./indicators";
 import { computeMetrics, yearsBetween } from "./metrics";
 import type { Allocation, Schedule, StrategyDef } from "./strategy";
 import type { Metrics, Panel, QualityFlag } from "./types";
@@ -142,6 +142,59 @@ function makeSignal(a: Allocation, panel: Panel): (t: number) => Signal {
         return r[t] > 0
           ? { weights: { [a.risky]: 1 }, reason: `${txt} is positive: hold ${a.risky}` }
           : { weights: { [a.safe]: 1 }, reason: `${txt} is not positive: hold ${a.safe}` };
+      };
+    }
+    case "risk_parity": {
+      const vols = Object.fromEntries(a.assets.map((u) => [u, rollingVol(c[u], a.lookbackDays)]));
+      const equal = Object.fromEntries(a.assets.map((u) => [u, 1 / a.assets.length]));
+      return (t) => {
+        const inv = a.assets.map((u) => ({ u, v: vols[u][t] }));
+        if (inv.some((x) => !(x.v > 0))) return { weights: equal, reason: `Warm-up: ${a.lookbackDays}-day volatility not yet available, equal weights` };
+        const total = inv.reduce((s, x) => s + 1 / x.v, 0);
+        const w: Weights = Object.fromEntries(inv.map((x) => [x.u, 1 / x.v / total]));
+        return { weights: w, reason: `Inverse ${a.lookbackDays}d volatility: ${inv.map((x) => `${x.u} vol ${(x.v * 100).toFixed(1)}%→${(w[x.u] * 100).toFixed(0)}%`).join(", ")}` };
+      };
+    }
+    case "multi_trend": {
+      const avgs = Object.fromEntries(a.assets.map((u) => [u, sma(c[u], a.smaDays)]));
+      const slot = 1 / a.assets.length;
+      return (t) => {
+        const w: Weights = {};
+        const notes: string[] = [];
+        for (const u of a.assets) {
+          const m = avgs[u][t], on = Number.isFinite(m) && c[u][t] > m;
+          const key = on ? u : a.safe;
+          w[key] = (w[key] ?? 0) + slot;
+          notes.push(Number.isFinite(m) ? `${u} ${on ? "above" : "below"}${on ? "" : `→${a.safe}`}` : `${u} warm-up→${a.safe}`);
+        }
+        return { weights: w, reason: `${a.smaDays}d average: ${notes.join(", ")}` };
+      };
+    }
+    case "crossover": {
+      const fast = sma(c[a.risky], a.fastDays), slow = sma(c[a.risky], a.slowDays);
+      return (t) => {
+        const f = fast[t], s = slow[t];
+        if (Number.isNaN(s)) return safeAll(a.safe, `Warm-up: ${a.slowDays}-day average not yet available, holding ${a.safe}`);
+        const desc = `${a.risky} ${a.fastDays}d avg ${f.toFixed(2)} vs ${a.slowDays}d avg ${s.toFixed(2)}`;
+        return f > s
+          ? { weights: { [a.risky]: 1 }, reason: `${desc}: fast above slow, hold ${a.risky}` }
+          : { weights: { [a.safe]: 1 }, reason: `${desc}: fast not above slow, hold ${a.safe}` };
+      };
+    }
+    case "mean_reversion": {
+      const r = rsi(c[a.risky], a.rsiDays);
+      const trend = a.trendDays > 0 ? sma(c[a.risky], a.trendDays) : null;
+      let inPos = false;
+      return (t) => {
+        const v = r[t];
+        if (Number.isNaN(v) || (trend && Number.isNaN(trend[t]))) return safeAll(a.safe, `Warm-up: indicators not yet available, holding ${a.safe}`);
+        const above = !trend || c[a.risky][t] > trend[t];
+        const desc = `${a.risky} RSI(${a.rsiDays}) ${v.toFixed(1)}${trend ? `, ${above ? "above" : "below"} ${a.trendDays}d average` : ""}`;
+        if (!inPos && v < a.entryRsi && above) inPos = true;
+        else if (inPos && v > a.exitRsi) inPos = false;
+        return inPos
+          ? { weights: { [a.risky]: 1 }, reason: `${desc}: pullback position, hold ${a.risky}` }
+          : { weights: { [a.safe]: 1 }, reason: `${desc}: no pullback signal, hold ${a.safe}` };
       };
     }
   }

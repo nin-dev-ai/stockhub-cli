@@ -484,7 +484,7 @@ This section is maintained alongside the code. It records how the open decisions
 | # | Decision | Rationale |
 | --- | --- | --- |
 | 1 | Product name is **StockHub**. | Rename already made for trademark safety; EMBER was provisional. |
-| 2 | MVP universe is **US-listed ETFs, USD only**. Nifty/Indian instruments are not published. | Section 6.2 requires validated instrument, corporate-action and currency data before publication; none is verified. The Explore screen states this limit. |
+| 2 | MVP universe is **US-listed ETFs, USD only** (about 40; any strategy can be run on any of them). Nifty/Indian-listed instruments are not published; INDA, a US-listed MSCI India ETF, is in the universe. | Section 6.2 requires validated instrument, corporate-action and currency data before publication; none is verified. The Explore screen states this limit. |
 | 3 | The optimizer works on **strategy sleeves** (each strategy's standalone return stream) and reports **underlying exposure overlap** by asset bucket. | Sleeve weights are what a user selects; overlap keeps concentration visible, as required. |
 | 4 | Projection default is **block bootstrap of monthly returns**; **parametric Monte Carlo** is offered as a second method. Both are seeded. Projections are suppressed when fewer than 60 monthly observations exist. | Resampling makes no distribution assumption; the history length rule implements SIM-11. |
 | 5 | **Local-only storage** (browser storage), no accounts. | No auth or database exists in the repo; the app is a local single-user tool. Broker credentials are never stored. |
@@ -510,7 +510,7 @@ Updated as each milestone lands; see the git history for detail.
 
 | Milestone | Status |
 | --- | --- |
-| A — Strategy core | Delivered: engine, 12-strategy catalog, robustness, Strategies screen with basket, compare and drafts |
+| A — Strategy core | Delivered: engine, 21-strategy catalog, ETF retargeting, robustness, Strategies screen with basket, compare and drafts |
 | B — Simulation and optimization | Delivered: basket-to-Lab flow, overlap analysis, constrained optimizer with baselines and out-of-sample check, bootstrap and parametric projections with fan chart and scenarios, calculation report with JSON and CSV export |
 | C — Portfolio tracking | Delivered: My Portfolio screen, Save Plan from the Lab, paper and manually reported portfolios kept apart, validated ledger with CSV export, content-addressed immutable snapshots, plan vs observed vs reforecast timeline, attribution of the gap, reforecast over selectable horizons |
 | D — AI education and strategy authoring | Delivered: Copilot side panel on every screen with screen-scoped context, glossary, strategy/backtest/optimization/projection/portfolio explanations with sources, figure verification against engine output, certainty/advice/action/injection guardrails, natural-language strategy drafting with diff and explicit save |

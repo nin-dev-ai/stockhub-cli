@@ -1,5 +1,5 @@
 import { CATALOG } from "@/quant/catalog";
-import { INSTRUMENT_BY_TICKER } from "@/quant/instruments";
+import { INSTRUMENT_BY_TICKER, INSTRUMENTS } from "@/quant/instruments";
 import { describeRules } from "@/quant/rules";
 import { validateStrategy, type Allocation, type Schedule, type StrategyDef } from "@/quant/strategy";
 
@@ -35,16 +35,17 @@ const ALIASES: [RegExp, string][] = [
   [/\bcash\b|\bshort[- ](term )?treasur(y|ies)\b|\bt-?bills?\b|\bmoney market\b/i, "SHY"],
 ];
 const UNSUPPORTED: [RegExp, string][] = [
-  [/\bnifty\b|\bindia(n)?\b|\bsensex\b/i, "Indian instruments such as the Nifty 50 are not supported: only US-listed ETFs in USD."],
+  [/\bnifty\b|\bsensex\b/i, "Indian-listed instruments such as the Nifty 50 are not supported: only US-listed ETFs in USD (INDA tracks MSCI India)."],
   [/\bbitcoin\b|\bcrypto\b|\bethereum\b/i, "Crypto assets are not in the strategy universe."],
   [/\bleverage[d]?\b|\bmargin\b|\b[23]x\b/i, "Leverage is not allowed; strategies are long-only and fully invested."],
   [/\bshort(ing| sell| the)\b|\bshort [A-Z]{2,5}\b/, "Short selling is not supported."],
   [/\b(call|put) options?\b|\boptions? (contracts?|chain|strateg(y|ies))\b|\bfutures\b/i, "Options and futures are not supported."],
   [/\bstop[- ]loss\b|\btake[- ]profit\b|\bintraday\b/i, "Intraday orders such as stop-losses are not supported; decisions use daily closes."],
-  [/\b(earnings|p\/?e|valuation|rsi|macd)\b/i, "Only price-based rules on ETFs are supported; valuation and oscillator signals are not in the DSL."],
+  [/\b(earnings|p\/?e|valuation|macd)\b/i, "Only price-based rules on ETFs are supported; valuation and MACD signals are not in the DSL."],
+  [/\brsi\b/i, "Drafting RSI rules from text is not supported; fork the \"RSI(2) pullback in an uptrend\" strategy and edit its parameters instead."],
 ];
 
-const EQUITY = ["SPY", "QQQ", "IWM", "EFA", "EEM"];
+const EQUITY = INSTRUMENTS.filter((i) => i.type === "equity_etf").map((i) => i.ticker);
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const WORDNUM: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, twelve: 12 };
 

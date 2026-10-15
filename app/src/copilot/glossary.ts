@@ -64,7 +64,7 @@ export const GLOSSARY: GlossaryEntry[] = [
   { id: "paper_portfolio", term: "Paper portfolio", aliases: ["paper portfolio", "paper trading", "hypothetical portfolio"],
     text: "A portfolio that records hypothetical trades at market prices without real money. It shows how a plan would have behaved going forward, which is stronger evidence than a backtest but still not real execution." },
   { id: "nifty", term: "Nifty 50", aliases: ["nifty", "nifty 50", "nifty50", "indian market", "india"],
-    text: "India's benchmark index of 50 large companies listed on the National Stock Exchange. StockHub does not offer Nifty strategies yet: validated ETF, corporate-action and currency data is not available, and only US-listed ETFs in USD are supported." },
+    text: "India's benchmark index of 50 large companies listed on the National Stock Exchange. StockHub does not offer Nifty strategies yet: validated corporate-action and currency data is not available, and only US-listed ETFs in USD are supported. The nearest available exposure is INDA, a US-listed ETF tracking MSCI India, which any strategy can be run on." },
 ];
 
 const norm = (s: string) => s.toLowerCase().replace(/[’']/g, "'").replace(/[^a-z0-9%&' -]+/g, " ").replace(/\s+/g, " ").trim();

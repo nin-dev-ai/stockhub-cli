@@ -7,7 +7,8 @@ import { compareResults, type SortKey } from "@/quant/ranking";
 import { SCORECARD_CONFIG } from "@/quant/service";
 import { forkStrategy, type StrategyDef } from "@/quant/strategy";
 import { useBacktests } from "@/quant/useBacktests";
-import { allStrategies, isDraft, MAX_BASKET, useStrategies } from "@/store/strategyStore";
+import { DEFAULT_TARGET, MAX_BASKET, targetedStrategies, useStrategies } from "@/store/strategyStore";
+import { EtfSelect } from "@/components/quant/EtfSelect";
 import { useWorkspace } from "@/store/workspaceStore";
 import { FlagList } from "@/components/quant/Badges";
 import { StrategyCard } from "./strategies/StrategyCard";
@@ -45,8 +46,10 @@ function FilterGroup({ title, options, selected, toggle }: { title: string; opti
 
 export function STRAT() {
   const openTab = useWorkspace((s) => s.openTab);
-  const { basket, drafts, addToBasket, removeFromBasket, clearBasket, saveDraft, deleteDraft } = useStrategies();
-  const defs = useMemo(() => allStrategies(drafts), [drafts]);
+  const { basket, drafts, target, setTarget, addToBasket, removeFromBasket, clearBasket, saveDraft, deleteDraft } = useStrategies();
+  const { defs, retargeted } = useMemo(() => targetedStrategies(drafts, target), [drafts, target]);
+  const isDraft = (id: string) => drafts.some((d) => d.id === id);
+  const targetActive = target.equity !== DEFAULT_TARGET.equity || target.defensive !== DEFAULT_TARGET.defensive;
   const { dataset, results, errors, running } = useBacktests(defs, SCORECARD_CONFIG, { robustness: true });
 
   const [query, setQuery] = useState("");
@@ -54,6 +57,7 @@ export function STRAT() {
   const [risks, setRisks] = useState<Set<string>>(new Set());
   const [verdicts, setVerdicts] = useState<Set<string>>(new Set());
   const [draftsOnly, setDraftsOnly] = useState(false);
+  const [retargetedOnly, setRetargetedOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("evidence");
   const [panel, setPanel] = useState<Panel>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -69,20 +73,30 @@ export function STRAT() {
     const q = query.trim().toLowerCase();
     return defs
       .filter((d) => !draftsOnly || isDraft(d.id))
+      .filter((d) => !retargetedOnly || !targetActive || retargeted.has(d.id))
       .filter((d) => !q || `${d.name} ${d.summary} ${d.tags.join(" ")} ${d.universe.join(" ")}`.toLowerCase().includes(q))
       .filter((d) => tags.size === 0 || [...tags].every((t) => d.tags.includes(t)))
       .filter((d) => risks.size === 0 || (d.riskLevel != null && risks.has(d.riskLevel)))
       .filter((d) => verdicts.size === 0 || verdicts.has(results[d.id]?.robustness?.verdict ?? "none"))
       .map((d) => ({ d, r: results[d.id] }))
       .sort((a, b) => compareResults({ name: a.d.name, r: a.r }, { name: b.d.name, r: b.r }, sort));
-  }, [defs, query, tags, risks, verdicts, draftsOnly, sort, results]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defs, query, tags, risks, verdicts, draftsOnly, retargetedOnly, sort, results, drafts]);
 
   const flash = (m: string) => { setNotice(m); setTimeout(() => setNotice(null), 3500); };
+  /** A retargeted variant exists only on screen; saving it as a draft lets the Lab and Portfolio find it. */
+  const persistVariant = (id: string) => {
+    const d = defs.find((x) => x.id === id);
+    if (d && retargeted.has(id) && !isDraft(id)) { saveDraft(d); return true; }
+    return false;
+  };
   const toggleBasket = (id: string) => {
     if (basket.includes(id)) { removeFromBasket(id); return; }
     const err = addToBasket(id);
-    if (err) flash(err);
+    if (err) { flash(err); return; }
+    if (persistVariant(id)) flash("Saved this ETF variant as a draft so the Lab can use it.");
   };
+  const openVariant = (v: StrategyDef) => { saveDraft(v); setPanel({ kind: "detail", id: v.id }); };
 
   const fork = (d: StrategyDef) => {
     const root = d.id.replace(/_d\d+$/, "").slice(0, 50);
@@ -138,6 +152,28 @@ export function STRAT() {
           <div className="text-[11px] text-term-text">Backtested</div>
           <div className="text-[10px] text-term-muted leading-snug">Paper-tracked and live-verified statuses need forward results; none exist yet.</div>
         </div>
+        <div>
+          <div className="sub-header mb-1">Test against ETFs</div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] text-term-muted">Equity ETF (replaces SPY)
+              <EtfSelect ariaLabel="Equity ETF" value={target.equity} onChange={(v) => setTarget({ equity: v })}
+                originalLabel="SPY — original" originalValue="SPY" />
+            </label>
+            <label className="text-[10px] text-term-muted">Defensive ETF (replaces SHY)
+              <EtfSelect ariaLabel="Defensive ETF" value={target.defensive} onChange={(v) => setTarget({ defensive: v })}
+                originalLabel="SHY — original" originalValue="SHY" />
+            </label>
+          </div>
+          {targetActive && (
+            <>
+              <label className="mt-1.5 flex items-center gap-2 text-[11px] text-term-text cursor-pointer">
+                <input type="checkbox" checked={retargetedOnly} onChange={() => setRetargetedOnly((v) => !v)} className="accent-[#ff8c00]" /> Only strategies that changed
+              </label>
+              <button onClick={() => setTarget(DEFAULT_TARGET)} className="mt-1 text-[10px] text-term-muted hover:text-term-amber uppercase tracking-widest">Reset to original ETFs</button>
+            </>
+          )}
+          <div className="text-[10px] text-term-muted mt-1 leading-snug">Runs the same rules on other ETFs. Benchmarks follow the equity swap. Parameters were tuned on the originals.</div>
+        </div>
         <label className="flex items-center gap-2 text-[11px] text-term-text cursor-pointer">
           <input type="checkbox" checked={draftsOnly} onChange={() => setDraftsOnly((v) => !v)} className="accent-[#ff8c00]" /> My drafts only
         </label>
@@ -146,6 +182,11 @@ export function STRAT() {
       <div className="flex-1 min-w-0 flex flex-col min-h-0">
         <div className="px-4 py-2 border-b border-term-border text-[11px] flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="text-term-amber font-bold tracking-widest">{visible.length} OF {defs.length} STRATEGIES</span>
+          {targetActive && (
+            <span className="text-term-cyan">
+              ON {[target.equity !== "SPY" && `${target.equity} (for SPY)`, target.defensive !== "SHY" && `${target.defensive} (for SHY)`].filter(Boolean).join(" · ")} — {retargeted.size} retargeted, {defs.length - retargeted.size} unchanged
+            </span>
+          )}
           {dataset.isLoading && <span className="text-term-muted uppercase tracking-widest">Loading price history…</span>}
           {ds && (
             <span className="text-term-muted num">
@@ -159,7 +200,7 @@ export function STRAT() {
         <div className="flex-1 overflow-auto scroll-thin p-3">
           <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
             {visible.map(({ d, r }) => (
-              <StrategyCard key={d.id} def={d} result={r} error={errors[d.id]} draft={isDraft(d.id)}
+              <StrategyCard key={d.id} def={d} result={r} error={errors[d.id]} draft={isDraft(d.id)} variant={retargeted.has(d.id) && !isDraft(d.id)}
                 inBasket={basket.includes(d.id)} selected={panel?.kind === "detail" && panel.id === d.id}
                 onOpen={() => setPanel({ kind: "detail", id: d.id })} onToggleBasket={() => toggleBasket(d.id)} />
             ))}
@@ -167,7 +208,8 @@ export function STRAT() {
           {visible.length === 0 && <div className="text-term-muted p-6">No strategies match these filters.</div>}
           <div className="text-[10px] text-term-muted mt-4 max-w-3xl leading-relaxed">
             {CATALOG.length} curated strategies are tested on the same dates with identical cash flows and costs. Universe: US-listed ETFs in USD only.
-            Indian instruments such as Nifty 50 are not offered because validated ETF, corporate-action and currency data is not available.
+            Picking an ETF with a shorter history shortens the shared test window for every strategy on screen.
+            Indian-listed instruments such as the Nifty 50 are not offered; INDA (MSCI India, US-listed) is available in the ETF lists.
           </div>
         </div>
 
@@ -195,6 +237,9 @@ export function STRAT() {
         <div className="absolute top-0 right-0 bottom-0 w-[min(720px,92%)] z-30 shadow-panel">
           {panel.kind === "detail" && detailDef && (
             <StrategyDetail def={detailDef} result={results[detailDef.id]} draft={isDraft(detailDef.id)}
+              unsavedVariant={retargeted.has(detailDef.id) && !isDraft(detailDef.id)}
+              onSaveVariant={() => { persistVariant(detailDef.id); flash("Saved as a draft."); }}
+              onRetarget={openVariant}
               onClose={() => setPanel(null)} onFork={() => fork(detailDef)}
               onEdit={() => setPanel({ kind: "editor", def: detailDef })}
               onDelete={() => { deleteDraft(detailDef.id); setPanel(null); }} />

@@ -27,9 +27,9 @@ The strategy engine is a UI-free TypeScript library in `app/src/quant/` that run
 
 | Module | Responsibility |
 | --- | --- |
-| `instruments.ts` | US-ETF/USD universe, index-to-proxy map, static exposure vectors |
+| `instruments.ts` | US-ETF/USD universe (about 40 ETFs grouped by asset class for pickers), index-to-proxy map, static exposure vectors |
 | `data.ts`, `dataSource.ts` | Dividend-adjusted history via OpenBB (`adjustment=splits_and_dividends`), alignment on common dates, content-hash dataset id, quality flags, local price cache |
-| `strategy.ts`, `rules.ts`, `catalog.ts` | Versioned JSON strategy schema, validation (no leverage, long-only), plain-English rules generated from the definition, the 12 curated strategies |
+| `strategy.ts`, `rules.ts`, `catalog.ts` | Versioned JSON strategy schema, validation (no leverage, long-only), plain-English rules generated from the definition, the 21 curated strategies, and `retarget`, which swaps ETFs in a definition (merging weights and repeated assets that land on the same ETF) to make a variant with a new id and a caveat |
 | `backtest.ts` | Deterministic daily simulation: decide on data through close t, fill at close t+1 with slippage and fees, time-weighted returns separate from contributions, locked cash for DCA and reserves, decision and trade reasons |
 | `metrics.ts`, `indicators.ts` | Metrics that return null with a reason when the sample is too short; indicators that cannot see the future |
 | `robustness.ts` | Train/test split, rolling 3-year windows, parameter sensitivity, verdict |
@@ -41,7 +41,9 @@ The strategy engine is a UI-free TypeScript library in `app/src/quant/` that run
 | `jobs.ts`, `lab.ts`, `useLab.ts`, `report.ts` | Idempotent in-thread job queue with progress and cancellation (ids hash kind, input and engine version); Lab input validation and composition; calculation report and CSV export |
 | `tracking.ts`, `useTracking.ts` | Portfolio ledger (no leverage, no short sales), valuation over adjusted closes, plan targets and paper rebalancing, content-addressed frozen projection snapshots, plan replay on realized returns, attribution against a snapshot, timeline alignment, reforecast |
 
-State for baskets and drafts is in `app/src/store/strategyStore.ts`, Lab inputs in `app/src/store/labStore.ts`, and portfolios with their snapshots in `app/src/store/portfolioStore.ts` (browser storage; snapshots are append-only and re-frozen on load). Jobs run on the main thread and yield between chunks; the engine has no DOM dependency, so moving them into a Web Worker is a contained change. Run `LIVE=1 npx vitest run src/quant/live.test.ts` from `app/` to run the catalog against the local API.
+Allocation types: `static`, `trend` (price vs SMA), `momentum`, `vol_target`, `seasonal`, `tsmom`, `risk_parity` (inverse volatility), `multi_trend` (per-asset SMA slots), `crossover` (fast vs slow SMA) and `mean_reversion` (Wilder RSI with optional trend filter). Every signal uses data through the decision close only. Catalog strategies only use ETFs with history from before 2005 so the shared window stays at 2004-11-18; a test enforces this.
+
+State for baskets, drafts and the screen-wide ETF switch (`target`, applied by `targetedStrategies`; it only swaps ETFs a strategy trades, so one that merely benchmarks against SPY is unchanged) is in `app/src/store/strategyStore.ts`. An on-screen variant is saved as a draft when it is added to the basket so the Lab and Portfolio can resolve it by id. Lab inputs in `app/src/store/labStore.ts`, and portfolios with their snapshots in `app/src/store/portfolioStore.ts` (browser storage; snapshots are append-only and re-frozen on load). Jobs run on the main thread and yield between chunks; the engine has no DOM dependency, so moving them into a Web Worker is a contained change. Run `LIVE=1 npx vitest run src/quant/live.test.ts` from `app/` to run the catalog against the local API.
 
 ### Portfolio tracking
 
