@@ -40,3 +40,17 @@ export function rollingVol(prices: number[], n: number, periods = 252): number[]
 export function pctReturns(prices: number[]): number[] {
   return prices.slice(1).map((p, i) => p / prices[i] - 1);
 }
+
+/** Wilder's relative strength index (0-100) over n periods; NaN until n changes are available. */
+export function rsi(x: number[], n: number): number[] {
+  const out = new Array<number>(x.length).fill(NaN);
+  let gain = 0, loss = 0;
+  for (let i = 1; i < x.length; i++) {
+    const ch = x[i] - x[i - 1];
+    const g = Math.max(0, ch), l = Math.max(0, -ch);
+    if (i <= n) { gain += g / n; loss += l / n; }
+    else { gain = (gain * (n - 1) + g) / n; loss = (loss * (n - 1) + l) / n; }
+    if (i >= n) out[i] = loss === 0 ? (gain === 0 ? 50 : 100) : 100 - 100 / (1 + gain / loss);
+  }
+  return out;
+}

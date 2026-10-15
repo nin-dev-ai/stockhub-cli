@@ -10,6 +10,8 @@ interface Props {
   result?: BacktestResult;
   error?: string;
   draft: boolean;
+  /** Retargeted onto other ETFs by the screen-wide switch and not yet saved. */
+  variant?: boolean;
   inBasket: boolean;
   selected: boolean;
   onOpen: () => void;
@@ -25,7 +27,7 @@ function Stat({ k, v, tone, title }: { k: string; v: string; tone?: "up" | "down
   );
 }
 
-export function StrategyCard({ def, result, error, draft, inBasket, selected, onOpen, onToggleBasket }: Props) {
+export function StrategyCard({ def, result, error, draft, variant, inBasket, selected, onOpen, onToggleBasket }: Props) {
   const m = result?.run.metrics;
   const ex = result?.excess;
   return (
@@ -37,6 +39,7 @@ export function StrategyCard({ def, result, error, draft, inBasket, selected, on
             <EvidenceBadge status={def.evidence} />
             {def.experimental && <Badge tone="red" title="Research example; weak evidence even if the backtest looks good.">Experimental</Badge>}
             {draft && <Badge tone="cyan">My draft</Badge>}
+            {variant && <Badge tone="cyan" title="The same rules on the ETFs chosen in the sidebar; saved as a draft when added to the basket.">ETF variant</Badge>}
             {result && <VerdictBadge verdict={result.robustness?.verdict} />}
             {def.riskLevel && <Badge title="Qualitative risk level">{def.riskLevel} risk</Badge>}
           </div>

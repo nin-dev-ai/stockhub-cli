@@ -10,6 +10,8 @@ export function bdays(start: string, n: number): string[] {
 const PARAMS: Record<string, [number, number]> = {
   SPY: [0.09, 0.16], QQQ: [0.11, 0.22], IWM: [0.08, 0.2], EFA: [0.06, 0.17], EEM: [0.07, 0.22],
   AGG: [0.035, 0.04], TLT: [0.04, 0.14], IEF: [0.035, 0.07], GLD: [0.07, 0.16], VNQ: [0.08, 0.22], SHY: [0.02, 0.005],
+  VTI: [0.09, 0.17], XLK: [0.12, 0.24], XLF: [0.07, 0.26], XLE: [0.06, 0.3], XLV: [0.09, 0.16], XLY: [0.1, 0.21],
+  XLP: [0.07, 0.13], XLI: [0.09, 0.2], XLU: [0.07, 0.17], XLB: [0.08, 0.21],
 };
 
 /** Seeded synthetic ETF prices with a shared market factor, for offline tests. */

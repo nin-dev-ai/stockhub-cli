@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { SeriesChart } from "@/components/charts/SeriesChart";
 import { Badge, EvidenceBadge, FlagList, VerdictBadge } from "@/components/quant/Badges";
@@ -7,7 +7,8 @@ import { fmtMoney, fmtPts, fmtRate, fmtRatio } from "@/lib/format";
 import { drawdownSeries } from "@/quant/indicators";
 import { twrIndex } from "@/quant/ranking";
 import { describeRuleParts } from "@/quant/rules";
-import { requiredTickers, type StrategyDef } from "@/quant/strategy";
+import { requiredTickers, retarget, validateStrategy, type StrategyDef } from "@/quant/strategy";
+import { EtfSelect } from "@/components/quant/EtfSelect";
 import type { BacktestResult } from "@/quant/service";
 import { INSTRUMENT_BY_TICKER } from "@/quant/instruments";
 
@@ -15,6 +16,11 @@ interface Props {
   def: StrategyDef;
   result?: BacktestResult;
   draft: boolean;
+  /** Shown on the screen-wide ETF switch but not saved yet. */
+  unsavedVariant?: boolean;
+  onSaveVariant?: () => void;
+  /** Saves a copy of this strategy that runs on other ETFs, and opens it. */
+  onRetarget: (variant: StrategyDef) => void;
   onClose: () => void;
   onFork: () => void;
   onEdit: () => void;
@@ -52,7 +58,41 @@ function Flow({ def }: { def: StrategyDef }) {
   );
 }
 
-export function StrategyDetail({ def, result, draft, onClose, onFork, onEdit, onDelete }: Props) {
+/** Pick a replacement for each ETF the strategy uses; the variant is validated before it can be saved. */
+function EtfMapper({ def, onRetarget }: { def: StrategyDef; onRetarget: (v: StrategyDef) => void }) {
+  const tickers = requiredTickers(def);
+  const [map, setMap] = useState<Record<string, string>>({});
+  const variant = useMemo(() => retarget(def, map), [def, map]);
+  const changed = variant !== def;
+  const v = changed ? validateStrategy(variant) : null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="text-[11px] text-term-muted">Keep the rules, swap the ETFs. The benchmark follows whatever replaces {def.benchmark}.</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+        {tickers.map((t) => (
+          <label key={t} className="flex items-center gap-2 text-[11px]">
+            <span className="w-12 text-term-amber shrink-0">{t}{t === def.benchmark ? "*" : ""}</span>
+            <span className="text-term-muted">→</span>
+            <EtfSelect ariaLabel={`Replace ${t}`} value={map[t] ?? t} originalLabel={`${t} (keep)`} originalValue={t}
+              onChange={(x) => setMap((m) => ({ ...m, [t]: x }))}
+              className="flex-1 min-w-0 bg-term-bg border border-term-border text-[11px] py-0.5 text-term-text" />
+          </label>
+        ))}
+      </div>
+      {v && !v.ok && <ul className="text-term-red text-[11px] list-disc pl-4">{v.errors.map((e) => <li key={e}>{e}</li>)}</ul>}
+      <div className="flex items-center gap-2">
+        <button disabled={!changed || !v?.ok} onClick={() => onRetarget(variant)}
+          className="px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px] disabled:opacity-30 disabled:cursor-not-allowed">
+          Backtest on these ETFs
+        </button>
+        {changed && <span className="text-[10px] text-term-muted">Saves “{variant.name}” as a draft in this browser.</span>}
+        {changed && <button onClick={() => setMap({})} className="text-[10px] text-term-muted hover:text-term-amber uppercase tracking-widest ml-auto">Reset</button>}
+      </div>
+    </div>
+  );
+}
+
+export function StrategyDetail({ def, result, draft, unsavedVariant, onSaveVariant, onRetarget, onClose, onFork, onEdit, onDelete }: Props) {
   const [showAllTrades, setShowAllTrades] = useState(false);
   const [showJson, setShowJson] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -83,6 +123,7 @@ export function StrategyDetail({ def, result, draft, onClose, onFork, onEdit, on
 
       <div className="p-4 flex flex-col gap-4 text-[12px]">
         <div className="flex flex-wrap gap-2">
+          {unsavedVariant && onSaveVariant && <button onClick={onSaveVariant} className="px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px]">Save ETF variant as draft</button>}
           <button onClick={onFork} className="px-2 py-1 border border-term-border text-term-muted hover:text-term-amber hover:border-term-amberDim text-[11px]">Fork to editable draft</button>
           {draft && <button onClick={onEdit} className="px-2 py-1 border border-term-amberDim text-term-amber text-[11px]">Edit definition</button>}
           {draft && <button onClick={onDelete} className="px-2 py-1 border border-term-redDim text-term-red text-[11px]">Delete draft</button>}
@@ -100,6 +141,8 @@ export function StrategyDetail({ def, result, draft, onClose, onFork, onEdit, on
         </div>
 
         <Section title="How it works"><Flow def={def} /></Section>
+
+        <Section title="Run on other ETFs"><EtfMapper key={def.id} def={def} onRetarget={onRetarget} /></Section>
 
         <Section title="Exact rules" right={
           <button onClick={() => setShowJson((s) => !s)} className="text-[10px] text-term-muted hover:text-term-amber uppercase tracking-widest">{showJson ? "Hide" : "Show"} machine-readable definition</button>

@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, it, expect, beforeEach } from "vitest";
-import { useStrategies, MAX_BASKET, allStrategies, findStrategy, isDraft } from "./strategyStore";
+import { useStrategies, MAX_BASKET, allStrategies, findStrategy, isDraft, targetedStrategies, DEFAULT_TARGET } from "./strategyStore";
 import { CATALOG } from "@/quant/catalog";
-import { forkStrategy } from "@/quant/strategy";
+import { forkStrategy, retarget } from "@/quant/strategy";
 
-beforeEach(() => useStrategies.setState({ basket: [], drafts: [] }));
+beforeEach(() => useStrategies.setState({ basket: [], drafts: [], target: DEFAULT_TARGET }));
 
 describe("strategy basket", () => {
   it("accepts up to three strategies and rejects a fourth with a message", () => {
@@ -47,5 +47,31 @@ describe("drafts", () => {
     useStrategies.getState().saveDraft({ ...d, name: "Renamed draft" });
     expect(useStrategies.getState().drafts).toHaveLength(1);
     expect(useStrategies.getState().drafts[0].name).toBe("Renamed draft");
+  });
+});
+
+describe("screen-wide ETF switch", () => {
+  it("is the plain catalog at the default target", () => {
+    const { defs, retargeted } = targetedStrategies([], DEFAULT_TARGET);
+    expect(defs).toEqual(CATALOG);
+    expect(retargeted.size).toBe(0);
+  });
+  it("retargets only strategies that use SPY or SHY and leaves the rest unchanged", () => {
+    const { defs, retargeted } = targetedStrategies([], { equity: "QQQ", defensive: "SHY" });
+    expect(defs).toHaveLength(CATALOG.length);
+    expect(defs.find((d) => d.id === "trend_200d_spy_on_qqq")?.benchmark).toBe("QQQ");
+    expect(defs.find((d) => d.id === "three_fund")).toBe(CATALOG.find((d) => d.id === "three_fund"));
+    expect(retargeted.has("three_fund")).toBe(false);
+    expect(retargeted.size).toBe(CATALOG.filter((d) => d.benchmark === "SPY" && d.id !== "three_fund" && d.id !== "sector_momentum").length);
+  });
+  it("prefers a saved variant draft over the on-screen one and stops marking it unsaved", () => {
+    const saved = { ...retarget(CATALOG.find((d) => d.id === "trend_200d_spy")!, { SPY: "QQQ" }), name: "My QQQ trend" };
+    const { defs, retargeted } = targetedStrategies([saved], { equity: "QQQ", defensive: "SHY" });
+    expect(defs.filter((d) => d.id === saved.id)).toEqual([saved]);
+    expect(retargeted.has(saved.id)).toBe(false);
+  });
+  it("persists the chosen ETFs", () => {
+    useStrategies.getState().setTarget({ defensive: "BIL" });
+    expect(useStrategies.getState().target).toEqual({ equity: "SPY", defensive: "BIL" });
   });
 });

@@ -34,6 +34,28 @@ function allocationRules(a: Allocation): string[] {
       return [
         `If ${a.risky}'s trailing ${a.lookbackDays}-day return is positive, hold 100% ${a.risky}; otherwise hold 100% ${a.safe}.`,
       ];
+    case "risk_parity":
+      return [
+        `Measure the annualized ${a.lookbackDays}-day volatility of ${a.assets.join(", ")}.`,
+        "Weight each asset in proportion to 1 / its volatility, so calmer assets get more weight and each contributes a similar amount of volatility (correlations are ignored).",
+        "Until volatility can be measured, hold equal weights.",
+      ];
+    case "multi_trend":
+      return [
+        `Give ${a.assets.join(", ")} an equal ${pct(1 / a.assets.length)} slot each.`,
+        `Each asset keeps its slot while its close is above its ${a.smaDays}-day simple moving average; otherwise that slot is held in ${a.safe}.`,
+      ];
+    case "crossover":
+      return [
+        `Compare ${a.risky}'s ${a.fastDays}-day and ${a.slowDays}-day simple moving averages at each close.`,
+        `Hold 100% ${a.risky} while the ${a.fastDays}-day average is above the ${a.slowDays}-day average; otherwise hold 100% ${a.safe}.`,
+      ];
+    case "mean_reversion":
+      return [
+        `Compute ${a.risky}'s ${a.rsiDays}-day RSI (Wilder) at each close.`,
+        `Buy ${a.risky} when RSI falls below ${a.entryRsi}${a.trendDays > 0 ? ` and the close is above its ${a.trendDays}-day average` : ""}; sell back to ${a.safe} when RSI rises above ${a.exitRsi}.`,
+        `Between signals the previous position is kept; out of the market the money sits in ${a.safe}.`,
+      ];
   }
 }
 

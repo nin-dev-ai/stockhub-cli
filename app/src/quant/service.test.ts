@@ -10,9 +10,9 @@ import { syntheticDataset, bdays } from "./testData";
 const ds = syntheticDataset(15, 7);
 
 describe("catalog", () => {
-  it("has 8-12 strategies with unique ids that all validate", () => {
+  it("has 8-24 strategies with unique ids that all validate", () => {
     expect(CATALOG.length).toBeGreaterThanOrEqual(8);
-    expect(CATALOG.length).toBeLessThanOrEqual(12);
+    expect(CATALOG.length).toBeLessThanOrEqual(24);
     expect(new Set(CATALOG.map((s) => s.id)).size).toBe(CATALOG.length);
     for (const s of CATALOG) expect(validateStrategy(s), s.id).toEqual({ ok: true, errors: [] });
   });
