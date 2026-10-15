@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { CommandBar } from "@/components/CommandBar";
 import { PrimaryNav } from "@/components/PrimaryNav";
+import { CopilotPanel } from "@/components/CopilotPanel";
 import { QuickBar } from "@/components/QuickBar";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { StatusBar } from "@/components/StatusBar";
@@ -71,6 +72,7 @@ export default function App() {
             {screen ?? <div className="p-4 text-term-muted">Function not implemented.</div>}
           </FunctionPanel>
         )}
+        <CopilotPanel />
       </div>
       <StatusBar />
     </div>

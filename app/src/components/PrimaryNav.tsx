@@ -1,6 +1,7 @@
 import { useWorkspace } from "@/store/workspaceStore";
 import { sectionOf, type FunctionCode, type Section } from "@/lib/functions";
 import { cn } from "@/lib/cn";
+import { CopilotToggle } from "@/components/CopilotPanel";
 
 interface Item { section: Section; label: string; hint: string; code: FunctionCode }
 
@@ -40,6 +41,7 @@ export function PrimaryNav() {
           {item.label}
         </button>
       ))}
+      <CopilotToggle />
     </nav>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/quant/Badges";
 import { cn } from "@/lib/cn";
 import { jobs } from "@/quant/jobs";
+import { useCopilotContext } from "@/copilot/context";
 import { MODE_LABEL, verifySnapshot, type PortfolioMode } from "@/quant/tracking";
 import { useTracking } from "@/quant/useTracking";
 import { snapshotsOf, usePortfolios } from "@/store/portfolioStore";
@@ -30,6 +31,16 @@ export function PORT() {
   // prices load on open and after each ledger change; identical requests reuse the cached job
   const { job, refresh } = t;
   useEffect(() => { if (p && !job) refresh(); }, [p, job, refresh]);
+
+  const setCopilotPortfolio = useCopilotContext((s) => s.setPortfolio);
+  const view = t.view;
+  useEffect(() => {
+    setCopilotPortfolio(p ? {
+      name: p.name, mode: p.mode, snapshots: snaps.length, total: view?.holdings.total ?? null,
+      contributed: view?.lastObs?.contributed ?? null, attribution: view?.attribution ?? null,
+    } : null);
+  }, [p, snaps.length, view, setCopilotPortfolio]);
+  useEffect(() => () => setCopilotPortfolio(null), [setCopilotPortfolio]);
 
   if (portfolios.length === 0) {
     return (

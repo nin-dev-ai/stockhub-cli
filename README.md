@@ -132,6 +132,10 @@ The ranges are model-based possibilities, not forecasts: the lower line is not a
 
 A saved plan keeps its inputs, weights, strategy versions and projection as a snapshot that cannot change; a fingerprint shows it is intact. Track it as a **paper** portfolio (hypothetical trades at market closes, with one-click contributions and a previewed rebalance to the plan's targets) or as **manually reported** real holdings you enter yourself, which StockHub labels as not broker-verified. You can also record holdings you already own without a plan. The overview charts the original range, your observed value and contributions, and the latest reforecast, and splits the gap from the plan's median into contribution difference, projection error and allocation difference. **Reforecast** re-runs the plan on current data over 1 to 20 years and adds a new snapshot without touching earlier ones. The ledger exports to CSV. Everything is stored in this browser; there is no broker connection or order execution.
 
+### Copilot
+
+The **Copilot** button at the right of the navigation strip opens a side panel on any screen. It defines terms (DCA, CAGR, Sharpe, drawdown, percentiles, Nifty and more), explains the open strategy's exact rules, risks and evidence, explains the Lab's backtest, optimizer weights and binding constraints, and projection, and explains why a portfolio differs from its plan. It can turn a description such as "hold SPY above its 200-day moving average, otherwise bonds" into a strategy definition, show the parameters it assumed and a diff, and save it as a draft only when you confirm. Every number it states comes from an engine result on screen or vetted product text; an answer with any other figure is withheld. It refuses to promise returns, give buy or sell advice, take actions, or follow instructions embedded in text. It is rule-based and calls no external AI service.
+
 ---
 
 ## YouTube demo script
@@ -178,6 +182,7 @@ Tight 5-7 minute walk-through for the video:
 - **Polling, not streaming.** Yahoo Finance has no WebSocket in OpenBB, so quotes refresh every 3–60s depending on the panel. For live ticks you'd need a broker feed (IBKR, Alpaca) — not wired in yet.
 - **Yahoo symbol quirks.** A handful of Asian indices (`^N225`, `^HSI`, `^AXJO`, `^TWII`) and a few crypto tickers don't return via OpenBB's Yahoo provider; those cells show "—".
 - **Backtests are history, not forecasts.** Strategy results depend on the data window (the common history starts 2004-11-18, limited by GLD), modeled costs, and a fixed ETF universe that is not point-in-time. Indian instruments such as Nifty 50 are not offered because validated data is not available.
+- **The Copilot is rule-based.** It understands a fixed set of question types and strategy patterns (fixed weights, moving-average trend, momentum, volatility target, calendar season, trailing-return filter, DCA entry, drawdown reserve). Anything else gets a list of what it can do rather than a guess.
 - **Rules are heuristics.** The INTEL signals are rules of thumb, not predictions. Tweak the thresholds in `signals.ts` to match your own framework.
 - **News comes from RSS, not OpenBB.** OpenBB's `yfinance` news provider returned no data in testing, so company news (`NI`, INTEL headlines, CC headlines) reads Yahoo Finance's public RSS feed and falls back to Google News. No key needed, but the feeds are unofficial and are only proxied by the dev server (`./start.sh`), not `npm run preview`.
 - **OpenBB 4.x only.** `setup.sh` pins `openbb>=4.3,<5`. OpenBB 5 uses different API routes and every data call would return 404.
