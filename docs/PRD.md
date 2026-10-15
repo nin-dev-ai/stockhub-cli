@@ -19,7 +19,8 @@ StockHub is a local financial intelligence dashboard. It brings market data, com
 - Market views for world indices, movers, crypto, FX, and the US yield curve.
 - Command parsing, autocomplete, keyboard shortcuts, and persistent workspace tabs.
 - Signal classifications for technicals, valuation, fundamentals, analysts, leverage, and dividends.
-- Phase 2 strategy terminal (Strategies, Simulation Lab, My Portfolio); see [PRD_phase2.md](PRD_phase2.md) for its requirements and delivery status. The proposed next phase is in [PRD_phase3.md](PRD_phase3.md).
+- Phase 2 strategy terminal (Strategies, Simulation Lab, My Portfolio, Personas, Copilot); see [PRD_phase2.md](PRD_phase2.md) for its requirements and delivery status.
+- Phase 3 ([PRD_phase3.md](PRD_phase3.md)): one strategy spread across several ETFs; US House members' trades from the Clerk of the House and a copy-trade backtest that acts on filing dates; read-only Interactive Brokers sync into broker-reported portfolios; paper-account orders (`ORD`) with per-order confirmation, hard limits, a kill switch and an audit log; optional Claude phrasing of Copilot answers with figure checks.
 
 The definitive function list lives in [`app/src/lib/functions.ts`](../app/src/lib/functions.ts); screen wiring lives in [`app/src/App.tsx`](../app/src/App.tsx).
 
@@ -34,4 +35,4 @@ The definitive function list lives in [`app/src/lib/functions.ts`](../app/src/li
 
 ## Current limits
 
-The app polls providers rather than streaming live ticks. Data completeness depends on OpenBB providers and available credentials. See the [README](../README.md#known-limits) for user-facing details.
+The app polls providers rather than streaming live ticks. Data completeness depends on OpenBB providers and available credentials. House personas, the IBKR connection and the optional LLM proxy rely on the Vite dev server's proxies. Orders go only to IBKR paper accounts; live trading is out of scope. See the [README](../README.md#known-limits) for user-facing details.
