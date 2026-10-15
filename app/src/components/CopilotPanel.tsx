@@ -10,6 +10,35 @@ import { FN_BY_CODE } from "@/lib/functions";
 import { allStrategies, useStrategies } from "@/store/strategyStore";
 import { useWorkspace } from "@/store/workspaceStore";
 import { usePersonas } from "@/store/personaStore";
+import { useLab } from "@/store/labStore";
+import { LAB_CHANGE_FIELDS, type LabChange } from "@/copilot/labChanges";
+
+const fmtField = (k: keyof LabChange, v: unknown) =>
+  k === "etf" ? String(v) : k === "years" ? `${v} years` : `$${Number(v).toLocaleString("en-US")}`;
+
+/** Shows current → proposed Lab inputs; nothing changes until Apply, and the Lab's Reset undoes it. */
+function LabChangeCard({ change }: { change: LabChange }) {
+  const { inputs, setInputs } = useLab();
+  const openTab = useWorkspace((s) => s.openTab);
+  const [applied, setApplied] = useState(false);
+  const keys = Object.keys(change) as (keyof LabChange)[];
+  if (applied) return <div className="text-[10px] text-term-green">Applied to the Lab inputs. Run the backtest again to see the effect.</div>;
+  return (
+    <div className="border border-term-amberDim p-2 flex flex-col gap-2">
+      <div className="flex items-center gap-2"><span className="sub-header">Lab inputs</span><Badge tone="amber">Needs your confirmation</Badge></div>
+      <table className="w-full grid-data text-[10px]">
+        <thead><tr><th>Input</th><th>Now</th><th>Proposed</th></tr></thead>
+        <tbody>{keys.map((k) => (
+          <tr key={k}><td>{LAB_CHANGE_FIELDS[k]}</td><td className="num">{fmtField(k, inputs[k])}</td><td className="num text-term-amber">{fmtField(k, change[k])}</td></tr>
+        ))}</tbody>
+      </table>
+      <div className="flex gap-2">
+        <button onClick={() => { setInputs(change); setApplied(true); openTab("LAB"); }}
+          className="px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px]">Apply to Lab</button>
+      </div>
+    </div>
+  );
+}
 
 /** Following changes only what the Personas screen shows; it still needs the user's click. */
 function PersonaCard({ answer }: { answer: Answer }) {
@@ -70,6 +99,7 @@ function AnswerView({ a, onSaved }: { a: Answer; onSaved: (name: string) => void
         : <ul key={i} className="list-disc pl-4 space-y-0.5 text-term-text">{b.items.map((x) => <li key={x}>{x}</li>)}</ul>)}
       {a.draft?.def && <DraftCard answer={a} onSaved={onSaved} />}
       {a.persona && <PersonaCard answer={a} />}
+      {a.labChange && <LabChangeCard change={a.labChange} />}
       {a.sources.length > 0 && (
         <div className="text-[10px] text-term-muted border-t border-term-borderSoft pt-1">
           Sources: {a.sources.map((s, i) => <span key={i}>{i > 0 && " · "}{s.label}{s.detail ? ` (${s.detail})` : ""}</span>)}
@@ -81,7 +111,7 @@ function AnswerView({ a, onSaved }: { a: Answer; onSaved: (name: string) => void
 
 export function CopilotPanel() {
   const { open, setOpen, messages, push, clear } = useCopilot();
-  const { strategy, lab, portfolio } = useCopilotContext();
+  const { strategy, lab, portfolio, personas } = useCopilotContext();
   const { tabs, activeTabId, openTab } = useWorkspace();
   const drafts = useStrategies((s) => s.drafts);
   const screen = tabs.find((t) => t.id === activeTabId)?.code ?? null;
@@ -91,7 +121,8 @@ export function CopilotPanel() {
     strategy: screen === "STRAT" ? strategy : null,
     lab: screen === "LAB" ? lab : null,
     portfolio: screen === "PORT" ? portfolio : null,
-  }), [screen, strategy, lab, portfolio]);
+    personas: screen === "PERS" ? personas : null,
+  }), [screen, strategy, lab, portfolio, personas]);
   const [input, setInput] = useState("");
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => { end.current?.scrollIntoView({ block: "end" }); }, [messages.length]);
@@ -112,6 +143,7 @@ export function CopilotPanel() {
     ctx.lab?.optimization ? "Optimization" : null,
     ctx.lab?.projection ? "Projection" : null,
     ctx.portfolio && `Portfolio: ${ctx.portfolio.name}`,
+    ctx.personas?.personas.length ? `Personas: ${ctx.personas.personas.length} followed` : null,
   ].filter(Boolean) as string[];
 
   return (

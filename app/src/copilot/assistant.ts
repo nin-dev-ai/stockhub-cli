@@ -4,7 +4,8 @@ import { describeRules } from "@/quant/rules";
 import { MODE_LABEL } from "@/quant/tracking";
 import { FUND_NOTE, POLITICIAN_NOTE, PRESET_PERSONAS, UNAVAILABLE_PEOPLE, type Persona } from "@/quant/personas";
 import { requiredTickers, type StrategyDef } from "@/quant/strategy";
-import type { CopilotContext, LabContext, PortfolioContext, StrategyContext } from "./context";
+import type { CopilotContext, LabContext, PersonaEntry, PersonasContext, PortfolioContext, StrategyContext } from "./context";
+import { LAB_CHANGE_FIELDS, labChangeFromText, type LabChange } from "./labChanges";
 import { draftFromText, findTickers, modifyFromText, variantFromText, type DraftResult } from "./drafting";
 import { findTerms, GLOSSARY_BY_ID, type GlossaryEntry } from "./glossary";
 import { classifyGuard, hasUnsafeCertainty, verifyFigures, type GuardKind } from "./guardrails";
@@ -17,7 +18,7 @@ import { classifyGuard, hasUnsafeCertainty, verifyFigures, type GuardKind } from
 
 export type Block = { type: "p"; text: string } | { type: "list"; items: string[] } | { type: "note"; text: string };
 export interface Source { label: string; detail?: string }
-export type AnswerKind = "persona" | "glossary" | "strategy" | "backtest" | "optimization" | "projection" | "portfolio" | "methodology" | "draft" | "refusal" | "help";
+export type AnswerKind = "lab_change" | "persona" | "glossary" | "strategy" | "backtest" | "optimization" | "projection" | "portfolio" | "methodology" | "draft" | "refusal" | "help";
 
 export interface Answer {
   kind: AnswerKind;
@@ -27,6 +28,8 @@ export interface Answer {
   draft?: DraftResult;
   /** A persona to follow, offered for confirmation; `known: null` offers to open the Personas screen. */
   persona?: { known: Persona | null };
+  /** Proposed Lab inputs, applied only when the user clicks Apply. */
+  labChange?: LabChange;
   verified: boolean;
   unverified: string[];
 }
@@ -44,6 +47,8 @@ class Composer {
   ratio = (x: number | null | undefined, d = 2) => (x == null ? "unavailable" : this.reg(x.toFixed(d)));
   int = (x: number) => this.reg(x.toLocaleString("en-US"));
   date = (s: string) => this.reg(s);
+  /** Text shown verbatim from a filing or provider (an issuer name), registered so its digits pass verification. */
+  data = (s: string) => this.reg(s);
   /** Static product text and generated rule text; numbers inside are vetted, not computed. */
   vetted = (s: string) => this.reg(s);
 
@@ -53,6 +58,8 @@ class Composer {
   source(label: string, detail?: string) { this.sources.push({ label, detail }); return this; }
 
   persona?: { known: Persona | null };
+  /** Proposed Lab inputs, applied only when the user clicks Apply. */
+  labChange?: LabChange;
 
   done(draft?: DraftResult): Answer {
     const text = this.blocks.map((b) => (b.type === "list" ? b.items.join("\n") : b.text)).join("\n");
@@ -66,7 +73,7 @@ class Composer {
           : "The drafted answer contained figures that could not be traced to an engine result or a vetted source, so it was withheld rather than risk showing an invented number." }],
       };
     }
-    return { kind: this.kind, title: this.title, blocks: this.blocks, sources: this.sources, draft, persona: this.persona, verified: true, unverified: [] };
+    return { kind: this.kind, title: this.title, blocks: this.blocks, sources: this.sources, draft, persona: this.persona, labChange: this.labChange, verified: true, unverified: [] };
   }
 }
 
@@ -83,6 +90,22 @@ export function respond(message: string, ctx: CopilotContext, opts: { takenIds?:
 
   const guard = classifyGuard(m);
   if (guard) return refuse(guard, m, ctx);
+
+  // proposed changes to Lab inputs (permission level 1): ETF, starting amount, contribution, horizon
+  const labWords = /\b(lab|plan|simulation|simulate|contribut\w*|starting amount|start with|initial|lump[- ]sum|horizon|per month|a month|monthly)\b/i;
+  if (has(m, labWords) && has(m, /\b(set|change|make|use|run|try|switch|increase|decrease|raise|lower|put|update|invest|start|with)\b/i)) {
+    const lc = labChangeFromText(m);
+    if (Object.keys(lc.change).length > 0) return labChange(m, lc);
+  }
+
+  if (ctx.personas?.personas.length && ctx.screen === "PERS") {
+    const words = m.toLowerCase().replace(/[^a-z ]/g, " ").split(/\s+/);
+    const one = ctx.personas.personas.find((p) => words.includes(p.name.toLowerCase().split(" ").pop()!));
+    if (one) return personaTrades(m, [one]);
+    if (has(m, /\b(explain|summari[sz]e|overview|what|who|which|why|these|this|trades?|buying|selling|bought|sold)\b/i) && !personaRequest(m)?.politician) {
+      return personaTrades(m, ctx.personas.personas);
+    }
+  }
 
   const who = personaRequest(m);
   if (who) return persona(m, who);
@@ -381,6 +404,45 @@ function persona(m: string, who: { known: Persona | null; name: string; politici
   return c.done();
 }
 
+function labChange(m: string, lc: ReturnType<typeof labChangeFromText>): Answer {
+  const c = new Composer("lab_change", "Proposed change to your Lab inputs", m);
+  c.p("Here is what I read. Nothing changes until you click Apply; the Lab's Reset button restores the defaults.");
+  c.list(lc.understood.map(c.vetted));
+  if (lc.errors.length) c.note(`This change is outside the allowed range: ${c.vetted(lc.errors.join(" "))}`);
+  else c.labChange = lc.change;
+  c.note(c.vetted(`Only ${Object.values(LAB_CHANGE_FIELDS).join(", ").toLowerCase()} can be changed from here. Costs, risk settings, weights and saved plans stay under your direct control.`));
+  c.note("Run the backtest and projection again after applying; earlier results are kept, not overwritten.");
+  return c.done();
+}
+
+/** Explains trades the Personas screen has loaded; every figure comes from those rows. */
+function personaTrades(m: string, entries: PersonaEntry[]): Answer {
+  const c = new Composer("persona", entries.length === 1 ? `${entries[0].name}: loaded trades` : "Followed personas: loaded trades", m);
+  const qtr = (d: string | null) => (d ? c.date(`Q${Math.floor((Number(d.slice(5, 7)) - 1) / 3) + 1} ${d.slice(0, 4)}`) : "an unknown quarter");
+  const items: string[] = [];
+  for (const e of entries) {
+    if (e.loading) { items.push(`${e.name}: still loading.`); continue; }
+    if (e.error) { items.push(`${e.name}: the filings could not be loaded.`); continue; }
+    const buys = e.trades.filter((t) => t.side === "buy"), sells = e.trades.filter((t) => t.side === "sell");
+    const top = [...e.trades].sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0)).slice(0, 3)
+      .map((t) => `${c.data(t.symbol ?? t.asset)} (${t.action.toLowerCase()}${t.value ? `, ${c.money(t.value)}` : ""})`);
+    if (e.kind === "fund") {
+      if (!e.prior) { items.push(`${e.name}: only one quarter is filed, so there are no changes to compare.`); continue; }
+      items.push(`${e.name}: from ${qtr(e.prior)} to ${qtr(e.latest)}, ${c.int(buys.length)} new or added positions and ${c.int(sells.length)} trimmed or sold, out of ${c.int(e.holdings ?? 0)} holdings. Largest by value: ${top.join(", ") || "none"}.`);
+    } else if (e.trades.length === 0) {
+      items.push(`${e.name}: no open-market buys or sells in the filings loaded.`);
+    } else {
+      const last = [...e.trades].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))[0];
+      items.push(`${e.name}: ${c.int(buys.length)} buys and ${c.int(sells.length)} sells in the filings loaded. Latest: ${last.action.toLowerCase()} of ${c.int(Math.round(Math.abs(last.shares ?? 0)))} shares${last.price ? ` at ${c.money(last.price)}` : ""} on ${c.date(last.date ?? "")}.`);
+    }
+  }
+  c.list(items);
+  if (entries.some((e) => e.kind === "fund")) c.note(c.vetted(FUND_NOTE));
+  c.note("These are filed trades, not recommendations, and they say nothing about why the person traded.");
+  c.source("SEC EDGAR", "filings loaded on the Personas screen");
+  return c.done();
+}
+
 /** Curated names are product text and may be quoted; a user draft's free-text name is not. */
 const curatedName = (d: StrategyDef) => (CATALOG.some((s) => s.id === d.id && s.name === d.name) ? d.name : "your draft");
 
@@ -420,6 +482,8 @@ export function suggestions(ctx: CopilotContext): string[] {
     if (!ctx.lab.optimization && !ctx.lab.projection) out.push("Explain the backtest results");
   }
   if (ctx.screen === "PORT" && ctx.portfolio) out.push("Why is my portfolio different from the plan?");
+  if (ctx.screen === "PERS" && ctx.personas?.personas.length) out.push("Summarize these trades");
+  if (ctx.screen === "LAB") out.push("Run my plan on QQQ with $500 a month for 10 years");
   out.push("Run the golden cross on the Nasdaq", "Follow Warren Buffett's trades", "What is a Sharpe ratio?", "Create a strategy: hold SPY above its 200-day moving average, otherwise bonds");
   return [...new Set(out)].slice(0, 5);
 }

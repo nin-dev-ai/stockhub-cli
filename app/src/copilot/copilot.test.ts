@@ -9,6 +9,8 @@ import { syntheticDataset } from "@/quant/testData";
 import { attribute, makeSnapshot } from "@/quant/tracking";
 import { respond, suggestions, namedStrategy, type Answer } from "./assistant";
 import type { CopilotContext } from "./context";
+import { labChangeFromText } from "./labChanges";
+import type { PersonaTrade } from "@/quant/personas";
 import { variantFromText, diffStrategy, draftFromText, modifyFromText } from "./drafting";
 import { findTerms } from "./glossary";
 import { classifyGuard, extractNumbers, hasUnsafeCertainty, verifyFigures } from "./guardrails";
@@ -271,6 +273,50 @@ describe("personas", () => {
   });
   it("leaves unrelated questions alone", () => {
     expect(respond("Why is my portfolio different from the plan?", empty).kind).not.toBe("persona");
+  });
+});
+
+describe("Lab input changes (permission level 1)", () => {
+  it("reads ETF, amounts and horizon from one sentence", () => {
+    expect(labChangeFromText("Run my plan on the Nasdaq with $500 a month for 10 years, starting with $2,000").change)
+      .toEqual({ etf: "QQQ", monthly: 500, years: 10, initial: 2000 });
+    expect(labChangeFromText("set the monthly contribution to 1.5k").change).toEqual({ monthly: 1500 });
+    expect(labChangeFromText("invest $500 a month").change).toEqual({ monthly: 500 });
+  });
+  it("proposes the change without applying it and refuses out-of-range values", () => {
+    const a = respond("change my plan to $300 a month on DIA", empty);
+    expect(a.kind).toBe("lab_change");
+    expect(a.verified).toBe(true);
+    expect(a.labChange).toEqual({ etf: "DIA", monthly: 300 });
+    const bad = respond("set the plan horizon to 60 years", empty);
+    expect(bad.labChange).toBeUndefined();
+    expect(text(bad)).toMatch(/outside the allowed range/);
+  });
+  it("still refuses edits to records", () => {
+    expect(classifyGuard("change my plan to $300 a month")).toBeNull();
+    expect(classifyGuard("delete my portfolio")).toBe("action");
+    expect(classifyGuard("edit my transactions")).toBe("action");
+  });
+});
+
+describe("persona trades on screen (permission level 0)", () => {
+  const t = (o: Partial<PersonaTrade>): PersonaTrade => ({ date: "2026-09-10", filed: "2026-09-12", symbol: "META", asset: "Meta", side: "sell", action: "Open-market sale", shares: 2093, price: 775.39, value: 1622891, detail: "", url: null, ...o });
+  const ctx: CopilotContext = { ...empty, screen: "PERS", personas: { personas: [
+    { id: "zuckerberg", name: "Mark Zuckerberg", role: "Meta", kind: "insider", latest: null, prior: null, holdings: null, trades: [t({}), t({ date: "2026-09-24", shares: 1000, price: 780, value: 780000 })], error: null, loading: false },
+    { id: "buffett", name: "Warren Buffett", role: "Berkshire", kind: "fund", latest: "2026-06-30", prior: "2026-03-31", holdings: 29, error: null, loading: false,
+      trades: [t({ symbol: null, asset: "ALPHABET INC", side: "buy", action: "Added", shares: 100, price: null, value: 5_000_000_000, date: "2026-06-30" })] },
+  ] } };
+  it("summarizes every followed persona from the loaded rows with traced figures", () => {
+    const a = respond("Summarize these trades", ctx);
+    expect(a.verified).toBe(true);
+    expect(text(a)).toMatch(/Mark Zuckerberg: 0 buys and 2 sells.*Latest: open-market sale of 1,000 shares at \$780 on 2026-09-24/);
+    expect(text(a)).toMatch(/Warren Buffett: from Q1 2026 to Q2 2026, 1 new or added .* 29 holdings\. Largest by value: ALPHABET INC \(added, \$5,000,000,000\)/);
+  });
+  it("focuses on one persona when named", () => {
+    expect(respond("what is Buffett buying?", ctx).title).toBe("Warren Buffett: loaded trades");
+  });
+  it("is not visible off the Personas screen", () => {
+    expect(respond("Summarize these trades", { ...ctx, screen: "LAB" }).title).not.toMatch(/loaded trades/);
   });
 });
 
