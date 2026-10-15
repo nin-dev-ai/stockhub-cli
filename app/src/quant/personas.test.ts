@@ -46,6 +46,13 @@ describe("13F changes", () => {
     expect(f.trades[0].detail).toBe("-20.0% shares · 40.0% of portfolio");
     expect(f.trades[0].url).toMatch(/CIK=0001067983&type=13F-HR/);
   });
+  it("names the share class so two classes of one issuer read apart", () => {
+    const cls = [
+      { ...h("2026-03-31", "GA", "ALPHABET INC", 10, 100, 0.1), asset_class: "CAP STK CL A" }, { ...h("2026-03-31", "GC", "ALPHABET INC", 10, 100, 0.1), asset_class: "CAP STK CL C" },
+      { ...h("2026-06-30", "GA", "ALPHABET INC", 20, 200, 0.1), asset_class: "CAP STK CL A" }, { ...h("2026-06-30", "GC", "ALPHABET INC", 5, 50, 0.1), asset_class: "CAP STK CL C" },
+    ];
+    expect(fundChanges(cls, "1").trades.map((t) => t.asset).sort()).toEqual(["ALPHABET INC Class A", "ALPHABET INC Class C"]);
+  });
   it("shows no changes with only one quarter", () => {
     expect(fundChanges(rows.filter((r) => r.period_ending === "2026-06-30"), "1").trades).toEqual([]);
   });

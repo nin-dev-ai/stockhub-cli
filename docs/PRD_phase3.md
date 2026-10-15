@@ -2,7 +2,7 @@
 
 **Document:** Phase 3 plan and research notes
 **Version:** 0.1 (draft for review) · **Date:** 16 October 2026
-**Status:** Proposed. Nothing in this document is implemented yet; the order and the open decisions in [Section 6](#6-decisions-needed) need the owner's sign-off.
+**Status:** Approved 16 October 2026 with the recommended defaults in [Section 6](#6-decisions-needed) (IBKR, House first, LLM optional). Progress is tracked in [Section 7](#7-delivery-status).
 **Starting point:** Phase 2 as delivered ([PRD_phase2.md](PRD_phase2.md), Section 15), plus the Personas screen (`PERS`), core-ETF choice in the Lab and the Copilot permission levels (6.6.1).
 
 ---
@@ -205,6 +205,20 @@ This implements the future trading rules in 6.6.1 for **paper accounts only**:
 | 3 | Senate PTRs in Phase 3? | No. Do the House first, then the Senate as a follow-up once the eFD session handling is proven. |
 | 4 | LLM Copilot | Optional. Build it only if you want to supply an API key; the rule-based Copilot keeps working without one. |
 | 5 | Live trading | Out of Phase 3 by design; to be decided after paper trading has run cleanly. |
+
+---
+
+## 7. Delivery status
+
+| Milestone | Status |
+| --- | --- |
+| E0 — Phase 2 hardening | Delivered. A headless-Chrome pass over STRAT, LAB, PERS, PORT and the Copilot found and fixed: one failed ticker blocking every strategy (an empty provider answer was cached), clipped card summaries, cramped card footers, a stale PERS description, and unlabelled 13F share classes. Apply to Lab and persona summaries work end to end. |
+| E1 — Strategy across ETFs | Not started |
+| E2 — House members as personas | Not started |
+| E3 — Copy-trade backtest | Not started |
+| E4 — IBKR read-only | Not started |
+| E5 — Paper orders | Not started |
+| E6 — LLM Copilot adapter | Not started |
 
 ---
 

@@ -118,7 +118,10 @@ function holdingsByPeriod(rows: Record<string, unknown>[]): Map<string, Map<stri
     // a firm can report one security on several rows (managers, discretion); options get their own key
     const key = [cusip, str(r.security_type), str(r.option_type ?? r.put_call)].join("|");
     const m = out.get(period) ?? new Map<string, Holding>();
-    const h = m.get(key) ?? { issuer: str(r.issuer) + (str(r.option_type ?? r.put_call) ? ` (${str(r.option_type ?? r.put_call)})` : ""), cusip, shares: 0, value: 0, weight: 0 };
+    // share classes of one issuer (Alphabet A and C) are separate holdings; name the class so they read apart
+    const cls = /\bCL(?:ASS)?\s+([A-Z])\b/i.exec(str(r.asset_class))?.[1]?.toUpperCase();
+    const opt = str(r.option_type ?? r.put_call);
+    const h = m.get(key) ?? { issuer: str(r.issuer) + (cls ? ` Class ${cls}` : "") + (opt ? ` (${opt})` : ""), cusip, shares: 0, value: 0, weight: 0 };
     h.shares += num(r.principal_amount) ?? 0;
     h.value += num(r.value) ?? 0;
     h.weight += num(r.weight) ?? 0;
