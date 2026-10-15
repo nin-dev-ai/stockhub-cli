@@ -28,7 +28,7 @@ export interface PortfolioContext { name: string; mode: PortfolioMode; snapshots
 
 /** What the Personas screen has loaded for each followed persona; trades are buys and sells only. */
 export interface PersonaEntry {
-  id: string; name: string; role: string; kind: "fund" | "insider";
+  id: string; name: string; role: string; kind: "fund" | "insider" | "house";
   latest: string | null; prior: string | null; holdings: number | null;
   trades: PersonaTrade[]; error: string | null; loading: boolean;
 }

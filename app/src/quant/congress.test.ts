@@ -75,7 +75,8 @@ describe("PTR text layer (golden fixture: Nancy Pelosi, filed 23 January 2026)",
     const trades = ptrTrades(rows, filing);
     const goog = trades.find((t) => t.symbol === "GOOGL" && /options/.test(t.action))!;
     expect(goog).toMatchObject({ side: "buy", action: "Purchase (options)", filed: "2026-01-23", date: "2025-12-30", value: null, shares: null, price: null });
-    expect(goog.detail).toMatch(/^\$250,001–\$500,000 · Spouse · options · Purchased 20 call options/);
+    expect(goog.amount).toBe("$250,001–$500,000");
+    expect(goog.detail).toMatch(/^Spouse · options · Purchased 20 call options/);
     expect(goog.url).toBe("https://disclosures-clerk.house.gov/public_disc/ptr-pdfs/2026/20033725.pdf");
     expect(trades.filter((t) => t.side === "sell").length).toBe(7);
   });

@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useCopilotContext } from "@/copilot/context";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { fetchForm13F, fetchInsiderTrades } from "@/lib/api";
+import { fetchHouseMember, fetchRecentHouseFilings, type HouseMemberData } from "@/lib/house";
+import { HOUSE_NOTE, houseMembers, searchMembers } from "@/quant/congress";
 import { Badge } from "@/components/quant/Badges";
 import {
-  byRecency, customFund, customInsider, FUND_NOTE, fundChanges, matchesInsider, normalizeInsider, summarize,
+  byRecency, customFund, customHouse, customInsider, FUND_NOTE, fundChanges, matchesInsider, normalizeInsider, summarize,
   type Persona, type PersonaTrade,
 } from "@/quant/personas";
 import { allPersonas, usePersonas } from "@/store/personaStore";
@@ -15,11 +17,18 @@ import { useWorkspace } from "@/store/workspaceStore";
 const SIDE_TONE: Record<PersonaTrade["side"], string> = { buy: "up", sell: "down", other: "text-term-muted" };
 const STALE_DAYS = 270;
 
-const sourceKey = (p: Persona) => (p.source.kind === "fund" ? `13f:${p.source.cik}` : `form4:${p.source.symbol}`);
+const sourceKey = (p: Persona) => (p.source.kind === "fund" ? `13f:${p.source.cik}` : p.source.kind === "house" ? `house:${p.source.key}` : `form4:${p.source.symbol}`);
+const GROUPS: { kind: Persona["source"]["kind"]; label: string }[] = [
+  { kind: "fund", label: "Fund managers · 13F" }, { kind: "insider", label: "Corporate insiders · Form 4" }, { kind: "house", label: "US House members · PTR" },
+];
 const money = (v: number | null) => (v == null ? "" : `$${Math.abs(v) >= 1e9 ? `${(v / 1e9).toFixed(2)}B` : Math.abs(v) >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : Math.round(v).toLocaleString("en-US")}`);
 const qtr = (d: string | null) => (d ? `Q${Math.floor((Number(d.slice(5, 7)) - 1) / 3) + 1} ${d.slice(0, 4)}` : "n/a");
 
-interface PersonaData { trades: PersonaTrade[]; latest: string | null; prior: string | null; holdings: number | null; error: string | null; loading: boolean }
+interface PersonaData {
+  trades: PersonaTrade[]; latest: string | null; prior: string | null; holdings: number | null; error: string | null; loading: boolean;
+  /** House members: reports found and the ones not read (scanned, failed or beyond the newest few). */
+  reports?: number; unread?: HouseMemberData["unread"];
+}
 
 function PersonaRow({ p, on, onToggle, onRemove }: { p: Persona; on: boolean; onToggle: () => void; onRemove?: () => void }) {
   return (
@@ -36,23 +45,49 @@ function PersonaRow({ p, on, onToggle, onRemove }: { p: Persona; on: boolean; on
   );
 }
 
+/** Search the Clerk's index for any House member with a trade report this year or last. */
+function HouseSearch() {
+  const addCustom = usePersonas((s) => s.addCustom);
+  const [q, setQ] = useState("");
+  const index = useQuery({ queryKey: ["house-index"], queryFn: () => fetchRecentHouseFilings(), staleTime: 6 * 3600_000, retry: 1 });
+  const members = useMemo(() => houseMembers(index.data ?? []), [index.data]);
+  const hits = searchMembers(members, q, 8);
+  return (
+    <div className="flex flex-col gap-1">
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Name or district, e.g. CA11"
+        className="bg-term-bg border border-term-border px-2 py-1 text-[11px] placeholder:text-term-muted focus:outline-none focus:border-term-amberDim" />
+      {index.isLoading && <div className="text-[10px] text-term-muted">Loading the House Clerk's index…</div>}
+      {index.error && <div className="text-[10px] text-term-red">Could not load the index: {(index.error as Error).message}</div>}
+      {hits.map((m) => (
+        <button key={m.key} onClick={() => { addCustom(customHouse(m)); setQ(""); }}
+          className="text-left border border-term-border px-2 py-0.5 text-[11px] hover:border-term-amberDim">
+          <span className="text-term-text">{m.first} {m.last}</span> <span className="text-term-muted">{m.stateDst} · {m.ptrs} report{m.ptrs === 1 ? "" : "s"}</span>
+        </button>
+      ))}
+      {q.trim() && !index.isLoading && hits.length === 0 && <div className="text-[10px] text-term-muted">No member with a trade report this year or last matches.</div>}
+      <div className="text-[10px] text-term-muted leading-snug">Members with a Periodic Transaction Report filed this year or last. Senators are not available yet.</div>
+    </div>
+  );
+}
+
 function AddForm() {
   const addCustom = usePersonas((s) => s.addCustom);
-  const [kind, setKind] = useState<"insider" | "fund">("insider");
+  const [kind, setKind] = useState<"insider" | "fund" | "house">("insider");
   const [name, setName] = useState("");
   const [id, setId] = useState("");
-  const p = kind === "fund" ? customFund(name, id) : customInsider(name, id);
+  const p = kind === "fund" ? customFund(name, id) : kind === "insider" ? customInsider(name, id) : null;
   const input = "bg-term-bg border border-term-border px-2 py-1 text-[11px] placeholder:text-term-muted focus:outline-none focus:border-term-amberDim";
   return (
     <div className="border-t border-term-border pt-2 flex flex-col gap-1">
       <div className="sub-header">Add a persona</div>
       <div className="flex gap-1">
-        {(["insider", "fund"] as const).map((k) => (
+        {(["insider", "fund", "house"] as const).map((k) => (
           <button key={k} onClick={() => setKind(k)} className={cn("flex-1 border text-[10px] py-0.5 uppercase tracking-widest", kind === k ? "border-term-amber text-term-amber" : "border-term-border text-term-muted")}>
-            {k === "insider" ? "Insider" : "Fund"}
+            {k === "insider" ? "Insider" : k === "fund" ? "Fund" : "House"}
           </button>
         ))}
       </div>
+      {kind === "house" ? <HouseSearch /> : <>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder={kind === "fund" ? "Display name, e.g. Seth Klarman" : "First and last name"} className={input} />
       <input value={id} onChange={(e) => setId(e.target.value)} placeholder={kind === "fund" ? "SEC CIK of the firm" : "Company ticker, e.g. AAPL"} className={cn(input, "num")} />
       <button disabled={!p} onClick={() => { if (p) { addCustom(p); setName(""); setId(""); } }}
@@ -60,6 +95,7 @@ function AddForm() {
       <div className="text-[10px] text-term-muted leading-snug">
         {kind === "fund" ? "Find a firm's CIK by searching its name on sec.gov/edgar." : "Matches Form 4 filings for that company on the person's first and last name."}
       </div>
+      </>}
     </div>
   );
 }
@@ -74,7 +110,7 @@ export function PERS() {
   const queries = useQueries({
     queries: sources.map(([key, src]) => ({
       queryKey: ["persona-source", key],
-      queryFn: () => (src.kind === "fund" ? fetchForm13F(src.cik) : fetchInsiderTrades(src.symbol)),
+      queryFn: (): Promise<Record<string, unknown>[] | HouseMemberData> => (src.kind === "fund" ? fetchForm13F(src.cik) : src.kind === "house" ? fetchHouseMember(src.key) : fetchInsiderTrades(src.symbol)),
       staleTime: 6 * 3600_000,
       retry: 1,
     })),
@@ -86,11 +122,16 @@ export function PERS() {
     const q = bySource[sourceKey(p)];
     const base: PersonaData = { trades: [], latest: null, prior: null, holdings: null, error: q?.error ? (q.error as Error).message : null, loading: !!q?.isLoading };
     if (!q?.data) return [p.id, base];
+    if (p.source.kind === "house") {
+      const h = q.data as HouseMemberData;
+      return [p.id, { ...base, trades: h.trades, latest: h.latestFiled, reports: h.reports, unread: h.unread }];
+    }
+    const rowsData = q.data as Record<string, unknown>[];
     if (p.source.kind === "fund") {
-      const f = fundChanges(q.data, p.source.cik);
+      const f = fundChanges(rowsData, p.source.cik);
       return [p.id, { ...base, trades: f.trades, latest: f.latest, prior: f.prior, holdings: f.holdings }];
     }
-    const trades = q.data.map(normalizeInsider).filter((t) => matchesInsider(t.owner, p));
+    const trades = rowsData.map(normalizeInsider).filter((t) => matchesInsider(t.owner, p));
     return [p.id, { ...base, trades }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   })), [stamp, active.map((p) => p.id).join("|")]);
@@ -135,10 +176,10 @@ export function PERS() {
     <div className="h-full flex min-h-0">
       <aside className="w-60 shrink-0 border-r border-term-border p-3 flex flex-col gap-3 overflow-auto scroll-thin text-[12px]">
         <div className="text-term-amber text-[10px] tracking-[0.22em] font-bold">PERSONAS</div>
-        <div className="text-[10px] text-term-muted leading-snug">Tick the people to follow. Their trades from public SEC filings are merged into one timeline.</div>
-        {(["fund", "insider"] as const).map((k) => (
+        <div className="text-[10px] text-term-muted leading-snug">Tick the people to follow. Their trades from public filings are merged into one timeline.</div>
+        {GROUPS.map(({ kind: k, label }) => (
           <div key={k} className="flex flex-col gap-1">
-            <div className="sub-header">{k === "fund" ? "Fund managers · 13F" : "Corporate insiders · Form 4"}</div>
+            <div className="sub-header">{label}</div>
             {personas.filter((p) => p.source.kind === k).map((p) => (
               <PersonaRow key={p.id} p={p} on={followed.includes(p.id)} onToggle={() => toggle(p.id)} onRemove={p.custom ? () => removeCustom(p.id) : undefined} />
             ))}
@@ -146,7 +187,7 @@ export function PERS() {
         ))}
         <AddForm />
         <div className="text-[10px] text-term-muted leading-snug border-t border-term-border pt-2">
-          Source: SEC EDGAR through the local OpenBB API. Free, official and keyless. Following a persona is for research; StockHub places no trades.
+          Sources: SEC EDGAR through the local OpenBB API, and the Clerk of the House for House members. Free, official and keyless. Following a persona is for research; StockHub places no trades.
         </div>
       </aside>
 
@@ -165,7 +206,7 @@ export function PERS() {
           <label className="flex items-center gap-1.5 text-term-text cursor-pointer" title="Hide grants, option exercises, tax withholding and gifts">
             <input type="checkbox" checked={tradesOnly} onChange={() => setTradesOnly((v) => !v)} className="accent-[#ff8c00]" /> Buys and sells only
           </label>
-          {loading && <span className="text-term-muted uppercase tracking-widest">Loading SEC filings…</span>}
+          {loading && <span className="text-term-muted uppercase tracking-widest">Loading filings…</span>}
           <span className="ml-auto text-term-muted">Filed trades, not recommendations.</span>
         </div>
 
@@ -200,6 +241,21 @@ export function PERS() {
                               <div><div className="sub-header">Buy / sell</div><div className="num"><span className="up">{s.buys}</span> / <span className="down">{s.sells}</span></div></div>
                               <div className="col-span-3 text-term-muted">{d.prior ? `Changes ${qtr(d.prior)} → ${qtr(d.latest)}` : "Only one quarter filed; no changes to show."}</div>
                             </>
+                          ) : p.source.kind === "house" ? (
+                            <>
+                              <div><div className="sub-header">Reports</div><div className="num">{d.reports ?? 0}</div></div>
+                              <div><div className="sub-header">Buy / sell</div><div className="num"><span className="up">{s.buys}</span> / <span className="down">{s.sells}</span></div></div>
+                              <div><div className="sub-header">Latest</div><div className="num">{s.latest ?? "n/a"}</div></div>
+                              {d.reports === 0 && <div className="col-span-3 text-term-muted leading-snug">No trade reports filed this year or last.</div>}
+                              {(d.unread?.length ?? 0) > 0 && (
+                                <div className="col-span-3 text-term-muted leading-snug">
+                                  {d.unread!.filter((u) => u.reason === "scanned").length > 0 && <>{d.unread!.filter((u) => u.reason === "scanned").length} scanned paper report(s), not read. </>}
+                                  {d.unread!.filter((u) => u.reason === "failed").length > 0 && <>{d.unread!.filter((u) => u.reason === "failed").length} report(s) could not be read. </>}
+                                  {d.unread!.filter((u) => u.reason === "older").length > 0 && <>{d.unread!.filter((u) => u.reason === "older").length} older report(s) not loaded. </>}
+                                  {d.unread!.slice(0, 3).map((u) => <a key={u.docId} href={u.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-term-amber hover:underline mr-2">{u.filed}</a>)}
+                                </div>
+                              )}
+                            </>
                           ) : (
                             <>
                               <div><div className="sub-header">Trades</div><div className="num">{s.trades}</div></div>
@@ -218,11 +274,12 @@ export function PERS() {
           )}
 
           {active.some((p) => p.source.kind === "fund") && <div className="text-[10px] text-term-muted leading-snug">{FUND_NOTE}</div>}
+          {active.some((p) => p.source.kind === "house") && <div className="text-[10px] text-term-muted leading-snug">{HOUSE_NOTE} The date is the trade date; hover it for the filing date.</div>}
 
           {rows.length > 0 && (
             <div>
               <table className="w-full grid-data text-[11px]">
-                <thead><tr><th>Date</th><th>Persona</th><th>Action</th><th>Security</th><th className="text-right">Shares</th><th className="text-right">Price</th><th className="text-right">Value</th><th>Detail</th><th /></tr></thead>
+                <thead><tr><th>Date</th><th>Persona</th><th>Action</th><th>Security</th><th className="text-right">Shares</th><th className="text-right">Price</th><th className="text-right">Value or range</th><th>Detail</th><th /></tr></thead>
                 <tbody>
                   {rows.slice(0, limit).map(({ p, t }, i) => (
                     <tr key={i}>
@@ -239,9 +296,9 @@ export function PERS() {
                       </td>
                       <td className="num text-right">{t.shares == null ? "" : `${t.shares > 0 && p.source.kind === "fund" ? "+" : ""}${Math.round(t.shares).toLocaleString("en-US")}`}</td>
                       <td className="num text-right">{t.price == null ? "" : `$${t.price.toFixed(2)}`}</td>
-                      <td className="num text-right">{money(t.value)}</td>
-                      <td className="text-term-muted text-[10px]">{t.detail}</td>
-                      <td>{t.url && <a href={t.url} target="_blank" rel="noreferrer" title="SEC filing" className="text-term-muted hover:text-term-amber"><ExternalLink size={11} /></a>}</td>
+                      <td className="num text-right whitespace-nowrap">{t.value != null ? money(t.value) : t.amount ?? ""}</td>
+                      <td className="text-term-muted text-[10px] min-w-[200px] max-w-[380px]"><span className="line-clamp-2" title={t.detail}>{t.detail}</span></td>
+                      <td>{t.url && <a href={t.url} target="_blank" rel="noreferrer" title="Original filing" className="text-term-muted hover:text-term-amber"><ExternalLink size={11} /></a>}</td>
                     </tr>
                   ))}
                 </tbody>

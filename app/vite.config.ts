@@ -22,6 +22,12 @@ export default defineConfig({
         headers: { "User-Agent": "Mozilla/5.0" },
         rewrite: (p) => p.replace(/^\/rss\/yahoo/, "/rss/2.0/headline"),
       },
+      // House Clerk financial disclosures (public, keyless); the Clerk sends no CORS headers.
+      "/clerk": {
+        target: "https://disclosures-clerk.house.gov",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/clerk/, ""),
+      },
       "/rss/google": {
         target: "https://news.google.com",
         changeOrigin: true,
