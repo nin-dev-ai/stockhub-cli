@@ -3,10 +3,18 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 
 const ibkrGateway = process.env.IBKR_GATEWAY_URL ?? "https://localhost:5000";
+// Optional Copilot phrasing by Claude: the key stays in this server process and is added by the proxy.
+const llmKey = process.env.STOCKHUB_LLM_KEY;
+const llmModel = process.env.STOCKHUB_LLM_MODEL ?? "claude-sonnet-5-5";
+const llmUrl = process.env.STOCKHUB_LLM_URL ?? "https://api.anthropic.com";
 
 export default defineConfig({
   // the Broker panel links to the gateway's login page on the same address the proxy uses
-  define: { "import.meta.env.VITE_IBKR_LOGIN_URL": JSON.stringify(ibkrGateway) },
+  define: {
+    "import.meta.env.VITE_IBKR_LOGIN_URL": JSON.stringify(ibkrGateway),
+    "import.meta.env.VITE_LLM_ENABLED": JSON.stringify(llmKey ? "true" : "false"),
+    "import.meta.env.VITE_LLM_MODEL": JSON.stringify(llmModel),
+  },
   plugins: [react()],
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
@@ -34,6 +42,16 @@ export default defineConfig({
         secure: false,
         rewrite: (p) => p.replace(/^\/ibkr/, ""),
       },
+      // Only the Messages endpoint, and only when a key is configured.
+      ...(llmKey ? {
+        "/llm/v1/messages": {
+          target: llmUrl,
+          changeOrigin: true,
+          rewrite: () => "/v1/messages",
+          headers: { "x-api-key": llmKey, "anthropic-version": "2023-06-01" },
+          configure: (proxy) => proxy.on("proxyReq", (req) => { req.removeHeader("origin"); req.removeHeader("referer"); req.removeHeader("cookie"); }),
+        },
+      } : {}),
       // House Clerk financial disclosures (public, keyless); the Clerk sends no CORS headers.
       "/clerk": {
         target: "https://disclosures-clerk.house.gov",

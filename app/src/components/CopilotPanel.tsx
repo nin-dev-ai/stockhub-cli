@@ -12,6 +12,7 @@ import { useWorkspace } from "@/store/workspaceStore";
 import { usePersonas } from "@/store/personaStore";
 import { useLab } from "@/store/labStore";
 import { LAB_CHANGE_FIELDS, type LabChange } from "@/copilot/labChanges";
+import { eligible, LLM_ENABLED, LLM_MODEL, phrase } from "@/copilot/llm";
 
 const fmtField = (k: keyof LabChange, v: unknown) =>
   k === "etf" ? String(v) : k === "alsoEtfs" ? ((v as string[] | undefined)?.join(", ") || "none") : k === "years" ? `${v} years` : `$${Number(v).toLocaleString("en-US")}`;
@@ -87,6 +88,9 @@ function DraftCard({ answer, onSaved }: { answer: Answer; onSaved: (name: string
 
 function AnswerView({ a, onSaved }: { a: Answer; onSaved: (name: string) => void }) {
   const openTab = useWorkspace((s) => s.openTab);
+  const [showGrounded, setShowGrounded] = useState(false);
+  const ph = a.phrasing;
+  const blocks = ph?.status === "done" && showGrounded ? ph.grounded : a.blocks;
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2 flex-wrap">
@@ -95,10 +99,18 @@ function AnswerView({ a, onSaved }: { a: Answer; onSaved: (name: string) => void
           <Badge tone="green" title="Every number in this answer was formatted from an engine result on screen or a vetted source.">Figures traced to engine</Badge>
         )}
         {!a.verified && <Badge tone="red">Withheld</Badge>}
+        {ph?.status === "pending" && <Badge title="Claude is rephrasing the computed answer; the figures will be checked again.">Phrasing…</Badge>}
+        {ph?.status === "done" && <Badge tone="cyan" title={`Rephrased by ${ph.model}. Every number was checked against the computed answer.`}>Phrased by Claude · figures checked</Badge>}
+        {ph?.status === "fallback" && <Badge title={ph.reason}>Rule-based wording</Badge>}
       </div>
-      {a.blocks.map((b, i) => b.type === "p" ? <p key={i} className="text-term-text leading-relaxed">{b.text}</p>
+      {blocks.map((b, i) => b.type === "p" ? <p key={i} className="text-term-text leading-relaxed">{b.text}</p>
         : b.type === "note" ? <p key={i} className="text-term-muted text-[10px] leading-snug">{b.text}</p>
         : <ul key={i} className="list-disc pl-4 space-y-0.5 text-term-text">{b.items.map((x) => <li key={x}>{x}</li>)}</ul>)}
+      {ph?.status === "done" && (
+        <button onClick={() => setShowGrounded((v) => !v)} className="self-start text-[10px] text-term-muted hover:text-term-amber uppercase tracking-widest">
+          {showGrounded ? "Show Claude's wording" : "Show the computed answer"}
+        </button>
+      )}
       {a.draft?.def && <DraftCard answer={a} onSaved={onSaved} />}
       {a.persona && <PersonaCard answer={a} />}
       {a.labChange && <LabChangeCard change={a.labChange} />}
@@ -113,7 +125,7 @@ function AnswerView({ a, onSaved }: { a: Answer; onSaved: (name: string) => void
 }
 
 export function CopilotPanel() {
-  const { open, setOpen, messages, push, clear } = useCopilot();
+  const { open, setOpen, messages, push, update, clear } = useCopilot();
   const { strategy, lab, portfolio, personas } = useCopilotContext();
   const { tabs, activeTabId, openTab } = useWorkspace();
   const drafts = useStrategies((s) => s.drafts);
@@ -136,8 +148,15 @@ export function CopilotPanel() {
     const text = q.trim();
     if (!text) return;
     push({ role: "user", text });
-    push({ role: "assistant", answer: respond(text, ctx, { takenIds: allStrategies(drafts).map((d) => d.id) }) });
+    const answer = respond(text, ctx, { takenIds: allStrategies(drafts).map((d) => d.id) });
+    const useLlm = LLM_ENABLED && eligible(answer);
+    const id = push({ role: "assistant", answer: useLlm ? { ...answer, phrasing: { status: "pending" } } : answer });
     setInput("");
+    if (useLlm) {
+      void phrase(text, answer).then((r) => update(id, r.ok
+        ? { ...answer, blocks: r.blocks, phrasing: { status: "done", model: r.model, grounded: answer.blocks } }
+        : { ...answer, phrasing: { status: "fallback", reason: r.reason } }));
+    }
   };
   const chips = [
     FN_BY_CODE[screen ?? ""]?.name,
@@ -186,7 +205,9 @@ export function CopilotPanel() {
           className="flex-1 bg-term-bg border border-term-border px-2 py-1 text-[11px] focus:outline-none focus:border-term-amberDim" />
         <button type="submit" className="px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle uppercase tracking-widest text-[10px]">Ask</button>
       </form>
-      <div className="px-3 pb-1.5 text-[9px] text-term-muted">Rule-based assistant; no external AI service. Informational, not advice.</div>
+      <div className="px-3 pb-1.5 text-[9px] text-term-muted">{LLM_ENABLED
+        ? `Answers are computed by StockHub and phrased by ${LLM_MODEL}; every figure is checked against the computed answer. Informational, not advice.`
+        : "Rule-based assistant; no external AI service. Informational, not advice."}</div>
     </aside>
   );
 }

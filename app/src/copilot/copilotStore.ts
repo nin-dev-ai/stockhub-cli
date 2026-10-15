@@ -10,7 +10,9 @@ interface CopilotState {
   messages: ChatMessage[];
   toggle: () => void;
   setOpen: (o: boolean) => void;
-  push: (m: Omit<ChatMessage, "id">) => void;
+  /** Returns the new message id. */
+  push: (m: Omit<ChatMessage, "id">) => number;
+  update: (id: number, answer: Answer) => void;
   clear: () => void;
 }
 
@@ -22,7 +24,8 @@ export const useCopilot = create<CopilotState>()(
       messages: [],
       toggle: () => set({ open: !get().open }),
       setOpen: (open) => set({ open }),
-      push: (m) => set({ messages: [...get().messages, { ...m, id: ++seq }].slice(-60) }),
+      push: (m) => { const id = ++seq; set({ messages: [...get().messages, { ...m, id }].slice(-60) }); return id; },
+      update: (id, answer) => set({ messages: get().messages.map((x) => (x.id === id ? { ...x, answer } : x)) }),
       clear: () => set({ messages: [] }),
     }),
     { name: "stockhub-copilot", partialize: (s) => ({ open: s.open }) },
