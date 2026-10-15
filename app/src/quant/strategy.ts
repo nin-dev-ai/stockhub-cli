@@ -47,7 +47,15 @@ export interface StrategyDef {
   sensitivity?: { path: string; values: number[]; informational?: boolean }[];
   /** Created from this curated strategy; set on user drafts. */
   forkOf?: string;
+  /**
+   * Run the rules once per ETF in `targets` (each run replaces `from` with that ETF) and add the
+   * runs together. Each sleeve receives its weight's share of the initial capital and of every
+   * contribution; sleeves are not rebalanced against each other.
+   */
+  spread?: { from: string; targets: { ticker: string; weight: number }[] };
 }
+
+export const MAX_SPREAD = 6;
 
 const SCHEDULES: Schedule[] = ["daily", "weekly", "monthly", "quarterly", "annual", "none"];
 
@@ -65,7 +73,50 @@ export function allocationTickers(a: Allocation): string[] {
 export function requiredTickers(d: StrategyDef): string[] {
   const s = new Set<string>([...d.universe, d.benchmark, ...allocationTickers(d.allocation)]);
   if (d.reserve) s.add(d.reserve.riskyTicker);
+  for (const t of d.spread?.targets ?? []) for (const k of requiredTickers(sleeveDef(d, t.ticker))) s.add(k);
   return [...s].sort();
+}
+
+/** The ETF a strategy's signal trades: its risky asset, or the largest equity weight of a fixed mix. */
+export function primaryRisky(d: StrategyDef): string | null {
+  const a = d.allocation;
+  if ("risky" in a) return a.risky;
+  if (d.reserve) return d.reserve.riskyTicker;
+  if (a.type === "static") {
+    const eq = Object.entries(a.weights).filter(([t]) => INSTRUMENT_BY_TICKER[t]?.type === "equity_etf").sort((x, y) => y[1] - x[1]);
+    return eq[0]?.[0] ?? null;
+  }
+  return null;
+}
+
+/** One sleeve of a spread strategy: the same rules with `from` replaced by `ticker`. */
+export function sleeveDef(d: StrategyDef, ticker: string): StrategyDef {
+  const { spread, ...base } = d;
+  if (!spread) return d;
+  const one = applyTarget(base as StrategyDef, { [spread.from]: ticker });
+  return { ...one, id: `${d.id}__${ticker.toLowerCase()}`.slice(0, 60) };
+}
+
+/**
+ * Spread a strategy across several ETFs in place of the one it trades (equal weights by default).
+ * Returns null when the strategy already spreads across many assets and has no single ETF to replace.
+ */
+export function withSpread(d: StrategyDef, tickers: string[], weights?: number[], from = primaryRisky(d)): StrategyDef | null {
+  const uniq = [...new Set(tickers)];
+  if (!from || uniq.length === 0 || d.spread) return null;
+  if (uniq.length === 1) return applyTarget(d, { [from]: uniq[0] });
+  const w = weights && weights.length === uniq.length ? weights : uniq.map(() => 1 / uniq.length);
+  const list = uniq.join("+");
+  const suffix = uniq.map((t) => t.toLowerCase()).join("_");
+  return {
+    ...structuredClone(d),
+    id: `${d.id.slice(0, 50 - suffix.length)}_x_${suffix}`.slice(0, 60),
+    name: `${d.name} [across ${list}]`,
+    summary: `The same rules run separately on ${list} in place of ${from}, with money split ${w.map((x) => `${Math.round(x * 100)}%`).join("/")}. ${d.summary}`,
+    spread: { from, targets: uniq.map((ticker, i) => ({ ticker, weight: w[i] })) },
+    caveats: [`Rules and parameters were designed for ${from}; they have not been re-tuned for ${uniq.filter((t) => t !== from).join(", ") || from}. Sleeves are not rebalanced against each other.`, ...d.caveats],
+    forkOf: d.forkOf ?? `${d.id}@${d.version}`,
+  };
 }
 
 const isInt = (n: unknown): n is number => typeof n === "number" && Number.isInteger(n);
@@ -171,6 +222,15 @@ export function validateStrategy(d: unknown): Validation {
     if (!inRange(s.reserve.fraction, 0.05, 0.9)) e("reserve.fraction must be between 5% and 90%.");
     if (!inRange(s.reserve.releaseDrawdown, -0.5, -0.02)) e("reserve.releaseDrawdown must be between -50% and -2%.");
     known(s.reserve.riskyTicker, "reserve ticker");
+  }
+  if (s.spread) {
+    const sp = s.spread, list = Array.isArray(sp.targets) ? sp.targets : [];
+    if (list.length < 1 || list.length > MAX_SPREAD) e(`spread needs 1 to ${MAX_SPREAD} ETFs.`);
+    list.forEach((t) => known(t?.ticker, "spread ticker"));
+    if (new Set(list.map((t) => t?.ticker)).size !== list.length) e("spread ETFs must not repeat.");
+    if (list.some((t) => !inRange(t?.weight, 0.01, 1))) e("spread weights must be between 1% and 100%.");
+    else if (Math.abs(list.reduce((x, t) => x + t.weight, 0) - 1) > 1e-6) e("spread weights must sum to 100%.");
+    if (a && typeof a === "object" && !(allocationTickers(a) ?? []).includes(sp.from) && s.reserve?.riskyTicker !== sp.from) e(`spread replaces ${String(sp.from)}, which the strategy does not trade.`);
   }
   if (!Array.isArray(s.caveats)) e("caveats must be a list.");
   return { ok: errors.length === 0, errors };

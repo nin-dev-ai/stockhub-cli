@@ -5,6 +5,7 @@ import { loadDataset } from "./dataSource";
 import { hashId } from "./hash";
 import { requiredTickers, validateStrategy, type StrategyDef } from "./strategy";
 import { ENGINE_VERSION, type QualityFlag } from "./types";
+import { spreadReport, type SpreadReport } from "./spread";
 
 /** Standard configuration used for catalog scorecards so strategies are comparable. */
 export const SCORECARD_CONFIG: RunConfig = {
@@ -40,6 +41,8 @@ export interface BacktestResult {
   flags: QualityFlag[];
   caveats: string[];
   robustness: Robustness | null;
+  /** Spread strategies only: per-ETF results, correlation and baselines. */
+  spread: SpreadReport | null;
 }
 
 export function conventionsFor(cfg: RunConfig, years: number): string[] {
@@ -99,6 +102,7 @@ export function runBacktestOn(
     },
     conventions: conventionsFor(cfg, years), flags, caveats: strategy.caveats,
     robustness: opts.robustness ? assessRobustness(strategy, panel, cfg) : null,
+    spread: spreadReport(strategy, run, panel, cfg),
   };
 }
 
