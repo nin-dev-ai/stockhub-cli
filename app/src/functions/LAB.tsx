@@ -8,6 +8,7 @@ import { findStrategy, useStrategies } from "@/store/strategyStore";
 import { useLab } from "@/store/labStore";
 import { useWorkspace } from "@/store/workspaceStore";
 import type { StrategyDef } from "@/quant/strategy";
+import { labStrategies } from "@/quant/lab";
 import { InputsPane } from "./lab/InputsPane";
 import { JobBar } from "./lab/JobBar";
 import { BacktestView } from "./lab/BacktestView";
@@ -25,7 +26,8 @@ export function LAB() {
   const openTab = useWorkspace((s) => s.openTab);
   const { basket, drafts } = useStrategies();
   const { inputs, override, setInputs, setOverride, reset } = useLab();
-  const defs = useMemo(() => basket.map((id) => findStrategy(id, drafts)).filter((d): d is StrategyDef => !!d), [basket, drafts]);
+  const basketDefs = useMemo(() => basket.map((id) => findStrategy(id, drafts)).filter((d): d is StrategyDef => !!d), [basket, drafts]);
+  const defs = useMemo(() => labStrategies(basketDefs, inputs), [basketDefs, inputs.etf]); // eslint-disable-line react-hooks/exhaustive-deps
   const eng = useLabEngine(defs, inputs, override);
   const [tab, setTab] = useState<Tab>("backtest");
   const [drawer, setDrawer] = useState<"report" | "save" | null>(null);
@@ -66,7 +68,8 @@ export function LAB() {
   return (
     <div className="relative h-full flex min-h-0">
       <InputsPane inputs={inputs} set={setInputs} errors={eng.errors} onReset={reset}
-        basketNames={defs.map((d) => ({ id: d.id, name: d.name }))} />
+        basketNames={defs.map((d) => ({ id: d.id, name: d.name }))}
+        unchanged={defs.filter((d, k) => d === basketDefs[k] && inputs.etf !== "SPY").map((d) => d.name)} />
 
       <div className="flex-1 min-w-0 flex flex-col min-h-0">
         <div className="px-4 py-2 border-b border-term-border flex flex-wrap items-center gap-2">

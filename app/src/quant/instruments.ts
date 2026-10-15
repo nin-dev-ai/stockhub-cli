@@ -70,6 +70,18 @@ export const INSTRUMENTS: Instrument[] = [
   { ticker: "DBC", name: "Invesco DB Commodity Index Tracking Fund", type: "commodity_etf", exchange: "NYSE Arca", currency: "USD", inception: "2006-02-03", exposure: { commodity: 1 }, note: "Holds futures; returns include roll costs." },
 ];
 
+/**
+ * Long-lived, broad US equity ETFs offered as the one-click choice for running a strategy:
+ * each has traded since 2001 or earlier and tracks a widely followed index.
+ */
+export const CORE_ETFS: { ticker: string; label: string; blurb: string }[] = [
+  { ticker: "SPY", label: "S&P 500", blurb: "500 large US companies; since 1993" },
+  { ticker: "QQQ", label: "Nasdaq-100", blurb: "100 largest Nasdaq non-financials, tech-heavy; since 1999" },
+  { ticker: "DIA", label: "Dow Jones 30", blurb: "30 blue chips, price-weighted; since 1998" },
+  { ticker: "VTI", label: "Total US market", blurb: "Large, mid and small caps, about 3,500 stocks; since 2001" },
+  { ticker: "MDY", label: "S&P MidCap 400", blurb: "Mid-sized US companies; since 1995" },
+];
+
 export const INSTRUMENT_GROUPS: { label: string; types: Instrument["type"][] }[] = [
   { label: "Equity", types: ["equity_etf"] },
   { label: "Bonds", types: ["bond_etf"] },

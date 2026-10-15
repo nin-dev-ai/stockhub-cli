@@ -1,6 +1,8 @@
 import { OBJECTIVES } from "@/quant/optimizer";
 import type { LabInputs } from "@/quant/lab";
 import { cn } from "@/lib/cn";
+import { CORE_ETFS } from "@/quant/instruments";
+import { EtfSelect } from "@/components/quant/EtfSelect";
 
 function Num({ label, value, onChange, prefix, suffix, step = 1, min = 0, hint, scale = 1 }: {
   label: string; value: number | null; onChange: (v: number) => void; prefix?: string; suffix?: string; step?: number; min?: number; hint?: string; scale?: number;
@@ -25,11 +27,14 @@ interface Props {
   inputs: LabInputs;
   set: (p: Partial<LabInputs>) => void;
   basketNames: { id: string; name: string }[];
+  /** Basket strategies that do not trade SPY, so the ETF choice leaves them as they are. */
+  unchanged: string[];
   errors: string[];
   onReset: () => void;
 }
 
-export function InputsPane({ inputs: i, set, basketNames, errors, onReset }: Props) {
+export function InputsPane({ inputs: i, set, basketNames, unchanged, errors, onReset }: Props) {
+  const isCore = CORE_ETFS.some((c) => c.ticker === i.etf);
   return (
     <aside className="w-64 shrink-0 border-r border-term-border p-3 flex flex-col gap-3 overflow-auto scroll-thin text-[12px]">
       <div className="flex items-center justify-between">
@@ -43,6 +48,26 @@ export function InputsPane({ inputs: i, set, basketNames, errors, onReset }: Pro
       <Num label="Monthly contribution" prefix="$" value={i.monthly} onChange={(v) => set({ monthly: v })} step={10} />
       <Num label="Horizon" suffix="years" value={i.years} onChange={(v) => set({ years: v })} step={1} min={1} hint="1 to 30 years" />
       <div className="text-[10px] text-term-muted -mt-1">Currency: USD only. Other currencies are not supported.</div>
+
+      <div>
+        <div className="sub-header mb-1">Run on ETF</div>
+        <div className="flex flex-col gap-1">
+          {CORE_ETFS.map((c) => (
+            <label key={c.ticker} title={c.blurb} className={cn("flex items-center gap-2 px-2 py-1 border cursor-pointer text-[11px]",
+              i.etf === c.ticker ? "border-term-amber text-term-amber bg-term-amberSubtle" : "border-term-border text-term-text hover:border-term-amberDim")}>
+              <input type="radio" name="lab-etf" checked={i.etf === c.ticker} onChange={() => set({ etf: c.ticker })} className="accent-[#ff8c00]" />
+              <span className="w-9 font-bold">{c.ticker}</span><span className="text-term-muted">{c.label}</span>
+            </label>
+          ))}
+          <label className="text-[10px] text-term-muted">Other ETF
+            <EtfSelect ariaLabel="Other ETF" value={isCore ? "" : i.etf} onChange={(v) => v && set({ etf: v })} originalLabel="—" originalValue="" />
+          </label>
+        </div>
+        <div className="text-[10px] text-term-muted mt-1 leading-snug">
+          Replaces SPY in every basket strategy that trades it, and becomes the benchmark. Parameters were tuned on SPY.
+          {unchanged.length > 0 && <> Not affected (they do not trade SPY): {unchanged.join(", ")}.</>}
+        </div>
+      </div>
 
       <div>
         <div className="sub-header mb-1">Strategies in basket ({basketNames.length}/3)</div>

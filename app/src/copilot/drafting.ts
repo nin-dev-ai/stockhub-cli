@@ -1,7 +1,7 @@
 import { CATALOG } from "@/quant/catalog";
 import { INSTRUMENT_BY_TICKER, INSTRUMENTS } from "@/quant/instruments";
 import { describeRules } from "@/quant/rules";
-import { validateStrategy, type Allocation, type Schedule, type StrategyDef } from "@/quant/strategy";
+import { allocationTickers, requiredTickers, retarget, validateStrategy, type Allocation, type Schedule, type StrategyDef } from "@/quant/strategy";
 
 /**
  * Rule-based translation of a plain-English idea into the versioned strategy DSL (AI-04).
@@ -308,6 +308,54 @@ function modify(text: string, base: StrategyDef, a: { understood: string[]; assu
 }
 
 /** The curated strategy with the same rule type and most shared tickers, used as a reference for the diff. */
+const DEFENSIVE = new Set(["bond_etf", "cash_etf"]);
+const isDefensive = (t: string) => DEFENSIVE.has(INSTRUMENT_BY_TICKER[t]?.type ?? "");
+
+/**
+ * "Run the golden cross on QQQ", "use BIL instead of SHY": the same rules on other ETFs.
+ * An explicit "X instead of Y" / "replace Y with X" maps Y to X. Otherwise each newly named ETF
+ * replaces the strategy's main ETF of the same kind: an equity, gold or property ETF replaces its
+ * main risky holding (SPY when it trades SPY), a bond or cash ETF replaces its defensive holding.
+ */
+export function variantFromText(text: string, base: StrategyDef): DraftResult {
+  const name = CATALOG.some((s) => s.id === base.id && s.name === base.name) ? base.name : "this draft";
+  const res: DraftResult = { def: null, understood: [], assumptions: [], unsupported: [], errors: [], base };
+  const used = requiredTickers(base);
+  const traded = allocationTickers(base.allocation);
+  const map: Record<string, string> = {};
+  const tick = (s: string) => findTickers(s)[0];
+  for (const m of text.matchAll(/([\w&$ -]{2,40}?)\s+instead of\s+([\w&$ -]{2,40})/gi)) {
+    const to = tick(m[1].split(/\b(use|with|run|try|put)\b/i).pop() ?? m[1]), from = tick(m[2]);
+    if (to && from) map[from] = to;
+  }
+  for (const m of text.matchAll(/\b(?:replace|swap)\s+([\w&$ -]{2,40}?)\s+(?:with|for|by)\s+([\w&$ -]{2,40})/gi)) {
+    const from = tick(m[1]), to = tick(m[2]);
+    if (to && from) map[from] = to;
+  }
+  if (Object.keys(map).length === 0) {
+    for (const t of findTickers(text).filter((x) => !used.includes(x))) {
+      const pool = traded.filter((x) => isDefensive(x) === isDefensive(t));
+      const from = isDefensive(t) ? (pool.includes("SHY") ? "SHY" : pool[pool.length - 1]) : (pool.includes("SPY") ? "SPY" : pool[0]);
+      if (from && !map[from]) map[from] = t;
+      else if (!from) res.unsupported.push(`${name} holds no ${isDefensive(t) ? "bond or cash" : "risky"} ETF for ${t} to replace.`);
+    }
+  }
+  for (const from of Object.keys(map)) if (!used.includes(from)) { res.unsupported.push(`${name} does not use ${from}, so there is nothing to replace.`); delete map[from]; }
+  if (Object.keys(map).length === 0) {
+    res.errors.push(`Name the ETF to run ${name} on, for example "on QQQ" or "use BIL instead of SHY".`);
+    return res;
+  }
+  const def = retarget(base, map);
+  for (const [from, to] of Object.entries(map)) res.understood.push(`${from} → ${to} (${INSTRUMENT_BY_TICKER[to].name}).`);
+  if (def.benchmark !== base.benchmark) res.understood.push(`Benchmark → ${def.benchmark} buy and hold, so the comparison is against simply owning it.`);
+  res.assumptions.push(`All rules and parameters are kept from ${name}; they were tuned on ${Object.keys(map).join(", ")}.`);
+  const late = Object.values(map).filter((t) => INSTRUMENT_BY_TICKER[t].inception >= "2005");
+  if (late.length) res.assumptions.push(`${late.join(", ")} started trading in ${late.map((t) => INSTRUMENT_BY_TICKER[t].inception.slice(0, 4)).join(", ")}, so the backtest window will be shorter.`);
+  res.def = def;
+  res.errors = validateStrategy(def).errors;
+  return res;
+}
+
 export function closestCurated(d: StrategyDef): StrategyDef | null {
   const same = CATALOG.filter((c) => c.allocation.type === d.allocation.type);
   if (same.length === 0) return null;

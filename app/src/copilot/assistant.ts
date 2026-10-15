@@ -2,9 +2,10 @@ import { CATALOG } from "@/quant/catalog";
 import { OBJECTIVES } from "@/quant/optimizer";
 import { describeRules } from "@/quant/rules";
 import { MODE_LABEL } from "@/quant/tracking";
-import type { StrategyDef } from "@/quant/strategy";
+import { customPersona, PRESET_PERSONAS, type Persona } from "@/quant/personas";
+import { requiredTickers, type StrategyDef } from "@/quant/strategy";
 import type { CopilotContext, LabContext, PortfolioContext, StrategyContext } from "./context";
-import { draftFromText, modifyFromText, type DraftResult } from "./drafting";
+import { draftFromText, findTickers, modifyFromText, variantFromText, type DraftResult } from "./drafting";
 import { findTerms, GLOSSARY_BY_ID, type GlossaryEntry } from "./glossary";
 import { classifyGuard, hasUnsafeCertainty, verifyFigures, type GuardKind } from "./guardrails";
 
@@ -16,7 +17,7 @@ import { classifyGuard, hasUnsafeCertainty, verifyFigures, type GuardKind } from
 
 export type Block = { type: "p"; text: string } | { type: "list"; items: string[] } | { type: "note"; text: string };
 export interface Source { label: string; detail?: string }
-export type AnswerKind = "glossary" | "strategy" | "backtest" | "optimization" | "projection" | "portfolio" | "methodology" | "draft" | "refusal" | "help";
+export type AnswerKind = "persona" | "glossary" | "strategy" | "backtest" | "optimization" | "projection" | "portfolio" | "methodology" | "draft" | "refusal" | "help";
 
 export interface Answer {
   kind: AnswerKind;
@@ -24,6 +25,8 @@ export interface Answer {
   blocks: Block[];
   sources: Source[];
   draft?: DraftResult;
+  /** A persona to follow, offered for confirmation; `options` when the chamber is unknown. */
+  persona?: { known: Persona | null; options: Persona[] };
   verified: boolean;
   unverified: string[];
 }
@@ -49,6 +52,8 @@ class Composer {
   note(text: string) { this.blocks.push({ type: "note", text }); return this; }
   source(label: string, detail?: string) { this.sources.push({ label, detail }); return this; }
 
+  persona?: { known: Persona | null; options: Persona[] };
+
   done(draft?: DraftResult): Answer {
     const text = this.blocks.map((b) => (b.type === "list" ? b.items.join("\n") : b.text)).join("\n");
     const check = verifyFigures(text, this.permitted);
@@ -61,7 +66,7 @@ class Composer {
           : "The drafted answer contained figures that could not be traced to an engine result or a vetted source, so it was withheld rather than risk showing an invented number." }],
       };
     }
-    return { kind: this.kind, title: this.title, blocks: this.blocks, sources: this.sources, draft, verified: true, unverified: [] };
+    return { kind: this.kind, title: this.title, blocks: this.blocks, sources: this.sources, draft, persona: this.persona, verified: true, unverified: [] };
   }
 }
 
@@ -79,8 +84,17 @@ export function respond(message: string, ctx: CopilotContext, opts: { takenIds?:
   const guard = classifyGuard(m);
   if (guard) return refuse(guard, m, ctx);
 
+  const who = personaRequest(m);
+  if (who) return persona(m, who);
+
   const wantsDraft = has(m, /\b(create|build|draft|make|write|design|turn|convert)\b.{0,50}\b(strategy|rule|plan)\b/i) || has(m, /^\s*(strategy|draft|idea)\s*:/i);
   const wantsEdit = !!ctx.strategy && has(m, /\b(change|make it|use an?|switch|set|instead|increase|decrease|try|tweak|modify)\b/i) && !wantsDraft;
+  // "run the golden cross on QQQ", "apply this to the Nasdaq", "use BIL instead of SHY"
+  const variantBase = wantsDraft ? null : namedStrategy(m) ?? ctx.strategy?.def ?? null;
+  if (variantBase && has(m, /\b(run|apply|use|try|test|put|switch|move|replace|swap)\b/i)
+    && (has(m, /\binstead of\b|\b(replace|swap)\b/i) || findTickers(m).some((t) => !requiredTickers(variantBase).includes(t)))) {
+    return variant(m, variantBase);
+  }
   if (wantsDraft || wantsEdit) return draft(m, ctx, wantsEdit, opts.takenIds ?? []);
 
   const terms = findTerms(m);
@@ -315,13 +329,69 @@ function draft(m: string, ctx: CopilotContext, edit: boolean, takenIds: string[]
     c.list(res.unsupported);
     return c.done(res);
   }
-  c.p(edit ? `A copy of ${ctx.strategy!.def.name} with these changes. The original is not modified.` : "Here is how I read your idea. Nothing is saved or run until you confirm.");
+  c.p(edit ? `A copy of ${c.vetted(curatedName(ctx.strategy!.def))} with these changes. The original is not modified.` : "Here is how I read your idea. Nothing is saved or run until you confirm.");
   c.list(res.understood.map(c.vetted));
   if (res.assumptions.length) { c.p("Defaults I filled in:"); c.list(res.assumptions.map(c.vetted)); }
   if (res.unsupported.length) { c.p("Not supported, so left out:"); c.list(res.unsupported.map(c.vetted)); }
   if (res.errors.length) c.note(`The draft does not validate yet: ${c.vetted(res.errors.join(" "))} Edit the definition below.`);
   c.note("Review the definition and the generated rules, then save it as a draft. Backtest it from the Strategies screen; it carries no evidence until you do.");
   c.source("Strategy schema", "version 1 validation");
+  return c.done(res);
+}
+
+const PERSONA_VERB = /\b(follow|track|watch|monitor|mirror|copy|persona|trades?|trading|bought|sold|buying|selling|doing|portfolio|positions?)\b/i;
+const TITLE = "(?:rep\\.?|representative|senator|sen\\.?|congress(?:wo)?man|speaker)";
+
+/** A preset persona named in the message, or a new name after "follow"/"persona for". */
+export function personaRequest(m: string): { known: Persona | null; name: string } | null {
+  if (!PERSONA_VERB.test(m)) return null;
+  const words = m.toLowerCase().replace(/[^a-z ]/g, " ").split(/\s+/);
+  const known = PRESET_PERSONAS.find((p) => words.includes(p.lastName));
+  if (known) return { known, name: known.name };
+  // verbs and titles in any case; the name itself must be capitalized
+  const ci = (w: string) => w.replace(/[a-z]/, (ch) => `[${ch}${ch.toUpperCase()}]`);
+  const verbs = ["follow", "track", "watch", "monitor", "mirror", "copy", "following", "persona for", "persona of", "persona following"].map(ci).join("|");
+  const re = new RegExp(`\\b(?:${verbs})\\s+(?:${TITLE.replace(/[a-z]+/g, (w) => ci(w))}\\s+)?([A-Z][a-z'-]+(?:\\s+[A-Z][a-z'-]+){1,2})`);
+  const hit = re.exec(m);
+  return hit ? { known: null, name: hit[1] } : null;
+}
+
+function persona(m: string, who: { known: Persona | null; name: string }): Answer {
+  const c = new Composer("persona", `Follow ${who.name}`, m);
+  const p = who.known;
+  if (p && !p.chamber) {
+    c.p(c.vetted(p.note ?? ""));
+    c.p("You can still follow the persona; its card will say so until a feed for these filings is connected.");
+  } else {
+    c.p(`The Personas screen shows ${who.name}'s disclosed trades from STOCK Act periodic transaction reports, merged with anyone else you follow into one timeline: disclosure and trade dates, the delay between them, ticker, purchase or sale, the disclosed value range and whose account traded.`);
+    if (!p) c.p("This name is not one of the presets, so pick the chamber they file in. Matching uses the first and last name as filed.");
+    c.note("Filings report value ranges, not exact amounts, and can arrive weeks after the trade, so they show what was done, not what is being done now.");
+  }
+  if (/\b(mirror|copy)\b/i.test(m)) c.note("Copying trades automatically is not supported: StockHub is not connected to a broker and places no orders. Following is for research.");
+  c.persona = { known: p, options: p ? [] : (["house", "senate"] as const).map((ch) => customPersona(who.name, ch)).filter((x): x is Persona => !!x) };
+  c.source("Disclosure feed", "Financial Modeling Prep via OpenBB (needs an FMP key)");
+  return c.done();
+}
+
+/** Curated names are product text and may be quoted; a user draft's free-text name is not. */
+const curatedName = (d: StrategyDef) => (CATALOG.some((s) => s.id === d.id && s.name === d.name) ? d.name : "your draft");
+
+function variant(m: string, base: StrategyDef): Answer {
+  const res = variantFromText(m, base);
+  const c = new Composer("draft", "Same rules, different ETFs", m);
+  if (!res.def) {
+    c.note(c.vetted(res.errors.join(" ")));
+    if (res.unsupported.length) c.list(res.unsupported.map(c.vetted));
+    return c.done(res);
+  }
+  c.p(`A copy of ${c.vetted(curatedName(base))} that runs on other ETFs. The original is not modified, and nothing is saved until you confirm.`);
+  c.list(res.understood.map(c.vetted));
+  c.p("Assumptions:");
+  c.list(res.assumptions.map(c.vetted));
+  if (res.unsupported.length) { c.p("Left out:"); c.list(res.unsupported.map(c.vetted)); }
+  if (res.errors.length) c.note(`The variant does not validate: ${c.vetted(res.errors.join(" "))}`);
+  c.note("After saving, it appears under My drafts on the Strategies screen with its own backtest. The sidebar's Test against ETFs switch does the same for every strategy at once.");
+  c.source("Strategy schema", "retarget, version 1 validation");
   return c.done(res);
 }
 
@@ -335,13 +405,13 @@ function help(m: string, ctx: CopilotContext): Answer {
 /** Prompts that fit the current screen and what it has calculated. */
 export function suggestions(ctx: CopilotContext): string[] {
   const out: string[] = [];
-  if (ctx.screen === "STRAT" && ctx.strategy) out.push("Explain this strategy's rules and risks", "Make it rebalance annually");
+  if (ctx.screen === "STRAT" && ctx.strategy) out.push("Explain this strategy's rules and risks", "Run this on QQQ", "Make it rebalance annually");
   if (ctx.screen === "LAB" && ctx.lab) {
     if (ctx.lab.optimization) out.push("Why did the optimizer choose these weights?");
     if (ctx.lab.projection) out.push("Explain my projection range");
     if (!ctx.lab.optimization && !ctx.lab.projection) out.push("Explain the backtest results");
   }
   if (ctx.screen === "PORT" && ctx.portfolio) out.push("Why is my portfolio different from the plan?");
-  out.push("What is a Sharpe ratio?", "Create a strategy: hold SPY above its 200-day moving average, otherwise bonds");
+  out.push("Run the golden cross on the Nasdaq", "Follow Nancy Pelosi's trades", "What is a Sharpe ratio?", "Create a strategy: hold SPY above its 200-day moving average, otherwise bonds");
   return [...new Set(out)].slice(0, 5);
 }

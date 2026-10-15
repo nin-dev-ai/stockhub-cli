@@ -72,6 +72,7 @@ describe("primary sections", () => {
     expect(sectionOf("STRAT")).toBe("strategies");
     expect(sectionOf("LAB")).toBe("lab");
     expect(sectionOf("PORT")).toBe("portfolio");
+    expect(sectionOf("PERS")).toBe("personas");
     expect(sectionOf("CC")).toBe("explore");
     expect(sectionOf("GP")).toBe("explore");
   });

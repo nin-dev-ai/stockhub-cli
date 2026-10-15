@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CATALOG } from "@/quant/catalog";
-import { allocationTickers, retarget, type StrategyDef } from "@/quant/strategy";
+import { applyTarget, type StrategyDef } from "@/quant/strategy";
 
 export const MAX_BASKET = 3;
 
@@ -60,9 +60,7 @@ export function targetedStrategies(drafts: StrategyDef[], target: EtfTarget): { 
   const byId = new Map<string, StrategyDef>();
   const retargeted = new Set<string>();
   for (const d of allStrategies(drafts)) {
-    // only swap ETFs the strategy trades; one that merely benchmarks against SPY is left alone
-    const traded = new Set([...allocationTickers(d.allocation), ...(d.reserve ? [d.reserve.riskyTicker] : [])]);
-    const r = retarget(d, Object.fromEntries(Object.entries(map).filter(([k]) => traded.has(k))));
+    const r = applyTarget(d, map);
     if (r === d) { byId.set(d.id, d); retargeted.delete(d.id); }
     else if (!byId.has(r.id)) { byId.set(r.id, r); retargeted.add(r.id); }
   }

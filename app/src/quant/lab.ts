@@ -1,11 +1,15 @@
 import type { ContributionFrequency, RunConfig } from "./backtest";
 import { DEFAULT_CONFIG } from "./backtest";
+import { INSTRUMENT_BY_TICKER } from "./instruments";
+import { applyTarget, type StrategyDef } from "./strategy";
 import type { Objective } from "./optimizer";
 import { blendPath, blendReturns, evaluateWeights, monthlyReturns, type Sleeve, type Weights } from "./portfolio";
 import type { ProjectionInput, ProjectionMethod } from "./projection";
 import type { BacktestResult } from "./service";
 
 export interface LabInputs {
+  /** ETF that replaces SPY in every basket strategy that trades it (and becomes the benchmark). */
+  etf: string;
   initial: number;
   /** Value already held in ETFs; treated as extra starting capital invested per the plan from day one. */
   existing: number;
@@ -26,7 +30,7 @@ export interface LabInputs {
 }
 
 export const DEFAULT_LAB: LabInputs = {
-  initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, riskFreeRate: 0,
+  etf: "SPY", initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, riskFreeRate: 0,
   slippageBps: 2, fixedFee: 0, fractional: true, inflation: 0.025, goal: null,
   method: "bootstrap", paths: 2000, seed: 42, blockMonths: 6,
 };
@@ -47,9 +51,13 @@ export function validateLab(i: LabInputs): string[] {
   if (bad(i.inflation, [0, 0.2])) e.push("Inflation must be between 0% and 20%.");
   if (bad(i.slippageBps, [0, 200])) e.push("Slippage must be between 0 and 200 bps.");
   if (bad(i.fixedFee, [0, 100])) e.push("Fixed fee must be between $0 and $100.");
+  if (!INSTRUMENT_BY_TICKER[i.etf]) e.push(`${i.etf} is not a supported ETF.`);
   if (i.goal != null && (!Number.isFinite(i.goal) || i.goal <= 0)) e.push("Goal must be a positive amount.");
   return e;
 }
+
+/** The basket as the Lab runs it: SPY swapped for the chosen ETF wherever a strategy trades it. */
+export const labStrategies = (defs: StrategyDef[], i: LabInputs): StrategyDef[] => defs.map((d) => applyTarget(d, { SPY: i.etf }));
 
 export const startingCapital = (i: LabInputs) => i.initial + i.existing;
 

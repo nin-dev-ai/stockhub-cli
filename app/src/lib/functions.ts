@@ -4,7 +4,7 @@ export type FunctionCode =
   | "FA" | "KEY" | "DVD" | "EE" | "NI"
   | "WEI" | "MOV" | "OMON"
   | "CURV" | "FXC" | "CRYPTO"
-  | "STRAT" | "LAB" | "PORT";
+  | "STRAT" | "LAB" | "PORT" | "PERS";
 
 export interface FunctionDef {
   code: FunctionCode;
@@ -39,16 +39,18 @@ export const FUNCTIONS: FunctionDef[] = [
 
   { code: "LAB",   name: "Simulation Lab",       needsSymbol: false, group: "Strategy", summary: "Backtest a basket, optimize weights, project a range of outcomes" },
   { code: "PORT",  name: "My Portfolio",         needsSymbol: false, group: "Strategy", summary: "Saved plans, paper and manually reported holdings, plan vs observed" },
+  { code: "PERS",  name: "Personas",             needsSymbol: false, group: "Strategy", summary: "Follow public figures' disclosed trades (congressional STOCK Act filings) in one timeline" },
   { code: "STRAT", name: "Strategies",           needsSymbol: false, group: "Strategy", summary: "Curated rules-based strategies: rules, backtests, robustness, basket" },
 ];
 
 /** Primary navigation sections; every function belongs to exactly one. */
-export type Section = "explore" | "strategies" | "lab" | "portfolio";
+export type Section = "explore" | "strategies" | "personas" | "lab" | "portfolio";
 export const STRATEGY_CODES: FunctionCode[] = ["STRAT"];
 export const LAB_CODES: FunctionCode[] = ["LAB"];
 export const PORTFOLIO_CODES: FunctionCode[] = ["PORT"];
+export const PERSONA_CODES: FunctionCode[] = ["PERS"];
 export const sectionOf = (code: FunctionCode): Section =>
-  STRATEGY_CODES.includes(code) ? "strategies" : LAB_CODES.includes(code) ? "lab" : PORTFOLIO_CODES.includes(code) ? "portfolio" : "explore";
+  STRATEGY_CODES.includes(code) ? "strategies" : PERSONA_CODES.includes(code) ? "personas" : LAB_CODES.includes(code) ? "lab" : PORTFOLIO_CODES.includes(code) ? "portfolio" : "explore";
 
 export const FN_BY_CODE: Record<string, FunctionDef> = Object.fromEntries(FUNCTIONS.map((f) => [f.code, f]));
 
