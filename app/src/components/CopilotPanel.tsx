@@ -86,6 +86,7 @@ function DraftCard({ answer, onSaved }: { answer: Answer; onSaved: (name: string
 }
 
 function AnswerView({ a, onSaved }: { a: Answer; onSaved: (name: string) => void }) {
+  const openTab = useWorkspace((s) => s.openTab);
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2 flex-wrap">
@@ -101,6 +102,7 @@ function AnswerView({ a, onSaved }: { a: Answer; onSaved: (name: string) => void
       {a.draft?.def && <DraftCard answer={a} onSaved={onSaved} />}
       {a.persona && <PersonaCard answer={a} />}
       {a.labChange && <LabChangeCard change={a.labChange} />}
+      {a.open && <button onClick={() => openTab(a.open!.code)} className="self-start px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px]">{a.open.label}</button>}
       {a.sources.length > 0 && (
         <div className="text-[10px] text-term-muted border-t border-term-borderSoft pt-1">
           Sources: {a.sources.map((s, i) => <span key={i}>{i > 0 && " · "}{s.label}{s.detail ? ` (${s.detail})` : ""}</span>)}

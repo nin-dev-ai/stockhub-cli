@@ -371,6 +371,24 @@ describe("persona trades on screen (permission level 0)", () => {
   });
 });
 
+describe("broker and paper orders (levels 1 and 3)", () => {
+  it("refuses to place orders and points to the Paper Orders screen", () => {
+    for (const q of ["place an order for 10 SPY", "buy 5 QQQ", "submit a trade on my IBKR paper account"]) {
+      const a = respond(q, empty);
+      expect(a.kind, q).toBe("refusal");
+      expect(a.open?.code, q).toBe("ORD");
+      expect(text(a), q).toMatch(/only be sent by you/);
+    }
+  });
+  it("opens the screens with one click and explains the limits", () => {
+    const a = respond("how do I rebalance my IBKR paper account?", empty);
+    expect(a.open).toEqual({ code: "ORD", label: "Open Paper Orders" });
+    expect(text(a)).toMatch(/I cannot send, confirm or cancel orders/);
+    expect(text(a)).toMatch(/live accounts are refused/);
+    expect(respond("connect my interactive brokers account", empty).open?.code).toBe("PORT");
+  });
+});
+
 describe("suggestions (AI-01)", () => {
   it("adapt to the screen and what has been calculated", () => {
     expect(suggestions({ ...empty, screen: "PORT", portfolio: { name: "x", mode: "paper", snapshots: 1, total: 1, contributed: 1, attribution: null } })[0]).toMatch(/portfolio/);
