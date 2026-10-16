@@ -50,4 +50,4 @@ A plan is a **goal** plus **sleeves**. Each sleeve is one strategy with a **role
 | Track | Status |
 | --- | --- |
 | A — Plan builder | In progress |
-| B — Live personas | Not started |
+| B — Live personas | EDGAR live feed delivered (Form 3/4/5 and 13D/G with acceptance times, freshness, new badges, 5-minute refresh, Copilot); ARK daily trades not started |
