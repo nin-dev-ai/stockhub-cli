@@ -19,6 +19,8 @@ export interface LabInputs {
   years: number;
   objective: Objective;
   maxWeight: number;
+  /** The worst peak-to-trough fall the user will accept, as a positive fraction (0.3 = 30%). */
+  fallLimit: number;
   riskFreeRate: number;
   slippageBps: number;
   fixedFee: number;
@@ -32,7 +34,7 @@ export interface LabInputs {
 }
 
 export const DEFAULT_LAB: LabInputs = {
-  etf: "SPY", alsoEtfs: [], initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, riskFreeRate: 0,
+  etf: "SPY", alsoEtfs: [], initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, fallLimit: 0.3, riskFreeRate: 0,
   slippageBps: 2, fixedFee: 0, fractional: true, inflation: 0.025, goal: null,
   method: "bootstrap", paths: 2000, seed: 42, blockMonths: 6,
 };
@@ -49,6 +51,7 @@ export function validateLab(i: LabInputs): string[] {
   if (bad(i.years, LAB_LIMITS.years)) e.push("Horizon must be 1 to 30 years.");
   if (bad(i.paths, LAB_LIMITS.paths)) e.push("Simulated paths must be between 200 and 10,000.");
   if (bad(i.maxWeight, [0.2, 1])) e.push("Maximum weight per strategy must be between 20% and 100%.");
+  if (bad(i.fallLimit, [0.05, 0.9])) e.push("The fall limit must be between 5% and 90%.");
   if (bad(i.riskFreeRate, [0, 0.2])) e.push("Risk-free rate must be between 0% and 20%.");
   if (bad(i.inflation, [0, 0.2])) e.push("Inflation must be between 0% and 20%.");
   if (bad(i.slippageBps, [0, 200])) e.push("Slippage must be between 0 and 200 bps.");

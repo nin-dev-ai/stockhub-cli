@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import { CATALOG } from "@/quant/catalog";
 import { applyTarget, type StrategyDef } from "@/quant/strategy";
 
-export const MAX_BASKET = 3;
+export const MAX_BASKET = 5;
 
 /** Screen-wide ETF swap: run every strategy that uses SPY / SHY on the chosen ETFs instead. */
 export interface EtfTarget { equity: string; defensive: string }
@@ -17,6 +17,8 @@ interface StrategyState {
   /** Returns an error message when the add is refused. */
   addToBasket: (id: string) => string | null;
   removeFromBasket: (id: string) => void;
+  /** Replaces the basket (at most MAX_BASKET ids); returns an error message when refused. */
+  setBasket: (ids: string[]) => string | null;
   clearBasket: () => void;
   saveDraft: (d: StrategyDef) => void;
   deleteDraft: (id: string) => void;
@@ -37,6 +39,12 @@ export const useStrategies = create<StrategyState>()(
         return null;
       },
       removeFromBasket: (id) => set({ basket: get().basket.filter((b) => b !== id) }),
+      setBasket: (ids) => {
+        const uniq = [...new Set(ids)];
+        if (uniq.length > MAX_BASKET) return `A plan holds at most ${MAX_BASKET} strategies.`;
+        set({ basket: uniq });
+        return null;
+      },
       clearBasket: () => set({ basket: [] }),
       saveDraft: (d) => set({ drafts: [...get().drafts.filter((x) => x.id !== d.id), d] }),
       deleteDraft: (id) => set({ drafts: get().drafts.filter((x) => x.id !== id), basket: get().basket.filter((b) => b !== id) }),

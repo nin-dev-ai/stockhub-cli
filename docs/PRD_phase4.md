@@ -49,5 +49,5 @@ A plan is a **goal** plus **sleeves**. Each sleeve is one strategy with a **role
 
 | Track | Status |
 | --- | --- |
-| A — Plan builder | In progress |
+| A — Plan builder | Engine and Plan tab delivered (roles, holdings today, sense checks, add a strategy, build me a plan, five strategies, fall limit); Copilot proposal not started |
 | B — Live personas | Not started |

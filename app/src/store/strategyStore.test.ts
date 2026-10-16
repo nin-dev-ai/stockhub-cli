@@ -7,14 +7,18 @@ import { forkStrategy, retarget } from "@/quant/strategy";
 beforeEach(() => useStrategies.setState({ basket: [], drafts: [], target: DEFAULT_TARGET }));
 
 describe("strategy basket", () => {
-  it("accepts up to three strategies and rejects a fourth with a message", () => {
-    const s = useStrategies.getState();
-    expect(s.addToBasket(CATALOG[0].id)).toBeNull();
-    expect(s.addToBasket(CATALOG[1].id)).toBeNull();
-    expect(s.addToBasket(CATALOG[2].id)).toBeNull();
-    const msg = useStrategies.getState().addToBasket(CATALOG[3].id);
+  it("accepts up to five strategies and rejects a sixth with a message", () => {
+    expect(MAX_BASKET).toBe(5);
+    for (let i = 0; i < MAX_BASKET; i++) expect(useStrategies.getState().addToBasket(CATALOG[i].id)).toBeNull();
+    const msg = useStrategies.getState().addToBasket(CATALOG[MAX_BASKET].id);
     expect(msg).toMatch(new RegExp(`at most ${MAX_BASKET}`));
-    expect(useStrategies.getState().basket).toHaveLength(3);
+    expect(useStrategies.getState().basket).toHaveLength(MAX_BASKET);
+  });
+  it("replaces the whole basket at once, refusing more than the limit", () => {
+    expect(useStrategies.getState().setBasket([CATALOG[2].id, CATALOG[1].id, CATALOG[2].id])).toBeNull();
+    expect(useStrategies.getState().basket).toEqual([CATALOG[2].id, CATALOG[1].id]);
+    expect(useStrategies.getState().setBasket(CATALOG.slice(0, MAX_BASKET + 1).map((c) => c.id))).toMatch(/at most/);
+    expect(useStrategies.getState().basket).toEqual([CATALOG[2].id, CATALOG[1].id]);
   });
   it("ignores duplicates and supports removal", () => {
     const s = useStrategies.getState();

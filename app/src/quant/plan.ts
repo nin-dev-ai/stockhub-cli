@@ -4,7 +4,7 @@
  * within the user's fall limit. See docs/PRD_phase4.md.
  */
 import { INSTRUMENT_BY_TICKER, type Bucket } from "./instruments";
-import type { OverlapReport } from "./overlap";
+import { sharedOf, type OverlapReport } from "./overlap";
 import { blendReturns, evaluateWeights, type Sleeve, type Weights } from "./portfolio";
 import { sleeveDef, type StrategyDef } from "./strategy";
 import { computeMetrics, correlation } from "./metrics";
@@ -65,6 +65,13 @@ export interface PlanCheck { id: string; level: "good" | "warn" | "issue"; title
 const pct = (x: number, d = 0) => `${(x * 100).toFixed(d)}%`;
 export const MIN_SLEEVE = 0.05;
 
+/**
+ * Two strategies are redundant when they hold nearly the same things or their returns move almost as
+ * one. A core paired with a trend overlay on the same market (about 60% shared) is a normal plan.
+ */
+export const REDUNDANT_SHARED = 0.75, REDUNDANT_CORRELATION = 0.9;
+export const isRedundant = (shared: number, corr: number | null) => shared >= REDUNDANT_SHARED || (corr != null && corr >= REDUNDANT_CORRELATION);
+
 export function checkPlan(a: { sleeves: PlanSleeve[]; overlap: OverlapReport | null; plan: Metrics | null; fallLimit: number | null }): PlanCheck[] {
   const out: PlanCheck[] = [];
   const { sleeves } = a;
@@ -87,7 +94,7 @@ export function checkPlan(a: { sleeves: PlanSleeve[]; overlap: OverlapReport | n
   }
 
   for (const p of a.overlap?.pairs ?? []) {
-    if (p.level !== "high") continue;
+    if (!isRedundant(p.sharedExposure, p.returnCorrelation)) continue;
     const [x, y] = [sleeves.find((s) => s.id === p.a), sleeves.find((s) => s.id === p.b)];
     if (!x || !y) continue;
     const drop = (x.metrics.sharpe ?? 0) >= (y.metrics.sharpe ?? 0) ? y : x;
@@ -133,7 +140,13 @@ export function alignSleeves(sleeves: Sleeve[]): Sleeve[] {
   });
 }
 
-export interface Candidate { id: string; name: string; role: Role; sleeve: Sleeve; verdict?: string | null; experimental?: boolean; metrics: Metrics }
+export interface Candidate { id: string; name: string; role: Role; sleeve: Sleeve; verdict?: string | null; experimental?: boolean; metrics: Metrics; /** Average exposure by asset class, from its backtest. */ exposure: Partial<Record<string, number>> }
+
+const redundantWith = (c: Candidate, others: Candidate[]) => others.some((o) => {
+  const [a, b] = alignSleeves([o.sleeve, c.sleeve]);
+  const corr = correlation(a.returns, b.returns);
+  return isRedundant(sharedOf(o.exposure, c.exposure), Number.isFinite(corr) ? corr : null);
+});
 export interface Fit { score: number; correlation: number | null; fillsRole: boolean; reasons: string[]; fallBefore: number | null; fallAfter: number | null }
 
 const ADD_SHARE = 0.25;
@@ -183,8 +196,8 @@ function grid(n: number, total: number, min: number, cap: number): number[][] {
 }
 
 /**
- * Proposes a plan from the candidates: the best-evidenced core, then a tactical and a diversifier
- * chosen for low overlap with what is already in the plan, then the highest-growth weights (5% steps,
+ * Proposes a plan from the candidates: the best-evidenced core, then a diversifier and a tactical
+ * chosen for low overlap with what is already in the plan (never redundant with a chosen sleeve), then the highest-growth weights (5% steps,
  * each sleeve at least 10% and at most 70%) whose worst fall stays within the limit. If no weights
  * fit, the shallowest fall is used and `withinLimit` is false.
  */
@@ -196,12 +209,11 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
   if (!core) return null;
   const chosen: Candidate[] = [core];
   const pick = (role: Role) => {
-    const rest = byRole(role).filter((c) => !chosen.includes(c));
+    const rest = byRole(role).filter((c) => !chosen.includes(c) && !redundantWith(c, chosen));
     if (!rest.length) return;
     const planSleeves = chosen.map((c) => c.sleeve);
     const w = Object.fromEntries(chosen.map((c) => [c.id, 1 / chosen.length]));
     const best = rest.map((c) => ({ c, f: fitCandidate(c, { sleeves: planSleeves, weights: w, roles: chosen.map((x) => x.role) }, rf) }))
-      .filter((x) => x.f.correlation == null || x.f.correlation < 0.9)
       .sort((x, y) => y.f.score - x.f.score)[0];
     if (best) chosen.push(best.c);
   };
