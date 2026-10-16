@@ -58,7 +58,7 @@ export interface SimResult {
   sleeves?: Sleeve[];
 }
 
-export interface Sleeve { ticker: string; weight: number; equity: number[]; returns: number[]; metrics: Metrics; finalValue: number; totalContributed: number }
+export interface Sleeve { ticker: string; weight: number; equity: number[]; returns: number[]; metrics: Metrics; finalValue: number; totalContributed: number; /** The sleeve's latest target weights (before its own weight is applied). */ targets: Record<string, number> }
 
 const EPS = 1e-9;
 
@@ -238,6 +238,16 @@ const maxAbsDiff = (a: Weights, b: Weights) => {
  *  - Orders fill at the close of day t+1 with slippage; costs are deducted from cash.
  *  - Contributions are credited at the close of the scheduled day and invested like any other cash.
  */
+/** What the run would hold now, as weights: the latest decision, or each ETF sleeve's latest decision times its share. */
+export function currentTargets(run: Pick<SimResult, "decisions" | "sleeves">): Record<string, number> {
+  if (run.sleeves?.length) {
+    const out: Record<string, number> = {};
+    for (const s of run.sleeves) for (const [t, x] of Object.entries(s.targets)) out[t] = (out[t] ?? 0) + s.weight * x;
+    return out;
+  }
+  return { ...(run.decisions[run.decisions.length - 1]?.targets ?? {}) };
+}
+
 export function simulate(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult {
   return def.spread ? simulateSpread(def, panel, cfg) : simulateOne(def, panel, cfg);
 }
@@ -284,7 +294,7 @@ function simulateSpread(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResu
     avgExposure, finalValue, totalContributed: contributed, gain: finalValue - contributed,
     moneyWeightedReturn: years >= 1 ? irr(flows, dates, finalValue) : null,
     flags: runs.flatMap((r) => r.flags).filter((f) => !seen.has(f.code) && !!seen.add(f.code)),
-    sleeves: runs.map((r, i) => ({ ticker: targets[i].ticker, weight: targets[i].weight, equity: r.equity, returns: r.returns, metrics: r.metrics, finalValue: r.finalValue, totalContributed: r.totalContributed })),
+    sleeves: runs.map((r, i) => ({ ticker: targets[i].ticker, weight: targets[i].weight, equity: r.equity, returns: r.returns, metrics: r.metrics, finalValue: r.finalValue, totalContributed: r.totalContributed, targets: r.decisions[r.decisions.length - 1]?.targets ?? {} })),
   };
 }
 
