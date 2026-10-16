@@ -3,6 +3,7 @@
 //   LIVE=1 LIVE_BASE=http://localhost:5173 npx vitest run src/quant/liveEdgar.test.ts
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { fetchLiveFeed } from "@/lib/edgar";
+import { fetchArkFeed } from "@/lib/ark";
 import { EDGAR_CIKS } from "./personas";
 
 const LIVE = process.env.LIVE === "1";
@@ -30,4 +31,13 @@ describe.skipIf(!LIVE)("live SEC filings", () => {
     expect(f.failed).toBe(0);
     for (const t of trades) expect(t.accepted!.slice(0, 10) >= t.date!, `${t.date} accepted ${t.accepted}`).toBe(true);
   }, 120000);
+
+  it("reads ARK's daily trades from the feed and the official holdings date", async () => {
+    const f = await fetchArkFeed(30);
+    console.log(`ARK trades ${f.events.length} newest ${f.newestTrade} holdings ${f.holdingsDate} failed ${f.failedFunds.join(",") || "none"}`);
+    expect(f.events.length).toBeGreaterThan(20);
+    expect(f.failedFunds).toEqual([]);
+    expect(f.holdingsDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(f.events.every((e) => e.form === "ARK daily" && (e.side === "buy" || e.side === "sell"))).toBe(true);
+  }, 60000);
 });

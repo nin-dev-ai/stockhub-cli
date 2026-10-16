@@ -7,10 +7,12 @@ import { fetchForm13F, fetchInsiderTrades } from "@/lib/api";
 import { fetchHouseMember, fetchRecentHouseFilings, type HouseMemberData } from "@/lib/house";
 import { fetchLiveFeed, SEC_CONFIGURED, type LiveFeed } from "@/lib/edgar";
 import { ageText } from "@/quant/edgar";
+import { fetchArkFeed } from "@/lib/ark";
+import { ARK_NOTE, type ArkFeed } from "@/quant/ark";
 import { HOUSE_NOTE, houseMembers, searchMembers } from "@/quant/congress";
 import { Badge } from "@/components/quant/Badges";
 import {
-  byRecency, customFund, customHouse, customInsider, edgarCiks, FUND_NOTE, fundChanges, matchesInsider, normalizeInsider, summarize,
+  byRecency, customFund, isLiveRow, customHouse, customInsider, edgarCiks, FUND_NOTE, fundChanges, matchesInsider, normalizeInsider, summarize,
   type Persona, type PersonaTrade,
 } from "@/quant/personas";
 import { allPersonas, usePersonas } from "@/store/personaStore";
@@ -35,6 +37,21 @@ interface PersonaData {
   reports?: number; unread?: HouseMemberData["unread"];
   /** Live SEC filings (Form 3/4/5, Schedule 13D/G) for personas with SEC identities. */
   live?: LiveFeed; liveError?: string | null;
+  /** ARK's daily trade notifications (Cathie Wood). */
+  ark?: ArkFeed; arkError?: string | null;
+}
+
+/** ARK's daily trades: how far they run and the official holdings file's date, with the third-party caveat. */
+function ArkLine({ d }: { d: PersonaData }) {
+  if (d.arkError) return <div className="mt-1 text-[10px] text-term-red leading-snug">ARK daily trades unavailable: {d.arkError}</div>;
+  if (!d.ark) return <div className="mt-1 text-[10px] text-term-muted">Loading ARK's daily trades…</div>;
+  const a = d.ark;
+  return (
+    <div className="mt-1 text-[10px] leading-snug flex flex-col gap-0.5">
+      <div className="text-term-text">Daily trades: {a.events.length} in the last 30 days{a.newestTrade ? `, newest ${a.newestTrade}` : ""}{a.holdingsDate ? ` · official holdings dated ${a.holdingsDate}` : ""}</div>
+      {a.failedFunds.length > 0 && <div className="text-term-amberBright">No data for {a.failedFunds.join(", ")}.</div>}
+    </div>
+  );
 }
 
 const utc = (iso: string) => iso.slice(0, 16).replace("T", " ");
@@ -148,6 +165,8 @@ export function PERS() {
     })),
   });
   const liveBy = Object.fromEntries(liveActive.map((p, i) => [p.id, liveQueries[i]]));
+  const arkActive = active.filter((p) => p.daily === "ark");
+  const arkQuery = useQuery({ queryKey: ["persona-ark"], queryFn: () => fetchArkFeed(), enabled: arkActive.length > 0, staleTime: 10 * 60_000, refetchInterval: 15 * 60_000, retry: 1 });
   const liveStamp = liveQueries.map((q) => `${q.dataUpdatedAt}${q.status}`).join("|");
 
   const queries = useQueries({
@@ -181,12 +200,17 @@ export function PERS() {
 
   const data: Record<string, PersonaData> = useMemo(() => Object.fromEntries(active.map((p) => {
     const b = baseData[p.id], lq = liveBy[p.id];
-    if (!b || !lq) return [p.id, b];
-    const live = lq.data;
-    const trades = [...b.trades, ...(live?.events ?? [])];
-    return [p.id, { ...b, trades, live, liveError: lq.error ? (lq.error as Error).message : null, loading: b.loading || (lq.isLoading && p.source.kind === "insider") }];
+    if (!b) return [p.id, b];
+    const live = lq?.data, ark = p.daily === "ark" ? arkQuery.data : undefined;
+    const trades = [...b.trades, ...(live?.events ?? []), ...(ark?.events ?? [])];
+    return [p.id, {
+      ...b, trades, live, ark,
+      liveError: lq?.error ? (lq.error as Error).message : null,
+      arkError: p.daily === "ark" && arkQuery.error ? (arkQuery.error as Error).message : null,
+      loading: b.loading || (!!lq?.isLoading && p.source.kind === "insider"),
+    }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  })), [baseData, liveStamp]);
+  })), [baseData, liveStamp, arkQuery.dataUpdatedAt, arkQuery.status]);
 
   // filings accepted since the user last looked are marked new; the first look sets the baseline
   const { seen, markSeen } = usePersonas();
@@ -249,7 +273,7 @@ export function PERS() {
       .sort((a, b) => byRecency(a.t, b.t));
   }, [active, data, only, side, tradesOnly, query]);
 
-  const loading = queries.some((q) => q.isLoading) || liveQueries.some((q) => q.isLoading);
+  const loading = queries.some((q) => q.isLoading) || liveQueries.some((q) => q.isLoading) || (arkActive.length > 0 && arkQuery.isLoading);
   const now = Date.now();
   const today = Date.now();
 
@@ -360,6 +384,7 @@ export function PERS() {
                         </div>
                       )}
                     {hasLive(p) && d && <LiveLine d={d} kind={p.source.kind} n={newCount(p.id)} now={now} />}
+                    {p.daily === "ark" && d && <ArkLine d={d} />}
                     {p.note && <div className="text-[10px] text-term-muted mt-1 leading-snug">{p.note}</div>}
                   </button>
                 );
@@ -373,6 +398,7 @@ export function PERS() {
           )}
 
           {active.some((p) => p.source.kind === "fund") && <div className="text-[10px] text-term-muted leading-snug">{FUND_NOTE}</div>}
+          {arkActive.length > 0 && <div className="text-[10px] text-term-muted leading-snug">{ARK_NOTE}</div>}
           {active.some((p) => p.source.kind === "house") && <div className="text-[10px] text-term-muted leading-snug">{HOUSE_NOTE} The date is the trade date; hover it for the filing date.</div>}
 
           {rows.length > 0 && (
@@ -383,7 +409,7 @@ export function PERS() {
                   {rows.slice(0, limit).map(({ p, t }, i) => (
                     <tr key={i}>
                       <td className="num whitespace-nowrap" title={t.filed ? `Filed ${t.filed}` : "Quarter end; filed up to 45 days later"}>
-                        {p.source.kind === "fund" && !t.accepted ? qtr(t.date) : t.date ?? "n/a"}
+                        {p.source.kind === "fund" && !isLiveRow(t) ? qtr(t.date) : t.date ?? "n/a"}
                       </td>
                       <td className="num whitespace-nowrap text-term-muted" title={t.accepted ? `${t.form ?? "Filing"} accepted by the SEC at ${t.accepted}` : t.filed ? `Filed ${t.filed}` : "Quarter-end snapshot, public up to 45 days later"}>
                         {t.accepted ? t.accepted.slice(5, 16).replace("T", " ") : t.filed ?? "–"}

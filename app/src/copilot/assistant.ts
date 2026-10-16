@@ -3,7 +3,7 @@ import { OBJECTIVES } from "@/quant/optimizer";
 import { describeRules } from "@/quant/rules";
 import { MODE_LABEL } from "@/quant/tracking";
 import { HOUSE_NOTE } from "@/quant/congress";
-import { FUND_NOTE, POLITICIAN_NOTE, PRESET_PERSONAS, UNAVAILABLE_PEOPLE, type Persona } from "@/quant/personas";
+import { FUND_NOTE, isLiveRow, POLITICIAN_NOTE, PRESET_PERSONAS, UNAVAILABLE_PEOPLE, type Persona } from "@/quant/personas";
 import { requiredTickers, type StrategyDef } from "@/quant/strategy";
 import type { CopilotContext, LabContext, PersonaEntry, PersonasContext, PortfolioContext, StrategyContext } from "./context";
 import { LAB_CHANGE_FIELDS, labChangeFromText, type LabChange } from "./labChanges";
@@ -480,10 +480,10 @@ function personaTrades(m: string, entries: PersonaEntry[]): Answer {
     if (e.loading) { items.push(`${e.name}: still loading.`); continue; }
     if (e.error) { items.push(`${e.name}: the filings could not be loaded.`); continue; }
     // a fund's quarterly changes and its live insider filings are different things: keep them apart
-    const q = e.kind === "fund" ? e.trades.filter((t) => !t.accepted) : e.trades, lv = e.trades.filter((t) => t.accepted);
+    const q = e.kind === "fund" ? e.trades.filter((t) => !isLiveRow(t)) : e.trades, lv = e.trades.filter(isLiveRow);
     const buys = q.filter((t) => t.side === "buy"), sells = q.filter((t) => t.side === "sell");
     const fresh = e.newest ? ` Newest SEC filing accepted ${c.date(e.newest.slice(0, 16).replace("T", " "))} UTC.` : "";
-    const liveText = e.kind === "fund" && lv.length ? ` Live insider filings: ${c.int(lv.filter((t) => t.side === "buy").length)} purchases and ${c.int(lv.filter((t) => t.side === "sell").length)} sales.` : "";
+    const liveText = e.kind === "fund" && lv.length ? ` Live filings and daily trades: ${c.int(lv.filter((t) => t.side === "buy").length)} purchases and ${c.int(lv.filter((t) => t.side === "sell").length)} sales.` : "";
     const top = [...q].sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0)).slice(0, 3)
       .map((t) => `${c.data(t.symbol ?? t.asset)} (${t.action.toLowerCase()}${t.value ? `, ${c.money(t.value)}` : ""})`);
     if (e.kind === "fund") {

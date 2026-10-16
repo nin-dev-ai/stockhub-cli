@@ -29,6 +29,8 @@ export interface Persona {
   firstNames?: string[];
   note?: string;
   custom?: boolean;
+  /** Daily trade notifications for this fund family, shown next to its filings (only ARK publishes them). */
+  daily?: "ark";
   /** SEC CIKs whose filings feed the live view (the firm and the person); defaults to the fund's own CIK. */
   edgar?: string[];
 }
@@ -47,7 +49,7 @@ export const FUND_NOTE = "13F shows the firm's US long holdings at each quarter 
 export const PRESET_PERSONAS: Persona[] = [
   fund("buffett", "Warren Buffett", "Berkshire Hathaway", "0001067983", "Berkshire's holdings are also managed by its other investment managers."),
   fund("ackman", "Bill Ackman", "Pershing Square", "0001336528"),
-  fund("wood", "Cathie Wood", "ARK Investment Management", "0001697748", "ARK's 13F combines all of its ETFs and accounts."),
+  { ...fund("wood", "Cathie Wood", "ARK Investment Management", "0001697748", "ARK's 13F combines all of its ETFs and accounts. ARK also publishes each day's trades, shown here as daily rows."), daily: "ark" },
   fund("druckenmiller", "Stanley Druckenmiller", "Duquesne Family Office", "0001536411"),
   fund("tepper", "David Tepper", "Appaloosa", "0001656456"),
   fund("li_lu", "Li Lu", "Himalaya Capital", "0001709323"),
@@ -234,6 +236,9 @@ export function summarize(trades: PersonaTrade[]): PersonaSummary {
     latest: dates[dates.length - 1] ?? null,
   };
 }
+
+/** A live row: an SEC filing with its acceptance time, or an ARK daily trade. Quarterly 13F and House rows are not. */
+export const isLiveRow = (t: PersonaTrade) => !!t.accepted || t.form === "ARK daily";
 
 /** When the public could first see a row: the SEC acceptance time, else the filing date, else the trade date. */
 export const publicAt = (t: PersonaTrade) => t.accepted ?? (t.filed ? `${t.filed}T00:00:00Z` : t.date ? `${t.date}T00:00:00Z` : "");

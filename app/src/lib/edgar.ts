@@ -24,6 +24,13 @@ async function slot<T>(fn: () => Promise<T>): Promise<T> {
   } finally { active--; queue.shift()?.(); }
 }
 
+/** One retry after a pause when the SEC throttles (429) or hiccups (5xx): its fair-access limit is per second, so a short wait clears it. */
+async function get(url: string, fetcher: typeof fetch): Promise<Response> {
+  let res = await slot(() => fetcher(url));
+  if (res.status === 429 || res.status >= 500) { await new Promise((r) => setTimeout(r, 1500)); res = await slot(() => fetcher(url)); }
+  return res;
+}
+
 const readCache = (): Record<string, PersonaTrade[]> => { try { return JSON.parse(localStorage.getItem(CACHE_KEY) ?? "{}"); } catch { return {}; } };
 const writeCache = (c: Record<string, PersonaTrade[]>) => {
   const keys = Object.keys(c);
@@ -35,7 +42,7 @@ const writeCache = (c: Record<string, PersonaTrade[]>) => {
 export async function fetchFilingRows(f: SecFiling, fetcher: typeof fetch = fetch): Promise<PersonaTrade[]> {
   const cache = readCache();
   if (cache[f.accession]) return cache[f.accession];
-  const res = await slot(() => fetcher(`/sec/www${rawDocPath(f)}`));
+  const res = await get(`/sec/www${rawDocPath(f)}`, fetcher);
   if (!res.ok) throw new Error(`SEC returned ${res.status} for ${f.form} ${f.accession}.`);
   const rows = parseFiling(await res.text(), f);
   writeCache({ ...readCache(), [f.accession]: rows });
@@ -43,7 +50,7 @@ export async function fetchFilingRows(f: SecFiling, fetcher: typeof fetch = fetc
 }
 
 export async function fetchSubmissions(cik: string, fetcher: typeof fetch = fetch): Promise<SecFiling[]> {
-  const res = await slot(() => fetcher(`/sec/data/submissions/CIK${cik.replace(/^0+/, "").padStart(10, "0")}.json`));
+  const res = await get(`/sec/data/submissions/CIK${cik.replace(/^0+/, "").padStart(10, "0")}.json`, fetcher);
   if (!res.ok) throw new Error(res.status === 403 ? "SEC refused the request: check STOCKHUB_SEC_CONTACT." : `SEC returned ${res.status} for CIK ${cik}.`);
   return parseSubmissions(await res.json(), cik);
 }

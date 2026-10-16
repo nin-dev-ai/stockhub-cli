@@ -290,7 +290,7 @@ describe("personas", () => {
     const a = respond("summarize these trades", ctx);
     expect(a.verified).toBe(true);
     expect(text(a)).toMatch(/1 new or added positions and 0 trimmed or sold, out of 29 holdings/);
-    expect(text(a)).toMatch(/Live insider filings: 2 purchases and 1 sales/);
+    expect(text(a)).toMatch(/Live filings and daily trades: 2 purchases and 1 sales/);
     expect(text(a)).toMatch(/Newest SEC filing accepted 2026-10-08 05:47 UTC/);
   });
   it("explains the copy-trade backtest on screen with traced figures, or says how to run one", () => {
