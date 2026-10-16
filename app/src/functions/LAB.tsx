@@ -9,6 +9,10 @@ import { useLab } from "@/store/labStore";
 import { useWorkspace } from "@/store/workspaceStore";
 import type { StrategyDef } from "@/quant/strategy";
 import { labStrategies } from "@/quant/lab";
+import { equalWeights, type Weights } from "@/quant/portfolio";
+import { setWeight } from "@/quant/plan";
+import { PlanView, type PlanActions } from "./lab/PlanView";
+import { BuildPlan } from "./lab/BuildPlan";
 import { InputsPane } from "./lab/InputsPane";
 import { JobBar } from "./lab/JobBar";
 import { BacktestView } from "./lab/BacktestView";
@@ -17,24 +21,49 @@ import { ProjectionView } from "./lab/ProjectionView";
 import { MethodologyDrawer } from "./lab/MethodologyDrawer";
 import { SavePlanPanel } from "./lab/SavePlanPanel";
 
-type Tab = "backtest" | "allocation" | "projection";
+type Tab = "plan" | "backtest" | "allocation" | "projection";
 const TABS: { key: Tab; label: string }[] = [
-  { key: "backtest", label: "Backtest" }, { key: "allocation", label: "Allocation" }, { key: "projection", label: "Projection" },
+  { key: "plan", label: "Plan" }, { key: "backtest", label: "Backtest" }, { key: "allocation", label: "Allocation" }, { key: "projection", label: "Projection" },
 ];
 
 export function LAB() {
   const openTab = useWorkspace((s) => s.openTab);
-  const { basket, drafts } = useStrategies();
+  const { basket, drafts, setBasket } = useStrategies();
   const { inputs, override, setInputs, setOverride, reset } = useLab();
   const basketDefs = useMemo(() => basket.map((id) => findStrategy(id, drafts)).filter((d): d is StrategyDef => !!d), [basket, drafts]);
   const defs = useMemo(() => labStrategies(basketDefs, inputs), [basketDefs, inputs.etf, inputs.alsoEtfs.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   const eng = useLabEngine(defs, inputs, override);
-  const [tab, setTab] = useState<Tab>("backtest");
+  const [tab, setTab] = useState<Tab>("plan");
+  const [building, setBuilding] = useState(false);
   const [drawer, setDrawer] = useState<"report" | "save" | null>(null);
 
   const bundle = eng.bt?.result;
   const hasErrors = eng.errors.length > 0;
   const go = (t: Tab, fn: () => Promise<unknown> | unknown) => { setTab(t); void fn(); };
+
+  // the Plan tab is always live: run the backtest for any change of strategies or inputs
+  useEffect(() => { if (defs.length > 0 && !hasErrors && !eng.bt) void eng.runBacktest(); }, [defs.length, hasErrors, eng.bt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const origOf = (mappedId: string) => basketDefs[defs.findIndex((d) => d.id === mappedId)]?.id;
+  const act: PlanActions = {
+    setWeight: (id, v) => eng.weights && setOverride(setWeight(eng.weights, id, v)),
+    equal: () => bundle && setOverride(equalWeights(bundle.sleeves.map((s) => s.id))),
+    optimizer: () => { setOverride(null); void eng.runOptimize(); },
+    remove: (mappedId) => {
+      const orig = origOf(mappedId);
+      if (!orig || !eng.weights) return;
+      const rest: Weights = Object.fromEntries(Object.entries(eng.weights).filter(([k]) => k !== mappedId));
+      const sum = Object.values(rest).reduce((a, b) => a + b, 0);
+      setBasket(basket.filter((b) => b !== orig));
+      setOverride(sum > 1e-9 ? Object.fromEntries(Object.entries(rest).map(([k, v]) => [k, v / sum])) : null);
+    },
+    add: (origId, mappedId) => {
+      if (!eng.weights) return;
+      setBasket([...basket, origId]);
+      setOverride({ ...Object.fromEntries(Object.entries(eng.weights).map(([k, v]) => [k, v * 0.75])), [mappedId]: 0.25 });
+    },
+    apply: (origIds, weights) => { setBasket(origIds); setOverride(weights); },
+  };
 
   const report = useMemo(() => buildReport({
     inputs, weights: eng.weights, weightsSource: eng.weightsSource as never,
@@ -54,9 +83,16 @@ export function LAB() {
     return (
       <div className="p-8 max-w-xl flex flex-col gap-3 text-[12px]">
         <div className="text-term-amber text-[11px] uppercase tracking-[0.3em] font-bold">SIMULATION LAB</div>
-        <div className="text-term-heading text-[16px]">Pick up to three strategies first.</div>
-        <div className="text-term-text leading-relaxed">The Lab backtests your basket with your own starting amount and contributions, proposes weights, and simulates a range of possible outcomes. Add strategies to the basket on the Strategies screen.</div>
-        <button onClick={() => openTab("STRAT")} className="self-start px-3 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle">Go to Strategies</button>
+        <div className="text-term-heading text-[16px]">Build a plan from up to five strategies.</div>
+        <div className="text-term-text leading-relaxed">A plan pairs strategies that do different jobs: a core that grows the money, something tactical that sidesteps big falls, and a diversifier that spreads the risk. The Lab shows what the plan holds, checks that it makes sense, then backtests it with your own amounts and simulates a range of outcomes.</div>
+        <label className="flex items-center gap-2 text-[11px]">Worst fall I'd accept
+          <input type="number" min={5} max={90} value={Math.round(inputs.fallLimit * 100)} onChange={(e) => setInputs({ fallLimit: Number(e.target.value) / 100 })} className="w-14 bg-term-bg border border-term-border px-1 py-0.5 num text-right" />%
+        </label>
+        <div className="flex gap-2">
+          <button onClick={() => setBuilding(true)} className="px-3 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle">Build me a plan</button>
+          <button onClick={() => openTab("STRAT")} className="px-3 py-1 border border-term-border text-term-muted hover:text-term-amber">Pick strategies myself</button>
+        </div>
+        {building && <BuildPlan inputs={inputs} fallLimit={inputs.fallLimit} onApply={(ids, w) => { act.apply(ids, w); setBuilding(false); }} onClose={() => setBuilding(false)} />}
       </div>
     );
   }
@@ -93,6 +129,9 @@ export function LAB() {
         </div>
 
         <div className="flex-1 overflow-auto scroll-thin p-4">
+          {tab === "plan" && (bundle && eng.plan && eng.weights
+            ? <PlanView bundle={bundle} plan={eng.plan} inputs={inputs} set={setInputs} weights={eng.weights} source={eng.weightsSource} act={act} />
+            : <div className="text-term-muted text-[12px]">{hasErrors ? "Fix the plan inputs on the left." : "Testing your plan on history…"}</div>)}
           {tab === "backtest" && (bundle && eng.plan
             ? <BacktestView bundle={bundle} plan={eng.plan} inputs={inputs} />
             : <div className="text-term-muted text-[12px]">Run Backtest to see how this basket would have performed with your starting amount and contributions.</div>)}

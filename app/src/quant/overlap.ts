@@ -30,7 +30,7 @@ export function bucketExposure(run: SimResult): Partial<Record<Bucket | "cash", 
   return out;
 }
 
-const sharedOf = (a: Partial<Record<string, number>>, b: Partial<Record<string, number>>) => {
+export const sharedOf = (a: Partial<Record<string, number>>, b: Partial<Record<string, number>>) => {
   let s = 0;
   for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) s += Math.min(a[k] ?? 0, b[k] ?? 0);
   return s;
