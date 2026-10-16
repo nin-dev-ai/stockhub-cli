@@ -3,7 +3,7 @@ import type { LabInputs } from "./lab";
 import type { Sleeve, Weights } from "./portfolio";
 import type { Distribution, ProjectionResult } from "./projection";
 import { addMonths } from "./report";
-import type { SimResult } from "./backtest";
+import { currentTargets, type SimResult } from "./backtest";
 import type { StrategyDef } from "./strategy";
 import { ENGINE_VERSION, type Panel } from "./types";
 
@@ -222,13 +222,12 @@ export function holdingsTable(txs: Transaction[], panel: Panel, mode: PortfolioM
 // Plan targets and paper rebalancing
 
 /** Current ticker weights implied by the plan: each strategy's latest target, scaled by its sleeve weight. */
-export function planTargets(runs: { id: string; run: Pick<SimResult, "decisions"> }[], weights: Weights): Record<string, number> {
+export function planTargets(runs: { id: string; run: Pick<SimResult, "decisions" | "sleeves"> }[], weights: Weights): Record<string, number> {
   const out: Record<string, number> = {};
   for (const { id, run } of runs) {
     const w = weights[id] ?? 0;
-    const last = run.decisions[run.decisions.length - 1];
-    if (!last || w === 0) continue;
-    for (const [t, x] of Object.entries(last.targets)) out[t] = (out[t] ?? 0) + w * x;
+    if (w === 0) continue;
+    for (const [t, x] of Object.entries(currentTargets(run))) out[t] = (out[t] ?? 0) + w * x;
   }
   for (const t of Object.keys(out)) if (out[t] < 1e-6) delete out[t];
   return out;

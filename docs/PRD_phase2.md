@@ -137,7 +137,7 @@ Persistent AI side panel: contextual assistance accessible from all four screens
   - Risk metrics, costs, trade count, sample size, and testing methodology.
   - Warnings about overfitting, concentration, regime dependence, and untested assumptions.
   - Explicit evidence status: *Backtested*, *Paper-tracked*, or *Verified live* (the latter only if verifiable; not planned for MVP).
-- **STR-03** Allow selection of up to three strategies in an editable basket.
+- **STR-03** Allow selection of up to three strategies in an editable basket (five since Phase 4).
 - **STR-04** Compare selected strategies on common dates, return basis, fees, currency, frequency and benchmarks when feasible.
 - **STR-05** Copy/fork a curated recipe into a user-owned draft; expose parameters without changing original published version.
 - **STR-06** Users may save their own strategy drafts locally/account-side; public creator submissions are out of MVP scope.
@@ -405,7 +405,7 @@ These are design proposals, not claims that these endpoints exist. See [Section 
 | --- | --- |
 | AC-01 | Existing market exploration flows continue working after Phase 2 integration. |
 | AC-02 | A strategy card can be opened to inspect machine-readable and plain-English rules. |
-| AC-03 | User can add/remove up to three strategies; basket rejects a fourth with clear feedback. |
+| AC-03 | User can add/remove strategies up to the basket limit; the basket rejects one more with clear feedback. (The limit was three in Phase 2 and is five since Phase 4; see [PRD_phase4.md](PRD_phase4.md).) |
 | AC-04 | A given backtest run is reproducible from saved strategy/data/config versions. |
 | AC-05 | Every backtest identifies date window, benchmark, data basis, costs and no-look-ahead execution convention. |
 | AC-06 | Simulation supports USD 200 starting balance, USD 50/month and five-year horizon without assuming more capital than available. |
