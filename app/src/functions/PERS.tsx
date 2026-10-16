@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useCopilotContext } from "@/copilot/context";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { fetchForm13F, fetchInsiderTrades } from "@/lib/api";
 import { fetchHouseMember, fetchRecentHouseFilings, type HouseMemberData } from "@/lib/house";
+import { fetchLiveFeed, SEC_CONFIGURED, type LiveFeed } from "@/lib/edgar";
+import { ageText } from "@/quant/edgar";
+import { fetchArkFeed } from "@/lib/ark";
+import { ARK_NOTE, type ArkFeed } from "@/quant/ark";
 import { HOUSE_NOTE, houseMembers, searchMembers } from "@/quant/congress";
 import { Badge } from "@/components/quant/Badges";
 import {
-  byRecency, customFund, customHouse, customInsider, FUND_NOTE, fundChanges, matchesInsider, normalizeInsider, summarize,
+  byRecency, customFund, isLiveRow, customHouse, customInsider, edgarCiks, FUND_NOTE, fundChanges, matchesInsider, normalizeInsider, summarize,
   type Persona, type PersonaTrade,
 } from "@/quant/personas";
 import { allPersonas, usePersonas } from "@/store/personaStore";
@@ -31,6 +35,46 @@ interface PersonaData {
   trades: PersonaTrade[]; latest: string | null; prior: string | null; holdings: number | null; error: string | null; loading: boolean;
   /** House members: reports found and the ones not read (scanned, failed or beyond the newest few). */
   reports?: number; unread?: HouseMemberData["unread"];
+  /** Live SEC filings (Form 3/4/5, Schedule 13D/G) for personas with SEC identities. */
+  live?: LiveFeed; liveError?: string | null;
+  /** ARK's daily trade notifications (Cathie Wood). */
+  ark?: ArkFeed; arkError?: string | null;
+}
+
+/** ARK's daily trades: how far they run and the official holdings file's date, with the third-party caveat. */
+function ArkLine({ d }: { d: PersonaData }) {
+  if (d.arkError) return <div className="mt-1 text-[10px] text-term-red leading-snug">ARK daily trades unavailable: {d.arkError}</div>;
+  if (!d.ark) return <div className="mt-1 text-[10px] text-term-muted">Loading ARK's daily trades…</div>;
+  const a = d.ark;
+  return (
+    <div className="mt-1 text-[10px] leading-snug flex flex-col gap-0.5">
+      <div className="text-term-text">Daily trades: {a.events.length} in the last 30 days{a.newestTrade ? `, newest ${a.newestTrade}` : ""}{a.holdingsDate ? ` · official holdings dated ${a.holdingsDate}` : ""}</div>
+      {a.failedFunds.length > 0 && <div className="text-term-amberBright">No data for {a.failedFunds.join(", ")}.</div>}
+    </div>
+  );
+}
+
+const utc = (iso: string) => iso.slice(0, 16).replace("T", " ");
+
+/** How fresh a persona's data is: the newest SEC filing to the minute, when it was checked, and what is new since the last look. */
+function LiveLine({ d, kind, n, now }: { d: PersonaData; kind: Persona["source"]["kind"]; n: number; now: number }) {
+  if (d.liveError) return <div className="mt-1 text-[10px] text-term-red leading-snug">Live SEC filings unavailable: {d.liveError}</div>;
+  if (!d.live) return <div className="mt-1 text-[10px] text-term-muted">Checking the SEC for new filings…</div>;
+  const f = d.live.fresh;
+  return (
+    <div className="mt-1 text-[10px] leading-snug flex flex-col gap-0.5">
+      <div className="flex flex-wrap items-center gap-1">
+        {n > 0 && <Badge tone="green" title="Filings accepted since you last looked at this screen">{n} new</Badge>}
+        {f.newestAccepted
+          ? <span className="text-term-text">Newest filing: Form {f.newestForm?.replace("SCHEDULE ", "") } · {utc(f.newestAccepted)} UTC · {ageText(f.newestAccepted, new Date(now).toISOString())}</span>
+          : <span className="text-term-muted">No insider or large-holder filings in the last 120 days.</span>}
+      </div>
+      {kind === "fund" && !f.newestAccepted && d.live.last13F && <div className="text-term-muted">The newest public data is the 13F filed {d.live.last13F.filed}; it covers the quarter-end portfolio.</div>}
+      {kind === "fund" && f.newestAccepted && d.live.last13F && <div className="text-term-muted">Portfolio table: the 13F filed {d.live.last13F.filed} (quarter end, up to 45 days late).</div>}
+      {d.live.failed > 0 && <div className="text-term-amberBright">{d.live.failed} of {d.live.listed} filings could not be read.</div>}
+      <div className="text-term-muted">Checked {new Date(d.live.checkedAt).toLocaleTimeString()} · rechecks every 5 minutes</div>
+    </div>
+  );
 }
 
 function PersonaRow({ p, on, onToggle, onRemove }: { p: Persona; on: boolean; onToggle: () => void; onRemove?: () => void }) {
@@ -108,7 +152,22 @@ export function PERS() {
   const { followed, custom, toggle, removeCustom } = usePersonas();
   const personas = useMemo(() => allPersonas(custom), [custom]);
   const active = personas.filter((p) => followed.includes(p.id));
-  const sources = [...new Map(active.map((p) => [sourceKey(p), p.source])).entries()];
+  const hasLive = (p: Persona) => SEC_CONFIGURED && edgarCiks(p).length > 0;
+  // insiders with SEC identities are read live (all history, to the second) instead of the provider's four-month window
+  const baseActive = active.filter((p) => !(hasLive(p) && p.source.kind === "insider"));
+  const sources = [...new Map(baseActive.map((p) => [sourceKey(p), p.source])).entries()];
+  const liveActive = active.filter(hasLive);
+  const liveQueries = useQueries({
+    queries: liveActive.map((p) => ({
+      queryKey: ["persona-live", p.id, edgarCiks(p).join(",")],
+      queryFn: () => fetchLiveFeed(edgarCiks(p)),
+      staleTime: 4 * 60_000, refetchInterval: 5 * 60_000, retry: 1,
+    })),
+  });
+  const liveBy = Object.fromEntries(liveActive.map((p, i) => [p.id, liveQueries[i]]));
+  const arkActive = active.filter((p) => p.daily === "ark");
+  const arkQuery = useQuery({ queryKey: ["persona-ark"], queryFn: () => fetchArkFeed(), enabled: arkActive.length > 0, staleTime: 10 * 60_000, refetchInterval: 15 * 60_000, retry: 1 });
+  const liveStamp = liveQueries.map((q) => `${q.dataUpdatedAt}${q.status}`).join("|");
 
   const queries = useQueries({
     queries: sources.map(([key, src]) => ({
@@ -121,7 +180,7 @@ export function PERS() {
   const bySource = Object.fromEntries(sources.map(([key], i) => [key, queries[i]]));
   const stamp = queries.map((q) => `${q.dataUpdatedAt}${q.status}`).join("|");
 
-  const data: Record<string, PersonaData> = useMemo(() => Object.fromEntries(active.map((p) => {
+  const baseData: Record<string, PersonaData> = useMemo(() => Object.fromEntries(active.map((p) => {
     const q = bySource[sourceKey(p)];
     const base: PersonaData = { trades: [], latest: null, prior: null, holdings: null, error: q?.error ? (q.error as Error).message : null, loading: !!q?.isLoading };
     if (!q?.data) return [p.id, base];
@@ -138,6 +197,32 @@ export function PERS() {
     return [p.id, { ...base, trades }];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   })), [stamp, active.map((p) => p.id).join("|")]);
+
+  const data: Record<string, PersonaData> = useMemo(() => Object.fromEntries(active.map((p) => {
+    const b = baseData[p.id], lq = liveBy[p.id];
+    if (!b) return [p.id, b];
+    const live = lq?.data, ark = p.daily === "ark" ? arkQuery.data : undefined;
+    const trades = [...b.trades, ...(live?.events ?? []), ...(ark?.events ?? [])];
+    return [p.id, {
+      ...b, trades, live, ark,
+      liveError: lq?.error ? (lq.error as Error).message : null,
+      arkError: p.daily === "ark" && arkQuery.error ? (arkQuery.error as Error).message : null,
+      loading: b.loading || (!!lq?.isLoading && p.source.kind === "insider"),
+    }];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  })), [baseData, liveStamp, arkQuery.dataUpdatedAt, arkQuery.status]);
+
+  // filings accepted since the user last looked are marked new; the first look sets the baseline
+  const { seen, markSeen } = usePersonas();
+  const newestOf = (id: string) => data[id]?.live?.fresh.newestAccepted ?? "";
+  const newCount = (id: string) => {
+    const s = seen[id];
+    return s == null ? 0 : new Set((data[id]?.live?.events ?? []).filter((e) => e.accepted && e.accepted > s).map((e) => e.url)).size;
+  };
+  useEffect(() => { for (const p of liveActive) if (liveBy[p.id]?.data && seen[p.id] === undefined) markSeen(p.id, newestOf(p.id) || liveBy[p.id].data!.checkedAt); }, [liveStamp]); // eslint-disable-line react-hooks/exhaustive-deps
+  const latestRef = useRef({ ids: [] as string[], newest: {} as Record<string, string> });
+  latestRef.current = { ids: liveActive.map((p) => p.id), newest: Object.fromEntries(liveActive.map((p) => [p.id, newestOf(p.id)])) };
+  useEffect(() => () => { for (const id of latestRef.current.ids) markSeen(id, latestRef.current.newest[id]); }, [markSeen]);
 
   const [copyFor, setCopyFor] = useState<string | null>(null);
   const [copy, setCopy] = useState<CopyContext | null>(null);
@@ -163,6 +248,7 @@ export function PERS() {
         return {
           id: p.id, name: p.name, role: p.role, kind: p.source.kind, latest: d?.latest ?? null, prior: d?.prior ?? null, holdings: d?.holdings ?? null,
           trades: (d?.trades ?? []).filter((t) => t.side !== "other"), error: d?.error ?? null, loading: d?.loading ?? true,
+          newest: d?.live?.fresh.newestAccepted ?? null,
         };
       }),
     });
@@ -181,13 +267,14 @@ export function PERS() {
     return active
       .filter((p) => !only || p.id === only)
       .flatMap((p) => (data[p.id]?.trades ?? []).map((t) => ({ p, t })))
-      .filter(({ t }) => !tradesOnly || t.side !== "other")
+      .filter(({ t }) => !tradesOnly || t.side !== "other" || t.category === "stake")
       .filter(({ t }) => side === "all" || t.side === side)
       .filter(({ t }) => !q || (t.symbol ?? "").includes(q) || t.asset.toUpperCase().includes(q))
       .sort((a, b) => byRecency(a.t, b.t));
   }, [active, data, only, side, tradesOnly, query]);
 
-  const loading = queries.some((q) => q.isLoading);
+  const loading = queries.some((q) => q.isLoading) || liveQueries.some((q) => q.isLoading) || (arkActive.length > 0 && arkQuery.isLoading);
+  const now = Date.now();
   const today = Date.now();
 
   return (
@@ -230,6 +317,11 @@ export function PERS() {
 
         <div className="flex-1 overflow-auto scroll-thin p-4 flex flex-col gap-4">
           {active.length === 0 && <div className="text-term-muted text-[12px]">Tick a persona on the left to see their trades.</div>}
+          {!SEC_CONFIGURED && active.some((p) => edgarCiks(p).length > 0) && (
+            <div className="border border-term-amberDim p-2 text-[11px] text-term-amberBright leading-snug">
+              Showing quarterly filings only. Live SEC filings (insider trades within days, large-holder reports) need a contact in the SEC's User-Agent rule: restart StockHub with <span className="num">STOCKHUB_SEC_CONTACT=&quot;Your Name you@example.com&quot; ./start.sh</span>. It is sent only to sec.gov.
+            </div>
+          )}
 
           {active.length > 0 && (
             <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
@@ -254,7 +346,7 @@ export function PERS() {
                         <div className="mt-1 text-[11px] grid grid-cols-3 gap-1">
                           {p.source.kind === "fund" ? (
                             <>
-                              <div><div className="sub-header">Period</div><div className="num">{qtr(d.latest)}</div></div>
+                              <div><div className="sub-header">13F period</div><div className="num">{qtr(d.latest)}</div></div>
                               <div><div className="sub-header">Holdings</div><div className="num">{d.holdings ?? "n/a"}</div></div>
                               <div><div className="sub-header">Buy / sell</div><div className="num"><span className="up">{s.buys}</span> / <span className="down">{s.sells}</span></div></div>
                               <div className="col-span-3 text-term-muted">{d.prior ? `Changes ${qtr(d.prior)} → ${qtr(d.latest)}` : "Only one quarter filed; no changes to show."}</div>
@@ -291,6 +383,8 @@ export function PERS() {
                           )}
                         </div>
                       )}
+                    {hasLive(p) && d && <LiveLine d={d} kind={p.source.kind} n={newCount(p.id)} now={now} />}
+                    {p.daily === "ark" && d && <ArkLine d={d} />}
                     {p.note && <div className="text-[10px] text-term-muted mt-1 leading-snug">{p.note}</div>}
                   </button>
                 );
@@ -304,20 +398,24 @@ export function PERS() {
           )}
 
           {active.some((p) => p.source.kind === "fund") && <div className="text-[10px] text-term-muted leading-snug">{FUND_NOTE}</div>}
+          {arkActive.length > 0 && <div className="text-[10px] text-term-muted leading-snug">{ARK_NOTE}</div>}
           {active.some((p) => p.source.kind === "house") && <div className="text-[10px] text-term-muted leading-snug">{HOUSE_NOTE} The date is the trade date; hover it for the filing date.</div>}
 
           {rows.length > 0 && (
             <div>
               <table className="w-full grid-data text-[11px]">
-                <thead><tr><th>Date</th><th>Persona</th><th>Action</th><th>Security</th><th className="text-right">Shares</th><th className="text-right">Price</th><th className="text-right">Value or range</th><th>Detail</th><th /></tr></thead>
+                <thead><tr><th>Trade date</th><th title="When the filing became public: the SEC's acceptance time for EDGAR filings, the filing date for House reports">Public (UTC)</th><th>Persona</th><th>Action</th><th>Security</th><th className="text-right">Shares</th><th className="text-right">Price</th><th className="text-right">Value or range</th><th>Detail</th><th /></tr></thead>
                 <tbody>
                   {rows.slice(0, limit).map(({ p, t }, i) => (
                     <tr key={i}>
                       <td className="num whitespace-nowrap" title={t.filed ? `Filed ${t.filed}` : "Quarter end; filed up to 45 days later"}>
-                        {p.source.kind === "fund" ? qtr(t.date) : t.date ?? "n/a"}
+                        {p.source.kind === "fund" && !isLiveRow(t) ? qtr(t.date) : t.date ?? "n/a"}
+                      </td>
+                      <td className="num whitespace-nowrap text-term-muted" title={t.accepted ? `${t.form ?? "Filing"} accepted by the SEC at ${t.accepted}` : t.filed ? `Filed ${t.filed}` : "Quarter-end snapshot, public up to 45 days later"}>
+                        {t.accepted ? t.accepted.slice(5, 16).replace("T", " ") : t.filed ?? "–"}
                       </td>
                       <td className="text-term-text whitespace-nowrap">{p.name}</td>
-                      <td className={cn("whitespace-nowrap", SIDE_TONE[t.side])}>{t.action}</td>
+                      <td className={cn("whitespace-nowrap", t.category === "stake" ? "text-term-cyan" : SIDE_TONE[t.side])}>{t.action}</td>
                       <td className="max-w-[260px] truncate" title={t.asset}>
                         {t.symbol
                           ? <button onClick={() => openTab("GP", t.symbol!)} title={`Open a ${t.symbol} chart`} className="text-term-amber hover:underline mr-1">{t.symbol}</button>

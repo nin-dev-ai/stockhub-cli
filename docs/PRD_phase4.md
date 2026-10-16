@@ -50,4 +50,4 @@ A plan is a **goal** plus **sleeves**. Each sleeve is one strategy with a **role
 | Track | Status |
 | --- | --- |
 | A — Plan builder | Engine and Plan tab delivered (roles, holdings today, sense checks, add a strategy, build me a plan, five strategies, fall limit); Copilot proposal not started |
-| B — Live personas | Not started |
+| B — Live personas | Delivered: EDGAR live feed (Form 3/4/5 and 13D/G with acceptance times, freshness, new badges, 5-minute refresh, Copilot) and ARK daily trades. Verified live (Berkshire's Lennar purchases, Buffett's 13G/A, Zuckerberg's sale, ARK's 15 October trades). The SEC feed needs the user's `STOCKHUB_SEC_CONTACT`. |

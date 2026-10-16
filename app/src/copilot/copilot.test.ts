@@ -281,6 +281,18 @@ describe("personas", () => {
     expect(text(a)).toMatch(/amount range/);
     expect(a.sources.map((s) => s.label)).toContain("Clerk of the House");
   });
+  it("keeps a fund's quarterly changes apart from its live insider filings and names the newest filing time", () => {
+    const row = (o: Partial<PersonaTrade>): PersonaTrade => ({ date: "2026-10-01", filed: "2026-10-05", symbol: "LEN", asset: "LENNAR CORP", side: "buy", action: "Open-market purchase", shares: 1000, price: 79.5, value: 79500, detail: "", url: null, accepted: "2026-10-06T05:02:56Z", form: "4", ...o });
+    const ctx: CopilotContext = { ...empty, screen: "PERS", personas: { personas: [{
+      id: "buffett", name: "Warren Buffett", role: "Berkshire", kind: "fund", latest: "2026-06-30", prior: "2026-03-31", holdings: 29, error: null, loading: false, newest: "2026-10-08T05:47:30Z",
+      trades: [row({ accepted: undefined, filed: null, symbol: null, asset: "ALPHABET INC", side: "buy", action: "Added", value: 5_000_000_000, date: "2026-06-30" }), row({}), row({ side: "buy" }), row({ side: "sell", action: "Open-market sale" })],
+    }] } };
+    const a = respond("summarize these trades", ctx);
+    expect(a.verified).toBe(true);
+    expect(text(a)).toMatch(/1 new or added positions and 0 trimmed or sold, out of 29 holdings/);
+    expect(text(a)).toMatch(/Live filings and daily trades: 2 purchases and 1 sales/);
+    expect(text(a)).toMatch(/Newest SEC filing accepted 2026-10-08 05:47 UTC/);
+  });
   it("explains the copy-trade backtest on screen with traced figures, or says how to run one", () => {
     const base: CopilotContext = { ...empty, screen: "PERS", personas: { personas: [] } };
     const none = respond("what if I had copied Pelosi?", base);
