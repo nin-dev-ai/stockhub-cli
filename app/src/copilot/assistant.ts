@@ -479,12 +479,16 @@ function personaTrades(m: string, entries: PersonaEntry[]): Answer {
   for (const e of entries) {
     if (e.loading) { items.push(`${e.name}: still loading.`); continue; }
     if (e.error) { items.push(`${e.name}: the filings could not be loaded.`); continue; }
-    const buys = e.trades.filter((t) => t.side === "buy"), sells = e.trades.filter((t) => t.side === "sell");
-    const top = [...e.trades].sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0)).slice(0, 3)
+    // a fund's quarterly changes and its live insider filings are different things: keep them apart
+    const q = e.kind === "fund" ? e.trades.filter((t) => !t.accepted) : e.trades, lv = e.trades.filter((t) => t.accepted);
+    const buys = q.filter((t) => t.side === "buy"), sells = q.filter((t) => t.side === "sell");
+    const fresh = e.newest ? ` Newest SEC filing accepted ${c.date(e.newest.slice(0, 16).replace("T", " "))} UTC.` : "";
+    const liveText = e.kind === "fund" && lv.length ? ` Live insider filings: ${c.int(lv.filter((t) => t.side === "buy").length)} purchases and ${c.int(lv.filter((t) => t.side === "sell").length)} sales.` : "";
+    const top = [...q].sort((a, b) => Math.abs(b.value ?? 0) - Math.abs(a.value ?? 0)).slice(0, 3)
       .map((t) => `${c.data(t.symbol ?? t.asset)} (${t.action.toLowerCase()}${t.value ? `, ${c.money(t.value)}` : ""})`);
     if (e.kind === "fund") {
-      if (!e.prior) { items.push(`${e.name}: only one quarter is filed, so there are no changes to compare.`); continue; }
-      items.push(`${e.name}: from ${qtr(e.prior)} to ${qtr(e.latest)}, ${c.int(buys.length)} new or added positions and ${c.int(sells.length)} trimmed or sold, out of ${c.int(e.holdings ?? 0)} holdings. Largest by value: ${top.join(", ") || "none"}.`);
+      if (!e.prior) { items.push(`${e.name}: only one quarter is filed, so there are no changes to compare.${liveText}${fresh}`); continue; }
+      items.push(`${e.name}: from ${qtr(e.prior)} to ${qtr(e.latest)}, ${c.int(buys.length)} new or added positions and ${c.int(sells.length)} trimmed or sold, out of ${c.int(e.holdings ?? 0)} holdings. Largest by value: ${top.join(", ") || "none"}.${liveText}${fresh}`);
     } else if (e.kind === "house") {
       if (e.trades.length === 0) { items.push(`${e.name}: no purchases or sales in the reports read.`); continue; }
       const last = [...e.trades].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))[0];
@@ -494,11 +498,12 @@ function personaTrades(m: string, entries: PersonaEntry[]): Answer {
       items.push(`${e.name}: no open-market buys or sells in the filings loaded.`);
     } else {
       const last = [...e.trades].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""))[0];
-      items.push(`${e.name}: ${c.int(buys.length)} buys and ${c.int(sells.length)} sells in the filings loaded. Latest: ${last.action.toLowerCase()} of ${c.int(Math.round(Math.abs(last.shares ?? 0)))} shares${last.price ? ` at ${c.money(last.price)}` : ""} on ${c.date(last.date ?? "")}.`);
+      items.push(`${e.name}: ${c.int(buys.length)} buys and ${c.int(sells.length)} sells in the filings loaded. Latest: ${last.action.toLowerCase()} of ${c.int(Math.round(Math.abs(last.shares ?? 0)))} shares${last.price ? ` at ${c.money(last.price)}` : ""} on ${c.date(last.date ?? "")}.${fresh}`);
     }
   }
   c.list(items);
   if (entries.some((e) => e.kind === "fund")) c.note(c.vetted(FUND_NOTE));
+  if (entries.some((e) => e.newest)) c.note("Live filings come from the SEC's EDGAR: insider trades within two business days and large-holder reports within days; funds without those have nothing newer than their quarterly 13F.");
   if (entries.some((e) => e.kind === "house")) c.note(c.vetted(HOUSE_NOTE));
   c.note("These are filed trades, not recommendations, and they say nothing about why the person traded.");
   if (entries.some((e) => e.kind !== "house")) c.source("SEC EDGAR", "filings loaded on the Personas screen");
