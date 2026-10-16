@@ -217,7 +217,7 @@ The Copilot gets four levels of access. A capability moves up a level only by ch
 | Level | What the Copilot may do | Confirmation | Allowed |
 | --- | --- | --- | --- |
 | **0 Read** | Read only what the **active screen publishes** to the context store: the open strategy and its backtest, Lab inputs, weights, optimization and projection, the open portfolio's summary and attribution, and the buys and sells loaded on the Personas screen. Plus the glossary and curated catalog. | None | Yes |
-| **1 Propose and create** | Additive, local, reversible changes: save a strategy draft or ETF variant, follow a persona, open a screen, and apply proposed Lab inputs (ETF or several ETFs to spread across, starting amount, monthly contribution, horizon), which the Lab's Reset undoes. | One click on a card showing exactly what changes | Yes |
+| **1 Propose and create** | Additive, local, reversible changes: save a strategy draft or ETF variant, follow a persona, open a screen, and apply proposed Lab inputs (ETF or several ETFs to spread across, starting amount, monthly contribution, horizon), which the Lab's Reset undoes, and apply a proposed plan (the strategies in the basket, their weights and the fall limit), which the proposal card's Undo restores. | One click on a card showing exactly what changes | Yes |
 | **2 Edit records** | Change or delete anything that is a record: portfolio ledgers and transactions, saved plans and snapshots, existing drafts, the basket, persona follows set by the user. | n/a | **Never via Copilot.** The user does it on the screen. The Copilot explains how. |
 | **3 Trade** | Place, modify or cancel broker orders (for example on a future IBKR connection). | n/a | **Never via Copilot.** See below. |
 

@@ -20,9 +20,9 @@ export function BuildPlan({ inputs, fallLimit, onApply, onClose }: {
   const rows = s ? s.ids.map((id) => ({ cand: c.list.find((x) => x.id === id)!, weight: s.weights[id] })) : [];
   return (
     <div className="panel shrink-0 p-3 flex flex-col gap-2 border-term-amberDim text-[12px]">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="text-term-heading font-semibold">A plan for a {(fallLimit * 100).toFixed(0)}% fall limit</span>
-        <Badge tone="amber">Proposal · nothing changes until you use it</Badge>
+        <Badge tone="amber" title="Nothing changes until you click Use this plan">Proposal</Badge>
         <button onClick={onClose} className="ml-auto text-[10px] text-term-muted hover:text-term-red uppercase tracking-widest">Close</button>
       </div>
       {c.loading && <div className="text-term-muted uppercase tracking-widest text-[11px]">Testing the catalog on {inputs.etf}…</div>}
@@ -30,6 +30,7 @@ export function BuildPlan({ inputs, fallLimit, onApply, onClose }: {
       {c.ready && !s && <div className="text-term-muted text-[11px]">No core strategy with enough evidence was found, so no plan was proposed.</div>}
       {s && (
         <>
+          <div className="overflow-x-auto scroll-thin">
           <table className="w-full grid-data text-[11px]">
             <thead><tr><th>Job</th><th>Strategy</th><th className="text-right">Weight</th><th className="text-right">CAGR</th><th className="text-right">Worst fall</th><th className="text-right">Sharpe</th></tr></thead>
             <tbody>{rows.map(({ cand, weight }) => (
@@ -40,6 +41,7 @@ export function BuildPlan({ inputs, fallLimit, onApply, onClose }: {
               </tr>
             ))}</tbody>
           </table>
+          </div>
           <div className="text-[11px] text-term-text">
             Together: CAGR <span className="num text-term-amber">{fmtRate(s.metrics.cagr)}</span>, worst fall <span className="num text-term-amber">{fmtRate(s.metrics.maxDrawdown)}</span>, Sharpe <span className="num text-term-amber">{fmtRatio(s.metrics.sharpe)}</span>
             {s.withinLimit ? <span className="text-term-green"> · within your limit</span> : <span className="text-term-red"> · not within your limit</span>}.

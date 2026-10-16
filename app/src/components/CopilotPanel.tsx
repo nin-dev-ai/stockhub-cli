@@ -12,6 +12,7 @@ import { useWorkspace } from "@/store/workspaceStore";
 import { usePersonas } from "@/store/personaStore";
 import { useLab } from "@/store/labStore";
 import { LAB_CHANGE_FIELDS, type LabChange } from "@/copilot/labChanges";
+import { BuildPlan } from "@/functions/lab/BuildPlan";
 import { eligible, LLM_ENABLED, LLM_MODEL, phrase } from "@/copilot/llm";
 
 const fmtField = (k: keyof LabChange, v: unknown) =>
@@ -39,6 +40,44 @@ function LabChangeCard({ change }: { change: LabChange }) {
           className="px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px]">Apply to Lab</button>
       </div>
     </div>
+  );
+}
+
+/**
+ * "Build me a plan": nothing is tested until the user asks, then the plan engine's proposal appears
+ * with Use this plan. Applying replaces the basket and weights and can be undone from this card.
+ */
+function PlanProposalCard({ fallLimit }: { fallLimit: number | null }) {
+  const { inputs, setInputs, override, setOverride } = useLab();
+  const { basket, setBasket } = useStrategies();
+  const openTab = useWorkspace((s) => s.openTab);
+  const [stage, setStage] = useState<"idle" | "testing" | "applied" | "undone">("idle");
+  const [prev, setPrev] = useState<{ basket: string[]; override: typeof override; fall: number } | null>(null);
+  const limit = fallLimit ?? inputs.fallLimit;
+  if (stage === "undone") return <div className="text-[10px] text-term-green">Restored your previous plan.</div>;
+  if (stage === "applied") {
+    return (
+      <div className="flex items-center gap-2 text-[10px]">
+        <span className="text-term-green">Applied. The Lab's Plan tab shows it.</span>
+        <button onClick={() => { if (prev) { setBasket(prev.basket); setOverride(prev.override); setInputs({ fallLimit: prev.fall }); } setStage("undone"); }}
+          className="px-2 py-0.5 border border-term-border text-term-muted hover:text-term-amber uppercase tracking-widest">Undo</button>
+      </div>
+    );
+  }
+  if (stage === "idle") {
+    return (
+      <div className="flex flex-col gap-1">
+        <button onClick={() => setStage("testing")} className="self-start px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px]">Test the catalog and propose a plan ({(limit * 100).toFixed(0)}% limit)</button>
+      </div>
+    );
+  }
+  return (
+    <BuildPlan inputs={inputs} fallLimit={limit} onClose={() => setStage("idle")}
+      onApply={(ids, weights) => {
+        setPrev({ basket, override, fall: inputs.fallLimit });
+        setBasket(ids); setOverride(weights); setInputs({ fallLimit: limit });
+        setStage("applied"); openTab("LAB");
+      }} />
   );
 }
 
@@ -114,6 +153,7 @@ function AnswerView({ a, onSaved }: { a: Answer; onSaved: (name: string) => void
       {a.draft?.def && <DraftCard answer={a} onSaved={onSaved} />}
       {a.persona && <PersonaCard answer={a} />}
       {a.labChange && <LabChangeCard change={a.labChange} />}
+      {a.planProposal && <PlanProposalCard fallLimit={a.planProposal.fallLimit} />}
       {a.open && <button onClick={() => openTab(a.open!.code)} className="self-start px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px]">{a.open.label}</button>}
       {a.sources.length > 0 && (
         <div className="text-[10px] text-term-muted border-t border-term-borderSoft pt-1">
