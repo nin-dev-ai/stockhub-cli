@@ -1,0 +1,207 @@
+{
+ "symbol": "ARKK",
+ "date_from": "2026-09-16",
+ "date_to": "2026-10-16",
+ "trades": [
+  {
+   "fund": "ARKK",
+   "date": "2026-09-17",
+   "ticker": "CRWV",
+   "company": "CoreWeave, Inc.",
+   "direction": "Buy",
+   "cusip": "US21873S1087",
+   "shares": 191868,
+   "etf_percent": 0.2394
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-17",
+   "ticker": "SLMT",
+   "company": "Brera Holdings PLC",
+   "direction": "Sell",
+   "cusip": "IE0009876H30",
+   "shares": 2805,
+   "etf_percent": 0.0001
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-18",
+   "ticker": "SLMT",
+   "company": "Brera Holdings PLC",
+   "direction": "Sell",
+   "cusip": "IE0009876H30",
+   "shares": 187723,
+   "etf_percent": 0.0079
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-21",
+   "ticker": "META",
+   "company": "Meta Platforms, Inc.",
+   "direction": "Buy",
+   "cusip": "US30303M1027",
+   "shares": 32394,
+   "etf_percent": 0.29
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-22",
+   "ticker": "RKLB",
+   "company": "Rocket Lab Corp",
+   "direction": "Buy",
+   "cusip": "US7731211089",
+   "shares": 277573,
+   "etf_percent": 0.2061
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-23",
+   "ticker": "TEM",
+   "company": "Tempus AI, Inc.",
+   "direction": "Sell",
+   "cusip": "US88023B1035",
+   "shares": 90621,
+   "etf_percent": 0.071
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-29",
+   "ticker": "AMD",
+   "company": "Advanced Micro Devices, Inc.",
+   "direction": "Sell",
+   "cusip": "US0079031078",
+   "shares": 104082,
+   "etf_percent": 0.7429
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-29",
+   "ticker": "NVDA",
+   "company": "NVIDIA Corporation",
+   "direction": "Buy",
+   "cusip": "US67066G1040",
+   "shares": 187260,
+   "etf_percent": 0.5017
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-29",
+   "ticker": "TXG",
+   "company": "10x Genomics, Inc.",
+   "direction": "Sell",
+   "cusip": "US88025U1097",
+   "shares": 386216,
+   "etf_percent": 0.4027
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-29",
+   "ticker": "AVGO",
+   "company": "Broadcom Inc",
+   "direction": "Buy",
+   "cusip": "US11135F1012",
+   "shares": 60019,
+   "etf_percent": 0.2506
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-29",
+   "ticker": "TSLA",
+   "company": "Tesla Inc",
+   "direction": "Buy",
+   "cusip": "US88160R1014",
+   "shares": 48352,
+   "etf_percent": 0.1996
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-29",
+   "ticker": "CRWV",
+   "company": "CoreWeave, Inc.",
+   "direction": "Buy",
+   "cusip": "US21873S1087",
+   "shares": 198567,
+   "etf_percent": 0.1989
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-29",
+   "ticker": "TEM",
+   "company": "Tempus AI, Inc.",
+   "direction": "Sell",
+   "cusip": "US88023B1035",
+   "shares": 128292,
+   "etf_percent": 0.124
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-09-29",
+   "ticker": "TWST",
+   "company": "Twist Bioscience Corporation",
+   "direction": "Sell",
+   "cusip": "US90184D1000",
+   "shares": 46931,
+   "etf_percent": 0.1
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-10-15",
+   "ticker": "RXRX",
+   "company": "Recursion Pharmaceuticals, Inc.",
+   "direction": "Buy",
+   "cusip": "US75629V1044",
+   "shares": 3208315,
+   "etf_percent": 0.1641
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-10-15",
+   "ticker": "CRWV",
+   "company": "CoreWeave, Inc.",
+   "direction": "Buy",
+   "cusip": "US21873S1087",
+   "shares": 148950,
+   "etf_percent": 0.1494
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-10-15",
+   "ticker": "AMZN",
+   "company": "Amazon.com Inc",
+   "direction": "Sell",
+   "cusip": "US0231351067",
+   "shares": 25086,
+   "etf_percent": 0.1002
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-10-15",
+   "ticker": "RKLB",
+   "company": "Rocket Lab Corp",
+   "direction": "Buy",
+   "cusip": "US7731211089",
+   "shares": 120655,
+   "etf_percent": 0.0998
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-10-15",
+   "ticker": "SHOP",
+   "company": "Shopify Inc.",
+   "direction": "Sell",
+   "cusip": "CA82509L1076",
+   "shares": 29474,
+   "etf_percent": 0.0806
+  },
+  {
+   "fund": "ARKK",
+   "date": "2026-10-15",
+   "ticker": "XYZ",
+   "company": "Block, Inc.",
+   "direction": "Sell",
+   "cusip": "US8522341036",
+   "shares": 40368,
+   "etf_percent": 0.0504
+  }
+ ]
+}

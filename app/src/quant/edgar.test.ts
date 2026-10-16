@@ -79,3 +79,19 @@ describe("freshness", () => {
     expect(freshness([], "2026-10-16T12:00:00Z").newestAccepted).toBeNull();
   });
 });
+
+describe("fetching with a retry (lib/edgar)", () => {
+  it("retries once after a throttle and gives up after a second failure", async () => {
+    const { fetchSubmissions } = await import("@/lib/edgar");
+    let calls = 0;
+    const flaky = (async () => (++calls === 1 ? new Response("", { status: 429 }) : new Response(JSON.stringify(JSON.parse(fx("submissions-berkshire.json"))), { status: 200 }))) as unknown as typeof fetch;
+    expect((await fetchSubmissions("1067983", flaky)).length).toBe(12);
+    expect(calls).toBe(2);
+    calls = 0;
+    const down = (async () => { calls++; return new Response("", { status: 503 }); }) as unknown as typeof fetch;
+    await expect(fetchSubmissions("1067983", down)).rejects.toThrow(/503/);
+    expect(calls).toBe(2);
+    const forbidden = (async () => new Response("", { status: 403 })) as unknown as typeof fetch;
+    await expect(fetchSubmissions("1067983", forbidden)).rejects.toThrow(/STOCKHUB_SEC_CONTACT/);
+  }, 20000);
+});

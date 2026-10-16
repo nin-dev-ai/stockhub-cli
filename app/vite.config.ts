@@ -62,6 +62,9 @@ export default defineConfig({
         "/sec/data": { target: "https://data.sec.gov", changeOrigin: true, headers: { "User-Agent": secUa }, rewrite: (p: string) => p.replace(/^\/sec\/data/, "") },
         "/sec/www": { target: "https://www.sec.gov", changeOrigin: true, headers: { "User-Agent": secUa }, rewrite: (p: string) => p.replace(/^\/sec\/www/, "") },
       } : {}),
+      // ARK Invest daily trade notifications (free third-party feed) and ARK's own holdings files. The two prefixes must not start with one another.
+      "/ark-api": { target: "https://arkfunds.io", changeOrigin: true, headers: { "User-Agent": "Mozilla/5.0 (compatible; StockHub)" }, rewrite: (p: string) => p.replace(/^\/ark-api/, "") },
+      "/ark-assets": { target: "https://assets.ark-funds.com", changeOrigin: true, headers: { "User-Agent": "Mozilla/5.0 (compatible; StockHub)" }, rewrite: (p: string) => p.replace(/^\/ark-assets/, "") },
       // House Clerk financial disclosures (public, keyless); the Clerk sends no CORS headers.
       "/clerk": {
         target: "https://disclosures-clerk.house.gov",
