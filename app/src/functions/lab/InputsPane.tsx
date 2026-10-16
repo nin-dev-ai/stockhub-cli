@@ -5,6 +5,7 @@ import { CORE_ETFS } from "@/quant/instruments";
 import { EtfSelect } from "@/components/quant/EtfSelect";
 import { EtfMultiPick } from "@/components/quant/EtfMultiPick";
 import { MAX_SPREAD } from "@/quant/strategy";
+import { MAX_BASKET } from "@/store/strategyStore";
 
 function Num({ label, value, onChange, prefix, suffix, step = 1, min = 0, hint, scale = 1 }: {
   label: string; value: number | null; onChange: (v: number) => void; prefix?: string; suffix?: string; step?: number; min?: number; hint?: string; scale?: number;
@@ -78,7 +79,7 @@ export function InputsPane({ inputs: i, set, basketNames, unchanged, errors, onR
       </div>
 
       <div>
-        <div className="sub-header mb-1">Strategies in basket ({basketNames.length}/3)</div>
+        <div className="sub-header mb-1">Strategies in plan ({basketNames.length}/{MAX_BASKET})</div>
         {basketNames.length === 0
           ? <div className="text-term-muted text-[11px]">None yet. Add strategies on the Strategies screen.</div>
           : <ul className="text-[11px] text-term-amber space-y-0.5">{basketNames.map((b) => <li key={b.id}>{b.name}</li>)}</ul>}
