@@ -3,12 +3,12 @@ import { CATALOG, CATALOG_BY_ID } from "./catalog";
 import { runBacktestOn, SCORECARD_CONFIG } from "./service";
 import { sleeveOf } from "./lab";
 import { syntheticDataset } from "./testData";
-import { analyzeOverlap } from "./overlap";
+import { analyzeOverlap, bucketExposure } from "./overlap";
 import { currentTargets } from "./backtest";
 import { planTargets } from "./tracking";
 import { withSpread } from "./strategy";
 import { evaluateWeights } from "./portfolio";
-import { alignSleeves, assetClasses, checkPlan, fitCandidate, planHoldings, planRole, setWeight, suggestPlan, type Candidate, type PlanSleeve } from "./plan";
+import { alignSleeves, assetClasses, checkPlan, fitCandidate, isRedundant, planHoldings, planRole, setWeight, suggestPlan, type Candidate, type PlanSleeve } from "./plan";
 
 const ds = syntheticDataset(15, 11);
 const run = (id: string) => runBacktestOn(ds, CATALOG_BY_ID[id], SCORECARD_CONFIG);
@@ -53,6 +53,15 @@ describe("does the plan make sense", () => {
     expect(overlapChecks.every((c) => c.level === "issue" && c.fix?.action.kind === "remove")).toBe(true);
     expect(checks[0].level).toBe("issue");
   });
+  it("treats a core with a trend overlay on the same market as normal, but not near-copies", () => {
+    expect(isRedundant(0.6, 0.59)).toBe(false);
+    expect(isRedundant(0.78, 0.6)).toBe(true);
+    expect(isRedundant(0.4, 0.93)).toBe(true);
+    const ids = ["rebalance_quarterly_6040", "trend_200d_spy"];
+    const runs = ids.map((id) => ({ id, name: id, run: run(id).run }));
+    const checks = checkPlan({ sleeves: ids.map((id) => sleeveInfo(id, 0.5)), overlap: analyzeOverlap(runs, { [ids[0]]: 0.5, [ids[1]]: 0.5 }), plan: null, fallLimit: null });
+    expect(checks.some((c) => c.id.startsWith("overlap"))).toBe(false);
+  });
   it("checks the worst fall against the user's limit", () => {
     const m = { ...run("buy_hold_spy").run.metrics, maxDrawdown: -0.4 };
     const over = checkPlan({ sleeves: [sleeveInfo("buy_hold_spy", 1)], overlap: null, plan: m, fallLimit: 0.25 });
@@ -92,7 +101,7 @@ describe("weights", () => {
 describe("candidates and suggestions", () => {
   const cands: Candidate[] = CATALOG.map((d) => {
     const r = runBacktestOn(ds, d, SCORECARD_CONFIG, { robustness: true });
-    return { id: d.id, name: d.name, role: planRole(d), sleeve: sleeveOf(r), verdict: r.robustness?.verdict, experimental: d.experimental, metrics: r.run.metrics };
+    return { id: d.id, name: d.name, role: planRole(d), sleeve: sleeveOf(r), verdict: r.robustness?.verdict, experimental: d.experimental, metrics: r.run.metrics, exposure: bucketExposure(r.run) };
   });
   it("ranks a candidate that fills a missing role and behaves differently above one that duplicates the plan", () => {
     const core = cands.find((c) => c.id === "buy_hold_spy")!;
@@ -115,6 +124,15 @@ describe("candidates and suggestions", () => {
     expect(new Set(roles).size).toBeGreaterThanOrEqual(2);
     if (s.withinLimit) expect(s.metrics.maxDrawdown!).toBeGreaterThanOrEqual(-0.35 - 1e-9);
     expect(evaluateWeights(alignSleeves(s.ids.map((id) => cands.find((c) => c.id === id)!.sleeve)), s.weights, 0).metrics.cagr).toBeCloseTo(s.metrics.cagr!, 8);
+  });
+  it("never proposes two sleeves that its own checks call redundant", () => {
+    for (const limit of [0.15, 0.25, 0.35, 0.5]) {
+      const s = suggestPlan(cands, limit)!;
+      const picked = s.ids.map((id) => cands.find((c) => c.id === id)!);
+      const runs = picked.map((c) => ({ id: c.id, name: c.name, run: run(c.id).run }));
+      const checks = checkPlan({ sleeves: picked.map((c) => ({ id: c.id, name: c.name, role: c.role, weight: s.weights[c.id], metrics: c.metrics })), overlap: analyzeOverlap(runs, s.weights), plan: s.metrics, fallLimit: null });
+      expect(checks.filter((c) => c.id.startsWith("overlap")), `limit ${limit}`).toEqual([]);
+    }
   });
   it("says so when no mix fits the limit, and returns the shallowest", () => {
     const s = suggestPlan(cands, 0.001)!;

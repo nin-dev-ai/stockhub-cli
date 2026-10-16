@@ -14,6 +14,9 @@ export const OBJECTIVES: { key: Objective; label: string; description: string }[
 export interface OptimizerConfig { maxWeight: number; riskFreeRate: number; stepPct: number }
 export const DEFAULT_OPT: OptimizerConfig = { maxWeight: 0.6, riskFreeRate: 0, stepPct: 1 };
 
+/** Grid step that keeps the exhaustive search small: 1% up to 3 strategies, 2% for 4, 5% for 5 or more. */
+export const stepFor = (n: number) => (n <= 3 ? 1 : n === 4 ? 2 : 5);
+
 export interface Binding { id: string; kind: "cap" | "zero" }
 export interface Proposal {
   objective: Objective;
@@ -79,7 +82,7 @@ function score(obj: Objective, w: number[], mu: number[], cov: number[][], rf: n
   return m - v / 2;
 }
 
-/** Exhaustive search over long-only weights on a 1% grid; the grid is small (3 strategies: 5,151 points). */
+/** Exhaustive search over long-only weights on a grid (3 strategies at 1%: 5,151 points; see stepFor). */
 function solve(obj: Objective, mu: number[], cov: number[][], capPct: number, step: number, rf: number): number[] {
   const n = mu.length;
   const total = Math.round(100 / step);
@@ -94,9 +97,9 @@ function solve(obj: Objective, mu: number[], cov: number[][], capPct: number, st
 }
 
 export function optimize(sleeves: Sleeve[], partial: Partial<OptimizerConfig> = {}): OptimizationResult {
-  const config = { ...DEFAULT_OPT, ...partial };
   const ids = sleeves.map((s) => s.id);
   const n = ids.length;
+  const config = { ...DEFAULT_OPT, stepPct: stepFor(n), ...partial };
   if (n < 1) throw new Error("Optimization needs at least one strategy.");
   const len = sleeves[0].returns.length;
   if (len < 60) throw new Error(`Only ${len} daily observations are available; at least 60 are needed to estimate risk.`);
