@@ -29,6 +29,10 @@ export interface Persona {
   firstNames?: string[];
   note?: string;
   custom?: boolean;
+  /** Daily trade notifications for this fund family, shown next to its filings (only ARK publishes them). */
+  daily?: "ark";
+  /** SEC CIKs whose filings feed the live view (the firm and the person); defaults to the fund's own CIK. */
+  edgar?: string[];
 }
 
 const fund = (id: string, name: string, firm: string, cik: string, note?: string): Persona =>
@@ -45,7 +49,7 @@ export const FUND_NOTE = "13F shows the firm's US long holdings at each quarter 
 export const PRESET_PERSONAS: Persona[] = [
   fund("buffett", "Warren Buffett", "Berkshire Hathaway", "0001067983", "Berkshire's holdings are also managed by its other investment managers."),
   fund("ackman", "Bill Ackman", "Pershing Square", "0001336528"),
-  fund("wood", "Cathie Wood", "ARK Investment Management", "0001697748", "ARK's 13F combines all of its ETFs and accounts."),
+  { ...fund("wood", "Cathie Wood", "ARK Investment Management", "0001697748", "ARK's 13F combines all of its ETFs and accounts. ARK also publishes each day's trades, shown here as daily rows."), daily: "ark" },
   fund("druckenmiller", "Stanley Druckenmiller", "Duquesne Family Office", "0001536411"),
   fund("tepper", "David Tepper", "Appaloosa", "0001656456"),
   fund("li_lu", "Li Lu", "Himalaya Capital", "0001709323"),
@@ -60,6 +64,17 @@ export const PRESET_PERSONAS: Persona[] = [
   house("mccaul", "Michael McCaul", "Michael T.", "McCaul", "TX10"),
   house("crenshaw", "Dan Crenshaw", "Daniel", "Crenshaw", "TX02"),
 ];
+
+/**
+ * Verified 16 October 2026 against data.sec.gov (name and recent forms). Firms file 13F, 13D/G and
+ * Form 4 as 10% owners; people file Form 3/4/5 as insiders. Scion (Burry) last filed in Nov 2025.
+ */
+export const EDGAR_CIKS: Record<string, string[]> = {
+  buffett: ["1067983", "315090"], ackman: ["1336528", "1056513"], wood: ["1697748", "1820212"], druckenmiller: ["1536411"],
+  tepper: ["1656456"], li_lu: ["1709323", "2153863"], burry: ["1649339"],
+  huang: ["1197649"], zuckerberg: ["1548760"], musk: ["1494730"], bezos: ["1043298"],
+};
+export const edgarCiks = (p: Persona): string[] => p.edgar ?? EDGAR_CIKS[p.id] ?? (p.source.kind === "fund" ? [p.source.cik.replace(/^0+/, "")] : []);
 
 export interface PersonaTrade {
   /** Insiders: transaction date. Funds: the quarter end the change was observed at. */
@@ -76,6 +91,11 @@ export interface PersonaTrade {
   value: number | null;
   /** House PTRs: the reported amount range, since no exact value is disclosed. */
   amount?: string;
+  /** Live SEC filings: when EDGAR accepted the filing (ISO, UTC) and its form type. */
+  accepted?: string;
+  form?: string;
+  /** "stake": a Schedule 13D/G statement of a holding above 5%, not a trade. */
+  category?: "stake";
   detail: string;
   url: string | null;
 }
@@ -217,8 +237,12 @@ export function summarize(trades: PersonaTrade[]): PersonaSummary {
   };
 }
 
-export const byRecency = (a: PersonaTrade, b: PersonaTrade) =>
-  (b.date ?? "").localeCompare(a.date ?? "") || (b.filed ?? "").localeCompare(a.filed ?? "");
+/** A live row: an SEC filing with its acceptance time, or an ARK daily trade. Quarterly 13F and House rows are not. */
+export const isLiveRow = (t: PersonaTrade) => !!t.accepted || t.form === "ARK daily";
+
+/** When the public could first see a row: the SEC acceptance time, else the filing date, else the trade date. */
+export const publicAt = (t: PersonaTrade) => t.accepted ?? (t.filed ? `${t.filed}T00:00:00Z` : t.date ? `${t.date}T00:00:00Z` : "");
+export const byRecency = (a: PersonaTrade, b: PersonaTrade) => publicAt(b).localeCompare(publicAt(a)) || (b.date ?? "").localeCompare(a.date ?? "");
 
 /** People whose trades have no free public API; named so the Copilot can say why. */
 export const UNAVAILABLE_PEOPLE: Record<string, string> = {

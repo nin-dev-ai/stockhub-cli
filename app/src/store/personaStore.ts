@@ -6,6 +6,9 @@ interface PersonaState {
   /** Ids shown in the combined trade view. */
   followed: string[];
   custom: Persona[];
+  /** Per persona, the newest SEC acceptance time the user has already seen; later filings are shown as new. */
+  seen: Record<string, string>;
+  markSeen: (id: string, at: string) => void;
   toggle: (id: string) => void;
   follow: (id: string) => void;
   addCustom: (p: Persona) => void;
@@ -17,6 +20,9 @@ export const usePersonas = create<PersonaState>()(
     (set, get) => ({
       followed: ["buffett", "huang"],
       custom: [],
+      seen: {},
+      // never moves backwards and ignores an empty time (nothing was loaded yet)
+      markSeen: (id, at) => { if (at && (get().seen[id] ?? "") < at) set({ seen: { ...get().seen, [id]: at } }); },
       toggle: (id) => set({ followed: get().followed.includes(id) ? get().followed.filter((x) => x !== id) : [...get().followed, id] }),
       follow: (id) => { if (!get().followed.includes(id)) set({ followed: [...get().followed, id] }); },
       addCustom: (p) => set({

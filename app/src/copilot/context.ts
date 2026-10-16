@@ -31,6 +31,8 @@ export interface PersonaEntry {
   id: string; name: string; role: string; kind: "fund" | "insider" | "house";
   latest: string | null; prior: string | null; holdings: number | null;
   trades: PersonaTrade[]; error: string | null; loading: boolean;
+  /** Newest SEC acceptance time among live filings (ISO, UTC), when the persona has them. */
+  newest?: string | null;
 }
 /** The copy-trade backtest open on the Personas screen, if any. */
 export interface CopyContext {
