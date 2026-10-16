@@ -11,6 +11,7 @@ import { respond, suggestions, namedStrategy, type Answer } from "./assistant";
 import type { CopilotContext } from "./context";
 import { labChangeFromText } from "./labChanges";
 import type { PersonaTrade } from "@/quant/personas";
+import { planRequestFromText } from "./planRequest";
 import { variantFromText, diffStrategy, draftFromText, modifyFromText } from "./drafting";
 import { findTerms } from "./glossary";
 import { classifyGuard, extractNumbers, hasUnsafeCertainty, verifyFigures } from "./guardrails";
@@ -380,6 +381,34 @@ describe("persona trades on screen (permission level 0)", () => {
   });
   it("is not visible off the Personas screen", () => {
     expect(respond("Summarize these trades", { ...ctx, screen: "LAB" }).title).not.toMatch(/loaded trades/);
+  });
+});
+
+describe("build me a plan (level 1)", () => {
+  it("reads the fall limit from a percentage or a risk word", () => {
+    expect(planRequestFromText("build me a plan with a 25% fall limit")).toMatchObject({ fallLimit: 0.25 });
+    expect(planRequestFromText("Create a plan where I can't lose more than a 20% drawdown")).toMatchObject({ fallLimit: 0.2 });
+    expect(planRequestFromText("suggest a conservative plan")?.fallLimit).toBe(0.15);
+    expect(planRequestFromText("make me a balanced plan")?.fallLimit).toBe(0.25);
+    expect(planRequestFromText("put together an aggressive plan")?.fallLimit).toBe(0.4);
+    expect(planRequestFromText("build me a plan")).toEqual({ fallLimit: null, understood: [] });
+    expect(planRequestFromText("build me a plan with a 2% fall limit")?.fallLimit).toBeNull();
+  });
+  it("ignores messages that are not asking for a plan", () => {
+    for (const q of ["what is a plan?", "run my plan on QQQ with $500 a month for 10 years", "explain my plan", "change my plan horizon to 10 years"]) expect(planRequestFromText(q), q).toBeNull();
+  });
+  it("answers with a card that proposes only, and keeps the Lab-input requests working", () => {
+    const a = respond("Build me a plan with a 30% fall limit", empty);
+    expect(a.kind).toBe("plan_proposal");
+    expect(a.verified).toBe(true);
+    expect(a.planProposal).toEqual({ fallLimit: 0.3 });
+    expect(text(a)).toMatch(/Nothing changes until you click Use this plan/);
+    expect(text(a)).toMatch(/not a forecast or advice/);
+    expect(respond("build me a plan", empty).planProposal).toEqual({ fallLimit: null });
+    expect(respond("run my plan on QQQ with $500 a month for 10 years", empty).kind).toBe("lab_change");
+  });
+  it("is offered as a suggestion on the Lab", () => {
+    expect(suggestions({ ...empty, screen: "LAB" })).toContain("Build me a plan with a 25% fall limit");
   });
 });
 

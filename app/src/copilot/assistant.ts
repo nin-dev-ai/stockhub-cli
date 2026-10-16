@@ -7,6 +7,7 @@ import { FUND_NOTE, isLiveRow, POLITICIAN_NOTE, PRESET_PERSONAS, UNAVAILABLE_PEO
 import { requiredTickers, type StrategyDef } from "@/quant/strategy";
 import type { CopilotContext, LabContext, PersonaEntry, PersonasContext, PortfolioContext, StrategyContext } from "./context";
 import { LAB_CHANGE_FIELDS, labChangeFromText, type LabChange } from "./labChanges";
+import { planRequestFromText } from "./planRequest";
 import { draftFromText, findTickers, modifyFromText, variantFromText, type DraftResult } from "./drafting";
 import { findTerms, GLOSSARY_BY_ID, type GlossaryEntry } from "./glossary";
 import { classifyGuard, hasUnsafeCertainty, verifyFigures, type GuardKind } from "./guardrails";
@@ -19,7 +20,7 @@ import { classifyGuard, hasUnsafeCertainty, verifyFigures, type GuardKind } from
 
 export type Block = { type: "p"; text: string } | { type: "list"; items: string[] } | { type: "note"; text: string };
 export interface Source { label: string; detail?: string }
-export type AnswerKind = "lab_change" | "persona" | "glossary" | "strategy" | "backtest" | "optimization" | "projection" | "portfolio" | "methodology" | "draft" | "refusal" | "help";
+export type AnswerKind = "plan_proposal" | "lab_change" | "persona" | "glossary" | "strategy" | "backtest" | "optimization" | "projection" | "portfolio" | "methodology" | "draft" | "refusal" | "help";
 
 export interface Answer {
   kind: AnswerKind;
@@ -33,6 +34,8 @@ export interface Answer {
   labChange?: LabChange;
   /** A screen the user may open with one click (permission level 1). */
   open?: { code: "ORD" | "PORT"; label: string };
+  /** A request to propose a whole plan; the card tests the catalog on a click and applies only on a second one. */
+  planProposal?: { fallLimit: number | null };
   /** Set when an LLM rephrased the blocks; `grounded` keeps the rule-based blocks it was checked against. */
   phrasing?: { status: "pending" } | { status: "done"; model: string; grounded: Block[] } | { status: "fallback"; reason: string };
   verified: boolean;
@@ -66,6 +69,7 @@ class Composer {
   /** Proposed Lab inputs, applied only when the user clicks Apply. */
   labChange?: LabChange;
   open?: { code: "ORD" | "PORT"; label: string };
+  planProposal?: { fallLimit: number | null };
 
   done(draft?: DraftResult): Answer {
     const text = this.blocks.map((b) => (b.type === "list" ? b.items.join("\n") : b.text)).join("\n");
@@ -79,7 +83,7 @@ class Composer {
           : "The drafted answer contained figures that could not be traced to an engine result or a vetted source, so it was withheld rather than risk showing an invented number." }],
       };
     }
-    return { kind: this.kind, title: this.title, blocks: this.blocks, sources: this.sources, draft, persona: this.persona, labChange: this.labChange, open: this.open, verified: true, unverified: [] };
+    return { kind: this.kind, title: this.title, blocks: this.blocks, sources: this.sources, draft, persona: this.persona, labChange: this.labChange, open: this.open, planProposal: this.planProposal, verified: true, unverified: [] };
   }
 }
 
@@ -96,6 +100,10 @@ export function respond(message: string, ctx: CopilotContext, opts: { takenIds?:
 
   const guard = classifyGuard(m);
   if (guard) return refuse(guard, m, ctx);
+
+  // "build me a plan": a whole plan of strategies and weights, proposed by the plan engine and applied on a click (level 1)
+  const pr = planRequestFromText(m);
+  if (pr) return planProposal(m, pr);
 
   // proposed changes to Lab inputs (permission level 1): ETF, starting amount, contribution, horizon
   const labWords = /\b(lab|plan|simulation|simulate|contribut\w*|starting amount|start with|initial|lump[- ]sum|horizon|per month|a month|monthly)\b/i;
@@ -441,6 +449,16 @@ function persona(m: string, who: { known: Persona | null; name: string; politici
   return c.done();
 }
 
+function planProposal(m: string, pr: NonNullable<ReturnType<typeof planRequestFromText>>): Answer {
+  const c = new Composer("plan_proposal", "Build a plan", m);
+  c.p("A plan pairs strategies that do different jobs: a core that grows the money, something tactical that steps out of the market on a signal, and a diversifier that spreads the risk. I can test the catalog on your chosen ETF and propose strategies and weights that keep the worst historical fall inside your limit.");
+  c.list(pr.understood.length ? pr.understood.map(c.vetted) : [c.vetted("No fall limit named, so the Lab's current limit is used; say, for example, \"a 25% fall limit\".")]);
+  c.note("It only proposes. Nothing changes until you click Use this plan, which replaces the strategies in your plan and their weights; the card keeps the previous plan so you can undo it. The result is a historical test on the same data it is judged on, not a forecast or advice.");
+  c.planProposal = { fallLimit: pr.fallLimit };
+  c.source("Plan engine", "roles, overlap checks and a weight search inside your fall limit");
+  return c.done();
+}
+
 function labChange(m: string, lc: ReturnType<typeof labChangeFromText>): Answer {
   const c = new Composer("lab_change", "Proposed change to your Lab inputs", m);
   c.p("Here is what I read. Nothing changes until you click Apply; the Lab's Reset button restores the defaults.");
@@ -551,7 +569,7 @@ export function suggestions(ctx: CopilotContext): string[] {
   }
   if (ctx.screen === "PORT" && ctx.portfolio) out.push("Why is my portfolio different from the plan?");
   if (ctx.screen === "PERS" && ctx.personas?.personas.length) out.push("Summarize these trades");
-  if (ctx.screen === "LAB") out.push("Run my plan on QQQ with $500 a month for 10 years");
+  if (ctx.screen === "LAB") out.push("Build me a plan with a 25% fall limit", "Run my plan on QQQ with $500 a month for 10 years");
   out.push("Run the golden cross on the Nasdaq", "Follow Warren Buffett's trades", "What is a Sharpe ratio?", "Create a strategy: hold SPY above its 200-day moving average, otherwise bonds");
   return [...new Set(out)].slice(0, 5);
 }
