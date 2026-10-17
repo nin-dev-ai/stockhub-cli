@@ -9,6 +9,30 @@ import { fetchLiveFeed, SEC_CONFIGURED, type LiveFeed } from "@/lib/edgar";
 import { ageText } from "@/quant/edgar";
 import { fetchArkFeed } from "@/lib/ark";
 import { ARK_NOTE, type ArkFeed } from "@/quant/ark";
+import { loadBars } from "@/quant/dataSource";
+import { entryDay, sinceTrade, tradeKey, type SinceRow, type SinceSummary } from "@/quant/sinceTrade";
+import { hashId } from "@/quant/hash";
+
+/** The newest trades per persona that get a "since public" result; more would mean hundreds of price downloads. */
+const SINCE_LIMIT = 60;
+
+async function computeSince(trades: PersonaTrade[]): Promise<{ by: Record<string, SinceRow>; summary: SinceSummary }> {
+  const pick = trades.filter((t) => (t.side === "buy" || t.side === "sell") && t.symbol && entryDay(t)).sort(byRecency).slice(0, SINCE_LIMIT);
+  const first = pick.map((t) => entryDay(t)!.date).sort()[0];
+  if (!first) return { by: {}, summary: { buys: 0, sells: 0, avgBuyExcess: null, avgSellExcess: null, hitRate: null, skipped: 0 } };
+  const start = new Date(Date.parse(first) - 10 * 864e5).toISOString().slice(0, 10);
+  const tickers = [...new Set(pick.map((t) => t.symbol!.toUpperCase()))];
+  const bars: Record<string, Awaited<ReturnType<typeof loadBars>>> = {};
+  // a few at a time: the local data API fetches each history from the provider
+  for (let i = 0; i < tickers.length; i += 4) {
+    await Promise.all(tickers.slice(i, i + 4).map(async (tk) => { bars[tk] = await loadBars(tk, start).catch(() => []); }));
+  }
+  const spy = await loadBars("SPY", start);
+  const r = sinceTrade(pick, bars, spy);
+  return { by: Object.fromEntries(r.rows.map((x) => [x.key, x])), summary: r.summary };
+}
+
+const signed = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${Math.abs(x * 100).toFixed(d)}`;
 import { HOUSE_NOTE, houseMembers, searchMembers } from "@/quant/congress";
 import { Badge } from "@/components/quant/Badges";
 import {
@@ -224,6 +248,19 @@ export function PERS() {
   latestRef.current = { ids: liveActive.map((p) => p.id), newest: Object.fromEntries(liveActive.map((p) => [p.id, newestOf(p.id)])) };
   useEffect(() => () => { for (const id of latestRef.current.ids) markSeen(id, latestRef.current.newest[id]); }, [markSeen]);
 
+  const sinceQueries = useQueries({
+    queries: active.map((p) => {
+      const trades = data[p.id]?.trades ?? [];
+      return {
+        queryKey: ["persona-since", p.id, hashId(trades.map(tradeKey))],
+        queryFn: () => computeSince(trades),
+        enabled: !!data[p.id] && !data[p.id].loading && trades.length > 0,
+        staleTime: 30 * 60_000, retry: 0,
+      };
+    }),
+  });
+  const sinceBy = Object.fromEntries(active.map((p, i) => [p.id, sinceQueries[i]]));
+
   const [copyFor, setCopyFor] = useState<string | null>(null);
   const [copy, setCopy] = useState<CopyContext | null>(null);
   const onCopyResult = useCallback((r: CopyTradeResult | null) => {
@@ -385,6 +422,18 @@ export function PERS() {
                       )}
                     {hasLive(p) && d && <LiveLine d={d} kind={p.source.kind} n={newCount(p.id)} now={now} />}
                     {p.daily === "ark" && d && <ArkLine d={d} />}
+                    {sinceBy[p.id]?.data && sinceBy[p.id].data!.summary.buys + sinceBy[p.id].data!.summary.sells > 0 && (() => {
+                      const s2 = sinceBy[p.id].data!.summary;
+                      return (
+                        <div className="mt-1 text-[10px] text-term-text leading-snug" title="From the first close a follower could trade at, after the trade became public, to the latest close; against SPY over the same days.">
+                          Since public ({s2.buys + s2.sells} trades):{" "}
+                          {s2.avgBuyExcess != null && <>stocks bought went on to {s2.avgBuyExcess >= 0 ? "beat" : "trail"} SPY by {Math.abs(s2.avgBuyExcess * 100).toFixed(1)} pts on average; </>}
+                          {s2.avgSellExcess != null && <>stocks sold went on to {s2.avgSellExcess >= 0 ? "beat" : "trail"} SPY by {Math.abs(s2.avgSellExcess * 100).toFixed(1)} pts; </>}
+                          {s2.hitRate != null && <>{Math.round(s2.hitRate * 100)}% of trades were on the right side.</>}
+                        </div>
+                      );
+                    })()}
+                    {sinceBy[p.id]?.isFetching && !sinceBy[p.id]?.data && <div className="mt-1 text-[10px] text-term-muted">Measuring results since each trade…</div>}
                     {p.note && <div className="text-[10px] text-term-muted mt-1 leading-snug">{p.note}</div>}
                   </button>
                 );
@@ -404,7 +453,7 @@ export function PERS() {
           {rows.length > 0 && (
             <div>
               <table className="w-full grid-data text-[11px]">
-                <thead><tr><th>Trade date</th><th title="When the filing became public: the SEC's acceptance time for EDGAR filings, the filing date for House reports">Public (UTC)</th><th>Persona</th><th>Action</th><th>Security</th><th className="text-right">Shares</th><th className="text-right">Price</th><th className="text-right">Value or range</th><th>Detail</th><th /></tr></thead>
+                <thead><tr><th>Trade date</th><th title="When the filing became public: the SEC's acceptance time for EDGAR filings, the filing date for House reports">Public (UTC)</th><th>Persona</th><th>Action</th><th>Security</th><th className="text-right">Shares</th><th className="text-right">Price</th><th className="text-right">Value or range</th><th className="text-right" title="The stock's move from the first close a follower could trade at to the latest close, and the difference from SPY over the same days">Since public</th><th>Detail</th><th /></tr></thead>
                 <tbody>
                   {rows.slice(0, limit).map(({ p, t }, i) => (
                     <tr key={i}>
@@ -425,6 +474,11 @@ export function PERS() {
                       <td className="num text-right">{t.shares == null ? "" : `${t.shares > 0 && p.source.kind === "fund" ? "+" : ""}${Math.round(t.shares).toLocaleString("en-US")}`}</td>
                       <td className="num text-right">{t.price == null ? "" : `$${t.price.toFixed(2)}`}</td>
                       <td className="num text-right whitespace-nowrap">{t.value != null ? money(t.value) : t.amount ?? ""}</td>
+                      <td className="num text-right whitespace-nowrap">{(() => {
+                        const s3 = sinceBy[p.id]?.data?.by[tradeKey(t)];
+                        if (!s3) return "";
+                        return <span className={s3.hit ? "up" : "down"} title={`${s3.entry} → ${s3.exit}: ${signed(s3.ret)}%, SPY ${signed(s3.spyRet)}%`}>{signed(s3.ret)}% <span className="text-term-muted">({signed(s3.excess)} vs SPY)</span></span>;
+                      })()}</td>
                       <td className="text-term-muted text-[10px] min-w-[200px] max-w-[380px]"><span className="line-clamp-2" title={t.detail}>{t.detail}</span></td>
                       <td>{t.url && <a href={t.url} target="_blank" rel="noreferrer" title="Original filing" className="text-term-muted hover:text-term-amber"><ExternalLink size={11} /></a>}</td>
                     </tr>
