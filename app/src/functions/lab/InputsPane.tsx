@@ -66,7 +66,7 @@ export function InputsPane({ inputs: i, set, basketNames, unchanged, errors, onR
         <div className="text-[10px] text-term-muted leading-snug">
           {i.lookbackYears == null ? "Tests every year of history the data has." : `Tests the last ${i.lookbackYears} years only.`}
           {i.lookbackYears != null && i.lookbackYears < MIN_PROJECTION_YEARS && <> Projections need at least {MIN_PROJECTION_YEARS} years of history, so only the backtest will run.</>}
-          {" "}Strategies with long averages spend the first months in safety while those warm up, so short windows understate them.
+          {" "}Signals use the history before the window, so strategies with long averages trade from the first day.
         </div>
       </div>
       <div className="text-[10px] text-term-muted -mt-1">Currency: USD only. Other currencies are not supported.</div>
