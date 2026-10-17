@@ -387,6 +387,13 @@ export function PERS() {
                               <div><div className="sub-header">Holdings</div><div className="num">{d.holdings ?? "n/a"}</div></div>
                               <div><div className="sub-header">Buy / sell</div><div className="num"><span className="up">{s.buys}</span> / <span className="down">{s.sells}</span></div></div>
                               <div className="col-span-3 text-term-muted">{d.prior ? `Changes ${qtr(d.prior)} → ${qtr(d.latest)}` : "Only one quarter filed; no changes to show."}</div>
+                              {(
+                                <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setCopyFor(copyFor === p.id ? null : p.id); }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setCopyFor(copyFor === p.id ? null : p.id); } }}
+                                  className="col-span-3 mt-1 text-center border border-term-amberDim text-term-amber hover:bg-term-amberSubtle text-[10px] uppercase tracking-widest py-0.5">
+                                  {copyFor === p.id ? "Hide copy backtest" : "Backtest copying the 13F"}
+                                </span>
+                              )}
                             </>
                           ) : p.source.kind === "house" ? (
                             <>
@@ -416,6 +423,13 @@ export function PERS() {
                               <div><div className="sub-header">Buy / sell</div><div className="num"><span className="up">{s.buys}</span> / <span className="down">{s.sells}</span></div></div>
                               <div><div className="sub-header">Latest</div><div className="num">{s.latest ?? "n/a"}</div></div>
                               {s.trades === 0 && <div className="col-span-3 text-term-muted leading-snug">No buys or sells by this name in the filings loaded (about the last four months).</div>}
+                              {s.buys > 0 && (
+                                <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setCopyFor(copyFor === p.id ? null : p.id); }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setCopyFor(copyFor === p.id ? null : p.id); } }}
+                                  className="col-span-3 mt-1 text-center border border-term-amberDim text-term-amber hover:bg-term-amberSubtle text-[10px] uppercase tracking-widest py-0.5">
+                                  {copyFor === p.id ? "Hide copy backtest" : "Backtest copying"}
+                                </span>
+                              )}
                             </>
                           )}
                         </div>

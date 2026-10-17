@@ -65,6 +65,8 @@ export default defineConfig({
       // ARK Invest daily trade notifications (free third-party feed) and ARK's own holdings files. The two prefixes must not start with one another.
       "/ark-api": { target: "https://arkfunds.io", changeOrigin: true, headers: { "User-Agent": "Mozilla/5.0 (compatible; StockHub)" }, rewrite: (p: string) => p.replace(/^\/ark-api/, "") },
       "/ark-assets": { target: "https://assets.ark-funds.com", changeOrigin: true, headers: { "User-Agent": "Mozilla/5.0 (compatible; StockHub)" }, rewrite: (p: string) => p.replace(/^\/ark-assets/, "") },
+      // OpenFIGI: CUSIP to ticker for fund holdings (free, no key).
+      "/figi": { target: "https://api.openfigi.com", changeOrigin: true, rewrite: (p: string) => p.replace(/^\/figi/, "") },
       // House Clerk financial disclosures (public, keyless); the Clerk sends no CORS headers.
       "/clerk": {
         target: "https://disclosures-clerk.house.gov",
