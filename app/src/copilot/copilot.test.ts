@@ -430,6 +430,17 @@ describe("broker and paper orders (levels 1 and 3)", () => {
   });
 });
 
+describe("messages the Copilot does not understand", () => {
+  it("get the help list instead of being withheld, even when they contain numbers", () => {
+    for (const q of ["hello there", "tell me about 300 stocks", "what happens in 2008", "random words 12345"]) {
+      const a = respond(q, empty);
+      expect(a.kind, q).toBe("help");
+      expect(a.verified, q).toBe(true);
+      expect(text(a), q).toMatch(/200-day moving average/);
+    }
+  });
+});
+
 describe("suggestions (AI-01)", () => {
   it("adapt to the screen and what has been calculated", () => {
     expect(suggestions({ ...empty, screen: "PORT", portfolio: { name: "x", mode: "paper", snapshots: 1, total: 1, contributed: 1, attribution: null } })[0]).toMatch(/portfolio/);
