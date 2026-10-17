@@ -206,6 +206,10 @@ Tight 5-7 minute walk-through for the video:
 
 ---
 
+## Tests
+
+From `app/`: `npm test` runs the unit tests, `npm run e2e` the browser end-to-end suite (all data answered from fixtures, so it needs no services), and `LIVE=1 npx vitest run src/quant/live*.test.ts` the opt-in checks against real data. CI runs the first two on every push and pull request.
+
 ## Configuration (optional)
 
 Every optional feature is switched on by an environment variable, set in your shell or in an uncommitted `app/.env` (copy [`app/.env.example`](app/.env.example)). The local server prints which features are on when it starts.
