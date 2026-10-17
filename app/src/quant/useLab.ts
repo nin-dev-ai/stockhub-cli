@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { loadDataset } from "./dataSource";
 import { jobs, type Job } from "./jobs";
-import { backtestConfig, planBacktest, projectionInput, sleeveOf, validateLab, type LabInputs, type PlanBacktest } from "./lab";
+import { backtestConfig, blendOf, planBacktest, projectionInput, sleeveOf, validateLab, type LabInputs, type PlanBacktest } from "./lab";
 import { optimize, type OptimizationResult } from "./optimizer";
 import { equalWeights, type Sleeve, type Weights } from "./portfolio";
 import { project, type ProjectionResult } from "./projection";
@@ -25,7 +25,7 @@ export function useLabEngine(defs: StrategyDef[], inputs: LabInputs, override: W
   const bt = jobs.get<BacktestBundle>(btId);
 
   const ids = defs.map((d) => d.id).join("|");
-  const optInput = useMemo(() => ({ ids, btId, maxWeight: inputs.maxWeight, rf: inputs.riskFreeRate }), [ids, btId, inputs.maxWeight, inputs.riskFreeRate]);
+  const optInput = useMemo(() => ({ ids, btId, maxWeight: inputs.maxWeight, rf: inputs.riskFreeRate, blend: blendOf(inputs) }), [ids, btId, inputs.maxWeight, inputs.riskFreeRate, inputs.rebalance, inputs.slippageBps]); // eslint-disable-line react-hooks/exhaustive-deps
   const optId = jobs.idFor("lab-optimize", optInput);
   const opt = jobs.get<OptimizationResult>(optId);
 
@@ -66,9 +66,9 @@ export function useLabEngine(defs: StrategyDef[], inputs: LabInputs, override: W
     if (!b) return;
     jobs.submit<OptimizationResult>("lab-optimize", optInput, async (ctx) => {
       ctx.progress(0.2); await ctx.tick();
-      return optimize(b.sleeves, { maxWeight: inputs.maxWeight, riskFreeRate: inputs.riskFreeRate });
+      return optimize(b.sleeves, { maxWeight: inputs.maxWeight, riskFreeRate: inputs.riskFreeRate, blend: optInput.blend });
     });
-  }, [runBacktest, optInput, inputs.maxWeight, inputs.riskFreeRate]);
+  }, [runBacktest, optInput, inputs.maxWeight, inputs.riskFreeRate]); // optInput carries the blend
 
   const runProjection = useCallback(async () => {
     const b = (await jobs.wait<BacktestBundle>(runBacktest())).result;

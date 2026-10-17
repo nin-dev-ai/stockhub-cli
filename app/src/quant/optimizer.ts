@@ -1,4 +1,4 @@
-import { blendReturns, checkWeights, equalWeights, evaluateWeights, type Sleeve, type Weights } from "./portfolio";
+import { blendReturns, checkWeights, equalWeights, evaluateWeights, REBALANCE_LABEL, type BlendOptions, type Sleeve, type Weights } from "./portfolio";
 import { hashId } from "./hash";
 import { mean } from "./metrics";
 import { ENGINE_VERSION, TRADING_DAYS, type Metrics } from "./types";
@@ -11,7 +11,7 @@ export const OBJECTIVES: { key: Objective; label: string; description: string }[
   { key: "growth", label: "Growth-oriented", description: "Maximizes expected compound growth (mean return minus half the variance); accepts more volatility." },
 ];
 
-export interface OptimizerConfig { maxWeight: number; riskFreeRate: number; stepPct: number }
+export interface OptimizerConfig { maxWeight: number; riskFreeRate: number; stepPct: number; /** How the reported metrics rebalance between strategies; the search itself uses the daily-restored moments. */ blend?: BlendOptions }
 export const DEFAULT_OPT: OptimizerConfig = { maxWeight: 0.6, riskFreeRate: 0, stepPct: 1 };
 
 /** Grid step that keeps the exhaustive search small: 1% up to 3 strategies, 2% for 4, 5% for 5 or more. */
@@ -112,7 +112,7 @@ export function optimize(sleeves: Sleeve[], partial: Partial<OptimizerConfig> = 
   const { mu, cov } = moments(sleeves, 0, len);
   const mk = (objective: Objective, w: number[]): Proposal => {
     const weights = Object.fromEntries(ids.map((id, i) => [id, w[i]]));
-    const { metrics } = evaluateWeights(sleeves, weights, config.riskFreeRate);
+    const { metrics } = evaluateWeights(sleeves, weights, config.riskFreeRate, 0, undefined, config.blend);
     const binding: Binding[] = [];
     ids.forEach((id, i) => {
       if (n > 1 && Math.abs(w[i] - effectiveCap) < 0.5 / 100) binding.push({ id, kind: "cap" });
@@ -124,8 +124,8 @@ export function optimize(sleeves: Sleeve[], partial: Partial<OptimizerConfig> = 
 
   const eq = equalWeights(ids);
   const baselines: BaselineStats[] = [
-    { label: "Equal weight", weights: eq, metrics: evaluateWeights(sleeves, eq, config.riskFreeRate).metrics },
-    ...sleeves.map((s) => ({ label: `${s.name} alone`, weights: { [s.id]: 1 } as Weights, metrics: evaluateWeights(sleeves, { [s.id]: 1 }, config.riskFreeRate).metrics })),
+    { label: "Equal weight", weights: eq, metrics: evaluateWeights(sleeves, eq, config.riskFreeRate, 0, undefined, config.blend).metrics },
+    ...sleeves.map((s) => ({ label: `${s.name} alone`, weights: { [s.id]: 1 } as Weights, metrics: evaluateWeights(sleeves, { [s.id]: 1 }, config.riskFreeRate, 0, undefined, config.blend).metrics })),
   ];
 
   // Weights are estimated on the first 60% and judged on the rest, to show how much of the result is hindsight.
@@ -138,12 +138,15 @@ export function optimize(sleeves: Sleeve[], partial: Partial<OptimizerConfig> = 
     outOfSample = {
       splitDate: sleeves[0].dates[cut],
       fitWeights: fit,
-      test: evaluateWeights(sleeves, fit, config.riskFreeRate, cut).metrics,
-      equalWeightTest: evaluateWeights(sleeves, eq, config.riskFreeRate, cut).metrics,
+      test: evaluateWeights(sleeves, fit, config.riskFreeRate, cut, undefined, config.blend).metrics,
+      equalWeightTest: evaluateWeights(sleeves, eq, config.riskFreeRate, cut, undefined, config.blend).metrics,
     };
   }
   if (n > 1) notes.push("Weights are estimated from the same history they are judged on, so the in-sample result flatters the proposal. The out-of-sample check refits on the first 60% and tests on the rest.");
-  notes.push("Strategy sleeves are blended as if their weights were restored every day, which is an approximation of rebalancing between them.");
+  const rule = config.blend?.rule ?? "daily";
+  notes.push(rule === "daily"
+    ? "Strategy sleeves are blended as if their weights were restored every day, an idealised assumption; choose a rebalancing rule in the Lab for a realistic figure."
+    : `Reported results rebalance between strategies ${REBALANCE_LABEL[rule].toLowerCase()} with costs; the weight search itself uses daily-restored risk and return estimates.`);
 
   return {
     runId: hashId({ ids, ret: sleeves.map((s) => [s.dates[0], s.returns]), config, engine: ENGINE_VERSION }),

@@ -3,7 +3,7 @@ import { DEFAULT_CONFIG } from "./backtest";
 import { INSTRUMENT_BY_TICKER } from "./instruments";
 import { applyTarget, MAX_SPREAD, primaryRisky, withSpread, type StrategyDef } from "./strategy";
 import type { Objective } from "./optimizer";
-import { blendPath, blendReturns, evaluateWeights, monthlyReturns, type Sleeve, type Weights } from "./portfolio";
+import { blendPath, blendReturns, evaluateWeights, monthlyReturns, type BlendOptions, type Rebalance, type Sleeve, type Weights } from "./portfolio";
 import type { ProjectionInput, ProjectionMethod } from "./projection";
 import type { BacktestResult } from "./service";
 
@@ -21,6 +21,8 @@ export interface LabInputs {
   years: number;
   objective: Objective;
   maxWeight: number;
+  /** How money is moved back to the plan's weights between its strategies. */
+  rebalance: Rebalance;
   /** The worst peak-to-trough fall the user will accept, as a positive fraction (0.3 = 30%). */
   fallLimit: number;
   riskFreeRate: number;
@@ -36,7 +38,7 @@ export interface LabInputs {
 }
 
 export const DEFAULT_LAB: LabInputs = {
-  etf: "SPY", alsoEtfs: [], lookbackYears: null, initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, fallLimit: 0.3, riskFreeRate: 0,
+  etf: "SPY", alsoEtfs: [], lookbackYears: null, initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, rebalance: "quarterly", fallLimit: 0.3, riskFreeRate: 0,
   slippageBps: 2, fixedFee: 0, fractional: true, inflation: 0.025, goal: null,
   method: "bootstrap", paths: 2000, seed: 42, blockMonths: 6,
 };
@@ -54,6 +56,7 @@ export function validateLab(i: LabInputs): string[] {
   if (i.lookbackYears != null && bad(i.lookbackYears, LAB_LIMITS.lookback)) e.push("History to test must be 1 to 30 years, or all available.");
   if (bad(i.paths, LAB_LIMITS.paths)) e.push("Simulated paths must be between 200 and 10,000.");
   if (bad(i.maxWeight, [0.2, 1])) e.push("Maximum weight per strategy must be between 20% and 100%.");
+  if (!["daily", "monthly", "quarterly", "annual", "none", "drift5"].includes(i.rebalance)) e.push("Choose how the plan is rebalanced.");
   if (bad(i.fallLimit, [0.05, 0.9])) e.push("The fall limit must be between 5% and 90%.");
   if (bad(i.riskFreeRate, [0, 0.2])) e.push("Risk-free rate must be between 0% and 20%.");
   if (bad(i.inflation, [0, 0.2])) e.push("Inflation must be between 0% and 20%.");
@@ -107,6 +110,9 @@ export function backtestConfig(i: LabInputs, now: Date = new Date()): Partial<Ru
 
 export const sleeveOf = (r: BacktestResult): Sleeve => ({ id: r.strategy.id, name: r.strategy.name, dates: r.run.dates, returns: r.run.returns });
 
+/** The plan's rebalancing rule and its cost (the Lab's slippage on the money moved). */
+export const blendOf = (i: Pick<LabInputs, "rebalance" | "slippageBps">): BlendOptions => ({ rule: i.rebalance ?? "quarterly", costBps: i.slippageBps });
+
 export interface PlanBacktest {
   weights: Weights;
   dates: string[];
@@ -114,19 +120,25 @@ export interface PlanBacktest {
   equity: number[];
   invested: number[];
   metrics: ReturnType<typeof evaluateWeights>["metrics"];
+  /** The same weights restored every day, for comparison with the chosen rule. */
+  dailyRestored: ReturnType<typeof evaluateWeights>["metrics"];
 }
 
 /** The blended plan over history with the user's own cash flows. */
 export function planBacktest(sleeves: Sleeve[], weights: Weights, i: LabInputs): PlanBacktest {
-  const returns = blendReturns(sleeves, weights);
+  const returns = blendReturns(sleeves, weights, blendOf(i));
   const dates = sleeves[0].dates;
   const freq: ContributionFrequency = i.monthly > 0 ? "monthly" : "none";
   const path = blendPath(returns, dates, { initial: startingCapital(i), contribution: { amount: i.monthly, frequency: freq } });
-  return { weights, dates, returns, ...path, metrics: evaluateWeights(sleeves, weights, i.riskFreeRate).metrics };
+  return {
+    weights, dates, returns, ...path,
+    metrics: evaluateWeights(sleeves, weights, i.riskFreeRate, 0, undefined, blendOf(i)).metrics,
+    dailyRestored: evaluateWeights(sleeves, weights, i.riskFreeRate).metrics,
+  };
 }
 
 export function projectionInput(sleeves: Sleeve[], weights: Weights, i: LabInputs): ProjectionInput {
-  const returns = blendReturns(sleeves, weights);
+  const returns = blendReturns(sleeves, weights, blendOf(i));
   const m = monthlyReturns(returns, sleeves[0].dates);
   return {
     monthlyReturns: m.returns,

@@ -6,7 +6,7 @@ import { currentTargets } from "@/quant/backtest";
 import type { LabInputs, PlanBacktest } from "@/quant/lab";
 import { analyzeOverlap } from "@/quant/overlap";
 import { assetClasses, checkPlan, planHoldings, planRole, ROLE_ORDER, ROLES, type FixAction, type PlanSleeve, type Role } from "@/quant/plan";
-import type { Weights } from "@/quant/portfolio";
+import { REBALANCE_LABEL, REBALANCE_ORDER, type Rebalance, type Weights } from "@/quant/portfolio";
 import type { BacktestBundle } from "@/quant/useLab";
 import { AddStrategy } from "./AddStrategy";
 import { BuildPlan } from "./BuildPlan";
@@ -57,6 +57,13 @@ export function PlanView({ bundle, plan, inputs, set, weights, source, act }: {
             <input type="number" min={5} max={90} value={Math.round(inputs.fallLimit * 100)} onChange={(e) => set({ fallLimit: Number(e.target.value) / 100 })}
               className="w-14 bg-term-bg border border-term-border px-1 py-0.5 num text-right" />%
           </label>
+          <label className="flex items-center gap-1 text-[11px]" title="How money is moved back to the plan's weights between its strategies. Each rebalance pays the Lab's slippage on the money moved.">
+            Rebalance
+            <select value={inputs.rebalance} onChange={(e) => set({ rebalance: e.target.value as Rebalance })} aria-label="How often the plan rebalances between strategies"
+              className="bg-term-bg border border-term-border text-[11px] py-0.5">
+              {REBALANCE_ORDER.map((r) => <option key={r} value={r}>{REBALANCE_LABEL[r]}</option>)}
+            </select>
+          </label>
           <button onClick={() => setPanel(panel === "build" ? null : "build")} className={amber}>Build me a plan</button>
           <button onClick={() => setPanel(panel === "add" ? null : "add")} disabled={full} title={full ? `A plan holds at most ${MAX_BASKET} strategies` : undefined} className={amber}>Add a strategy</button>
         </span>
@@ -97,6 +104,12 @@ export function PlanView({ bundle, plan, inputs, set, weights, source, act }: {
       </table>
       <div className="flex flex-wrap items-center gap-2 text-[10px] text-term-muted">
         <span>Weights come from: {source ?? "n/a"}. Changing one rescales the others to keep 100%.</span>
+        {inputs.rebalance !== "daily" && (
+          <span className="w-full text-term-text">
+            Rebalanced {REBALANCE_LABEL[inputs.rebalance].toLowerCase()}: CAGR {fmtRate(plan.metrics.cagr)}, worst fall {fmtRate(plan.metrics.maxDrawdown)}.
+            {" "}If the weights were restored every day (an idealised figure): CAGR {fmtRate(plan.dailyRestored.cagr)}, worst fall {fmtRate(plan.dailyRestored.maxDrawdown)}.
+          </span>
+        )}
         <button onClick={act.equal} className={muted}>Equal weights</button>
         <button onClick={act.optimizer} className={muted}>Optimizer weights</button>
       </div>
