@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/quant/Badges";
 import { fmtRate, fmtRatio } from "@/lib/format";
-import type { LabInputs } from "@/quant/lab";
+import { blendOf, type LabInputs } from "@/quant/lab";
 import { ROLES, suggestPlan } from "@/quant/plan";
 import type { Weights } from "@/quant/portfolio";
 import { useCandidates } from "@/quant/useCandidates";
@@ -16,7 +16,7 @@ export function BuildPlan({ inputs, fallLimit, onApply, onClose }: {
 }) {
   const [on] = useState(true);
   const c = useCandidates(inputs, on);
-  const s = useMemo(() => (c.ready ? suggestPlan(c.list, fallLimit, inputs.riskFreeRate) : null), [c.ready, c.list, fallLimit, inputs.riskFreeRate]);
+  const s = useMemo(() => (c.ready ? suggestPlan(c.list, fallLimit, inputs.riskFreeRate, blendOf(inputs)) : null), [c.ready, c.list, fallLimit, inputs.riskFreeRate, inputs.rebalance, inputs.slippageBps]); // eslint-disable-line react-hooks/exhaustive-deps
   const rows = s ? s.ids.map((id) => ({ cand: c.list.find((x) => x.id === id)!, weight: s.weights[id] })) : [];
   return (
     <div className="panel shrink-0 p-3 flex flex-col gap-2 border-term-amberDim text-[12px]">

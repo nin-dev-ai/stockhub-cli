@@ -88,6 +88,6 @@ Not pursued: **Senate trades** (the eFD site returns 403 to automated requests o
 
 | Track | Status |
 | --- | --- |
-| A — Plan numbers | A2 warm-up delivered (#9) |
+| A — Plan numbers | A2 warm-up (#9) and A1 rebalancing rules (#10) delivered |
 | B — Persona signals | Not started |
 | C — Proof and runnability | C4 delivered in part: the help-list bug is fixed (`0f9e5eb`, issue #7) and `copilot/sweep.test.ts` runs about 80 realistic messages on nine screens and fails if any answer is withheld by mistake; the broader 60-message router table and the static-string check remain |

@@ -1,3 +1,4 @@
+import { blendOf } from "@/quant/lab";
 import { useState } from "react";
 import { Badge } from "@/components/quant/Badges";
 import { fmtRate, fmtRatio } from "@/lib/format";
@@ -46,7 +47,7 @@ export function AllocationView({ bundle, opt, inputs, weights, weightsSource, ov
     if (sum > 0) setDraft(Object.fromEntries(ids.map((i) => [i, (((parsed[i] || 0) / sum) * 100).toFixed(2)])));
   };
   const check = checkWeights(parsed, ids, 1);
-  const preview = check.ok ? evaluateWeights(bundle.sleeves, parsed, inputs.riskFreeRate).metrics : null;
+  const preview = check.ok ? evaluateWeights(bundle.sleeves, parsed, inputs.riskFreeRate, 0, undefined, blendOf(inputs)).metrics : null;
   const overCap = ids.filter((i) => parsed[i] > inputs.maxWeight + 1e-9);
 
   const overlap = analyzeOverlap(bundle.results.map((r) => ({ id: r.strategy.id, name: r.strategy.name, run: r.run })), weights);
