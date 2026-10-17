@@ -106,8 +106,8 @@ export function respond(message: string, ctx: CopilotContext, opts: { takenIds?:
   if (pr) return planProposal(m, pr);
 
   // proposed changes to Lab inputs (permission level 1): ETF, starting amount, contribution, horizon
-  const labWords = /\b(lab|plan|simulation|simulate|contribut\w*|starting amount|start with|initial|lump[- ]sum|horizon|per month|a month|monthly)\b/i;
-  if (has(m, labWords) && has(m, /\b(set|change|make|use|run|try|switch|increase|decrease|raise|lower|put|update|invest|start|with)\b/i)) {
+  const labWords = /\b(lab|plan|simulation|simulate|contribut\w*|starting amount|start with|initial|lump[- ]sum|horizon|per month|a month|monthly|history|look[- ]?back|backtest|test(?:ing)?\s+(?:the\s+)?(?:last|past|previous))\b/i;
+  if (has(m, labWords) && has(m, /\b(set|change|make|use|run|try|switch|increase|decrease|raise|lower|put|update|invest|start|with|test|backtest)\b/i)) {
     const lc = labChangeFromText(m);
     if (Object.keys(lc.change).length > 0) return labChange(m, lc);
   }
