@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { fetchForm13F, fetchInsiderTrades } from "@/lib/api";
 import { fetchHouseMember, fetchRecentHouseFilings, type HouseMemberData } from "@/lib/house";
 import { fetchLiveFeed, SEC_CONFIGURED, type LiveFeed } from "@/lib/edgar";
+import { WATCH_MINUTES } from "@/components/PersonaWatcher";
 import { ageText } from "@/quant/edgar";
 import { fetchArkFeed } from "@/lib/ark";
 import { ARK_NOTE, type ArkFeed } from "@/quant/ark";
@@ -141,6 +142,33 @@ function HouseSearch() {
   );
 }
 
+/** Browser notifications for new SEC filings by followed personas, with the browser's permission. */
+function AlertsToggle() {
+  const { alerts, setAlerts } = usePersonas();
+  const supported = typeof Notification !== "undefined";
+  const [perm, setPerm] = useState(supported ? Notification.permission : "denied");
+  const turnOn = async (on: boolean) => {
+    setAlerts(on);
+    if (on && supported && Notification.permission === "default") setPerm(await Notification.requestPermission());
+  };
+  return (
+    <div className="border-t border-term-border pt-2 flex flex-col gap-1 text-[11px]">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={alerts} disabled={!SEC_CONFIGURED} onChange={(e) => void turnOn(e.target.checked)} className="accent-[#ff8c00]" />
+        Alert me to new filings
+      </label>
+      <div className="text-[10px] text-term-muted leading-snug">
+        {!SEC_CONFIGURED ? "Needs live SEC filings (STOCKHUB_SEC_CONTACT)."
+          : !alerts ? `Checks followed personas every ${WATCH_MINUTES} minutes while StockHub is open in any tab.`
+          : !supported ? "This browser has no notifications; the count shows in the tab title."
+          : perm === "denied" ? "Notifications are blocked for this site; the count still shows in the tab title. Allow them in the browser's site settings."
+          : perm === "granted" ? `On: a notification per new filing and a count in the tab title, checked every ${WATCH_MINUTES} minutes while StockHub is open.`
+          : "Waiting for the browser's permission."}
+      </div>
+    </div>
+  );
+}
+
 function AddForm() {
   const addCustom = usePersonas((s) => s.addCustom);
   const [kind, setKind] = useState<"insider" | "fund" | "house">("insider");
@@ -237,7 +265,7 @@ export function PERS() {
   })), [baseData, liveStamp, arkQuery.dataUpdatedAt, arkQuery.status]);
 
   // filings accepted since the user last looked are marked new; the first look sets the baseline
-  const { seen, markSeen } = usePersonas();
+  const { seen, markSeen, alerts, muted, toggleMute } = usePersonas();
   const newestOf = (id: string) => data[id]?.live?.fresh.newestAccepted ?? "";
   const newCount = (id: string) => {
     const s = seen[id];
@@ -328,6 +356,7 @@ export function PERS() {
           </div>
         ))}
         <AddForm />
+        <AlertsToggle />
         <div className="text-[10px] text-term-muted leading-snug border-t border-term-border pt-2">
           Sources: SEC EDGAR through the local OpenBB API, and the Clerk of the House for House members. Free, official and keyless. Following a persona is for research and never places a trade.
         </div>
@@ -374,6 +403,11 @@ export function PERS() {
                       <span className="flex gap-1">
                         {stale && <Badge tone="red" title="The latest filing is more than nine months old.">Stale</Badge>}
                         {only === p.id && <Badge tone="amber">Filtered</Badge>}
+                        {alerts && hasLive(p) && (
+                          <span role="button" tabIndex={0} title={muted.includes(p.id) ? "Alerts off for this persona" : "Alerts on for this persona"}
+                            onClick={(e) => { e.stopPropagation(); toggleMute(p.id); }} onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); toggleMute(p.id); } }}
+                            className="text-[10px] uppercase tracking-widest text-term-muted hover:text-term-amber">{muted.includes(p.id) ? "Muted" : "Alerts on"}</span>
+                        )}
                       </span>
                     </div>
                     <div className="text-[10px] text-term-muted">{p.role}</div>
