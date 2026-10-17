@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Badge } from "@/components/quant/Badges";
 import { fmtRate } from "@/lib/format";
-import type { LabInputs } from "@/quant/lab";
+import { blendOf, type LabInputs } from "@/quant/lab";
 import { fitCandidate, ROLES, type Role } from "@/quant/plan";
 import type { Sleeve, Weights } from "@/quant/portfolio";
 import { useCandidates } from "@/quant/useCandidates";
@@ -13,7 +13,7 @@ export function AddStrategy({ inputs, sleeves, weights, roles, inPlan, full, onA
 }) {
   const c = useCandidates(inputs, true);
   const ranked = useMemo(() => (c.ready
-    ? c.list.filter((x) => !inPlan.includes(x.id)).map((cand) => ({ cand, fit: fitCandidate(cand, { sleeves, weights, roles }, inputs.riskFreeRate) })).sort((a, b) => b.fit.score - a.fit.score)
+    ? c.list.filter((x) => !inPlan.includes(x.id)).map((cand) => ({ cand, fit: fitCandidate(cand, { sleeves, weights, roles }, inputs.riskFreeRate, blendOf(inputs)) })).sort((a, b) => b.fit.score - a.fit.score)
     : []), [c.ready, c.list, inPlan, sleeves, weights, roles, inputs.riskFreeRate]);
   return (
     <div className="panel shrink-0 p-3 flex flex-col gap-2 border-term-amberDim text-[12px]">
