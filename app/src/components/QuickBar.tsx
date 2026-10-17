@@ -29,7 +29,7 @@ export function QuickBar() {
   const activeCode = tabs.find((t) => t.id === activeTabId)?.code;
 
   return (
-    <div className="flex items-stretch h-9 bg-term-bg2 border-b border-term-border overflow-x-auto scroll-thin">
+    <div data-testid="quickbar" className="flex items-stretch h-9 bg-term-bg2 border-b border-term-border overflow-x-auto scroll-thin">
       <span className="hidden sm:flex items-center px-3 sub-header shrink-0 border-r border-term-border">
         QUICK
       </span>
