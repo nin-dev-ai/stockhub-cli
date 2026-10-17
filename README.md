@@ -200,11 +200,24 @@ Tight 5-7 minute walk-through for the video:
 - **The Copilot is rule-based.** It understands a fixed set of question types and strategy patterns (fixed weights, moving-average trend, momentum, volatility target, calendar season, trailing-return filter, DCA entry, drawdown reserve). Anything else gets a list of what it can do rather than a guess. Optional Claude phrasing rewords answers but does not widen what the Copilot understands or can do.
 - **IBKR is paper-only for orders and untested against a real account.** The read-only sync and paper orders were verified against a mock gateway with IBKR's documented responses, not a real IBKR login. Only long US-dollar stocks and ETFs are synced; options, futures, other currencies and shorts are listed but not tracked. Deposits are not visible, so new holdings count as money in. Orders are limited to StockHub's supported ETFs, whole shares, market or limit; live accounts are refused.
 - **Rules are heuristics.** The INTEL signals are rules of thumb, not predictions. Tweak the thresholds in `signals.ts` to match your own framework.
-- **News comes from RSS, not OpenBB.** OpenBB's `yfinance` news provider returned no data in testing, so company news (`NI`, INTEL headlines, CC headlines) reads Yahoo Finance's public RSS feed and falls back to Google News. No key needed, but the feeds are unofficial and are only proxied by the dev server (`./start.sh`), not `npm run preview`. The same applies to House reports (`/clerk`), the IBKR gateway (`/ibkr`) and the optional LLM (`/llm`).
+- **News comes from RSS, not OpenBB.** OpenBB's `yfinance` news provider returned no data in testing, so company news (`NI`, INTEL headlines, CC headlines) reads Yahoo Finance's public RSS feed and falls back to Google News. No key needed, but the feeds are unofficial. Like House reports, SEC filings, ARK, OpenFIGI, the IBKR gateway and the optional LLM, they go through StockHub's local server (`./start.sh`, `npm run dev`, or `npm run build && npm run preview`); a plain static host has none of these routes.
 - **OpenBB 4.x only.** `setup.sh` pins `openbb>=4.3,<5`. OpenBB 5 uses different API routes and every data call would return 404.
 - **Economic calendar, CPI, world news** need provider API keys (TradingEconomics, FRED, Biztoc). The UI handles the 401 gracefully.
 
 ---
+
+## Configuration (optional)
+
+Every optional feature is switched on by an environment variable, set in your shell or in an uncommitted `app/.env` (copy [`app/.env.example`](app/.env.example)). The local server prints which features are on when it starts.
+
+| Variable | Turns on | Notes |
+| --- | --- | --- |
+| `STOCKHUB_SEC_CONTACT` | Live SEC filings and alerts on the Personas screen | Your name and email; the SEC requires a contact in the User-Agent and it is sent only to sec.gov |
+| `IBKR_GATEWAY_URL` | Interactive Brokers read-only sync and paper orders | Default `https://localhost:5000`; on a Mac use `https://localhost:5001` (AirPlay holds 5000) |
+| `STOCKHUB_LLM_KEY` (`STOCKHUB_LLM_MODEL`, `STOCKHUB_LLM_URL`) | Claude wording for Copilot answers | The key stays in the local server process |
+| `STOCKHUB_API_URL` | A market data API on another address | Default `http://127.0.0.1:6900` |
+
+`npm run dev` and `npm run preview` (after `npm run build`) use the same routes, from [`app/stockhub.config.ts`](app/stockhub.config.ts).
 
 ## Adding API keys (optional)
 
