@@ -46,8 +46,19 @@ export function BuildPlan({ inputs, fallLimit, onApply, onClose }: {
             Together: CAGR <span className="num text-term-amber">{fmtRate(s.metrics.cagr)}</span>, worst fall <span className="num text-term-amber">{fmtRate(s.metrics.maxDrawdown)}</span>, Sharpe <span className="num text-term-amber">{fmtRatio(s.metrics.sharpe)}</span>
             {s.withinLimit ? <span className="text-term-green"> · within your limit</span> : <span className="text-term-red"> · not within your limit</span>}.
           </div>
+          {s.outOfSample && (
+            <div className={`text-[11px] border-l-2 pl-2 ${s.outOfSample.clearlyWorse ? "border-term-red" : "border-term-greenDim"}`}>
+              <div className="sub-header">Out-of-sample check</div>
+              <div className="text-term-text">{s.outOfSample.summary}</div>
+              <div className="text-term-muted">
+                Later years ({s.outOfSample.split} on): these weights CAGR {fmtRate(s.outOfSample.test.cagr)}, worst fall {fmtRate(s.outOfSample.test.maxDrawdown)};
+                {" "}equal split CAGR {fmtRate(s.outOfSample.equal.cagr)}, worst fall {fmtRate(s.outOfSample.equal.maxDrawdown)};
+                {" "}best single strategy ({rows.find((r) => r.cand.id === s.outOfSample!.bestSingle.id)?.cand.name ?? s.outOfSample.bestSingle.id}) CAGR {fmtRate(s.outOfSample.bestSingle.metrics.cagr)}.
+              </div>
+            </div>
+          )}
           {s.notes.map((n) => <div key={n} className="text-[11px] text-term-amberBright">{n}</div>)}
-          <div className="text-[10px] text-term-muted">Chosen from history on the same data it is judged on, so treat it as a starting point, not a forecast. Edit the weights or swap sleeves afterwards.</div>
+          <div className="text-[10px] text-term-muted">The headline numbers are judged on the same history the weights were picked from; the out-of-sample check above is the fairer test. Treat it as a starting point, not a forecast, and edit the weights or swap strategies afterwards.</div>
           <div className="flex gap-2">
             <button onClick={() => onApply(rows.map((r) => r.cand.origId), s.weights)} className="px-2 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle text-[11px]">Use this plan</button>
             <button onClick={onClose} className="px-2 py-1 border border-term-border text-term-muted text-[11px]">Cancel</button>
