@@ -55,6 +55,24 @@ export async function loadBars(ticker: string, start: string): Promise<RawBar[]>
   return cleanSeries(await memo.get(k)!).bars;
 }
 
+/**
+ * A dataset for a window that starts on `start`: tickers whose history begins after it (later listings)
+ * are left out and returned, instead of shortening everyone's common window. `keep` are never dropped.
+ */
+export async function loadDatasetFrom(tickers: string[], start: string, keep: string[] = [], slack = 7): Promise<{ dataset: Dataset; late: string[] }> {
+  const uniq = [...new Set(tickers.map((t) => t.toUpperCase()))];
+  const from = new Date(Date.parse(start) - 40 * 864e5).toISOString().slice(0, 10);
+  const limit = new Date(Date.parse(start) + slack * 864e5).toISOString().slice(0, 10);
+  const firsts: Record<string, string | null> = {};
+  const fetchFirst = async (t: string) => { const b = await loadBars(t, from).catch(() => []); firsts[t] = b[0]?.date ?? null; };
+  for (let i = 0; i < uniq.length; i += 4) await Promise.all(uniq.slice(i, i + 4).map(fetchFirst));
+  // a failed download is not a late listing: try those once more after a pause, one at a time
+  const failed = uniq.filter((t) => firsts[t] == null);
+  if (failed.length) { await new Promise((r) => setTimeout(r, 1500)); for (const t of failed) await fetchFirst(t); }
+  const late = uniq.filter((t) => !keep.includes(t) && (firsts[t] == null || firsts[t]! > limit));
+  return { dataset: await loadDataset(uniq.filter((t) => !late.includes(t)), from), late };
+}
+
 export function clearPriceCache() {
   memo.clear();
   try { localStorage.removeItem(KEY); } catch { /* ignore */ }
