@@ -35,4 +35,4 @@ The definitive function list lives in [`app/src/lib/functions.ts`](../app/src/li
 
 ## Current limits
 
-The app polls providers rather than streaming live ticks. Data completeness depends on OpenBB providers and available credentials. House personas, the IBKR connection and the optional LLM proxy rely on the Vite dev server's proxies. Orders go only to IBKR paper accounts; live trading is out of scope. See the [README](../README.md#known-limits) for user-facing details.
+The app polls providers rather than streaming live ticks. Data completeness depends on OpenBB providers and available credentials. House personas, SEC filings, the IBKR connection and the optional LLM rely on StockHub's local server routes (dev or preview), not a static host. Orders go only to IBKR paper accounts; live trading is out of scope. See the [README](../README.md#known-limits) for user-facing details.
