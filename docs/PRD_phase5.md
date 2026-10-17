@@ -1,8 +1,8 @@
 # StockHub — Phase 5 Plan: Trustworthy numbers, persona signals, and a build that runs anywhere
 
 **Document:** Phase 5 plan and research notes
-**Version:** 0.1 (proposed) · **Date:** 17 October 2026
-**Status:** Proposed; the order and the decisions in [Section 6](#6-decisions-needed) need sign-off.
+**Version:** 1.0 · **Date:** 17 October 2026
+**Status:** Delivered except C3 (needs the owner's paper login and API key); issues #9-#16, pull requests #17-#24. Defaults from [Section 6](#6-decisions-needed) were used: quarterly rebalancing, browser-only alerts, no Senate.
 **Starting point:** Phase 4 ([PRD_phase4.md](PRD_phase4.md)), the look-back control, and the Copilot help fix of 17 October.
 
 ---
@@ -91,3 +91,4 @@ Not pursued: **Senate trades** (the eFD site returns 403 to automated requests o
 | A — Plan numbers | Delivered: A2 warm-up (#9), A1 rebalancing rules (#10), A3 out-of-sample check for Build me a plan (#11) |
 | B — Persona signals | Delivered: B2 results since the trade (#12), B1 copy-testing funds and insiders (#13), B3 alerts (#14) |
 | C — Proof and runnability | C1 end-to-end tests in CI (#16) and C2 preview proxies and configuration (#15) delivered. C4 delivered in part: the help-list bug is fixed (`0f9e5eb`, issue #7) and `copilot/sweep.test.ts` runs about 80 realistic messages on nine screens and fails if any answer is withheld by mistake; the broader 60-message router table and the static-string check remain |
+| C3 — Real-account checks | Not built: they only make sense with your IBKR paper login and an Anthropic key. Until then IBKR and Claude wording remain verified against mocks only. |
