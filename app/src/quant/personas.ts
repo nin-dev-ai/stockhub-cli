@@ -145,9 +145,9 @@ export function matchesInsider(owner: string, p: Persona): boolean {
 // ---------------------------------------------------------------------------------------------
 // 13F
 
-interface Holding { issuer: string; cusip: string; shares: number; value: number; weight: number }
+export interface Holding { issuer: string; cusip: string; shares: number; value: number; weight: number }
 
-function holdingsByPeriod(rows: Record<string, unknown>[]): Map<string, Map<string, Holding>> {
+export function holdingsByPeriod(rows: Record<string, unknown>[]): Map<string, Map<string, Holding>> {
   const out = new Map<string, Map<string, Holding>>();
   for (const r of rows) {
     const period = day(r.period_ending), cusip = str(r.cusip);
