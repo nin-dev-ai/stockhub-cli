@@ -554,7 +554,7 @@ function variant(m: string, base: StrategyDef): Answer {
 function help(m: string, ctx: CopilotContext): Answer {
   const c = new Composer("help", "What I can help with", m);
   c.p("I explain concepts and the results StockHub's engine has calculated, and I can draft a strategy from a description. I never invent figures, place orders or change your plan.");
-  c.list(suggestions(ctx));
+  c.list(suggestions(ctx).map(c.vetted));
   return c.done();
 }
 
