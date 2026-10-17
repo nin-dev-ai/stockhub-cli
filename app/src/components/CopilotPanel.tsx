@@ -16,7 +16,7 @@ import { BuildPlan } from "@/functions/lab/BuildPlan";
 import { eligible, LLM_ENABLED, LLM_MODEL, phrase } from "@/copilot/llm";
 
 const fmtField = (k: keyof LabChange, v: unknown) =>
-  k === "etf" ? String(v) : k === "alsoEtfs" ? ((v as string[] | undefined)?.join(", ") || "none") : k === "years" ? `${v} years` : `$${Number(v).toLocaleString("en-US")}`;
+  k === "etf" ? String(v) : k === "lookbackYears" ? (v == null ? "All available" : `${v} years`) : k === "alsoEtfs" ? ((v as string[] | undefined)?.join(", ") || "none") : k === "years" ? `${v} years` : `$${Number(v).toLocaleString("en-US")}`;
 
 /** Shows current → proposed Lab inputs; nothing changes until Apply, and the Lab's Reset undoes it. */
 function LabChangeCard({ change }: { change: LabChange }) {

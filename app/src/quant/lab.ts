@@ -12,6 +12,8 @@ export interface LabInputs {
   etf: string;
   /** More ETFs to spread SPY-trading strategies across together with `etf` (money split equally); empty runs on `etf` alone. */
   alsoEtfs: string[];
+  /** How many years of history to test, counting back from the latest data; null uses everything available (about 22 years). */
+  lookbackYears: number | null;
   initial: number;
   /** Value already held in ETFs; treated as extra starting capital invested per the plan from day one. */
   existing: number;
@@ -34,12 +36,12 @@ export interface LabInputs {
 }
 
 export const DEFAULT_LAB: LabInputs = {
-  etf: "SPY", alsoEtfs: [], initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, fallLimit: 0.3, riskFreeRate: 0,
+  etf: "SPY", alsoEtfs: [], lookbackYears: null, initial: 200, existing: 0, monthly: 50, years: 5, objective: "balanced", maxWeight: 0.6, fallLimit: 0.3, riskFreeRate: 0,
   slippageBps: 2, fixedFee: 0, fractional: true, inflation: 0.025, goal: null,
   method: "bootstrap", paths: 2000, seed: 42, blockMonths: 6,
 };
 
-export const LAB_LIMITS = { years: [1, 30], initial: [0, 10_000_000], existing: [0, 10_000_000], monthly: [0, 1_000_000], paths: [200, 10_000] } as const;
+export const LAB_LIMITS = { years: [1, 30], lookback: [1, 30], initial: [0, 10_000_000], existing: [0, 10_000_000], monthly: [0, 1_000_000], paths: [200, 10_000] } as const;
 
 export function validateLab(i: LabInputs): string[] {
   const e: string[] = [];
@@ -49,6 +51,7 @@ export function validateLab(i: LabInputs): string[] {
   if (bad(i.existing, LAB_LIMITS.existing)) e.push("Existing holdings must be between 0 and 10,000,000.");
   if (i.initial + i.existing <= 0 && i.monthly <= 0) e.push("Enter an initial amount or a monthly contribution.");
   if (bad(i.years, LAB_LIMITS.years)) e.push("Horizon must be 1 to 30 years.");
+  if (i.lookbackYears != null && bad(i.lookbackYears, LAB_LIMITS.lookback)) e.push("History to test must be 1 to 30 years, or all available.");
   if (bad(i.paths, LAB_LIMITS.paths)) e.push("Simulated paths must be between 200 and 10,000.");
   if (bad(i.maxWeight, [0.2, 1])) e.push("Maximum weight per strategy must be between 20% and 100%.");
   if (bad(i.fallLimit, [0.05, 0.9])) e.push("The fall limit must be between 5% and 90%.");
@@ -80,8 +83,20 @@ export const labStrategies = (defs: StrategyDef[], i: LabInputs): StrategyDef[] 
 
 export const startingCapital = (i: LabInputs) => i.initial + i.existing;
 
-export function backtestConfig(i: LabInputs): Partial<RunConfig> {
+/** First date of a window that looks back `years` from `latest` (ISO dates); null means everything available. */
+export function lookbackStart(years: number | null | undefined, latest: Date): string | undefined {
+  if (years == null) return undefined;
+  const d = new Date(latest);
+  d.setUTCFullYear(d.getUTCFullYear() - Math.round(years));
+  return d.toISOString().slice(0, 10);
+}
+
+/** The projection samples monthly returns from the tested history; fewer than this many months and none is shown. */
+export const MIN_PROJECTION_YEARS = 5;
+
+export function backtestConfig(i: LabInputs, now: Date = new Date()): Partial<RunConfig> {
   return {
+    start: lookbackStart(i.lookbackYears, now),
     initial: startingCapital(i),
     contribution: { amount: i.monthly, frequency: i.monthly > 0 ? "monthly" : "none" },
     costs: { commissionBps: 0, slippageBps: i.slippageBps, fixedFee: i.fixedFee },

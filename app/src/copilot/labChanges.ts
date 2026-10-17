@@ -5,12 +5,12 @@ import { MAX_SPREAD } from "@/quant/strategy";
 
 /**
  * Lab inputs the Copilot may propose (permission level 1): the ETF (or several to spread across),
- * starting amount, monthly contribution and horizon. Each is undone by the Lab's Reset; nothing else in the plan
+ * how many years of history to test, starting amount, monthly contribution and horizon. Each is undone by the Lab's Reset; nothing else in the plan
  * (costs, risk-free rate, weights) can be changed from the Copilot.
  */
-export type LabChange = Partial<Pick<LabInputs, "etf" | "alsoEtfs" | "initial" | "monthly" | "years">>;
+export type LabChange = Partial<Pick<LabInputs, "etf" | "alsoEtfs" | "lookbackYears" | "initial" | "monthly" | "years">>;
 export const LAB_CHANGE_FIELDS: Record<keyof LabChange, string> = {
-  etf: "ETF", alsoEtfs: "Also run on", initial: "Starting amount", monthly: "Monthly contribution", years: "Horizon",
+  etf: "ETF", alsoEtfs: "Also run on", lookbackYears: "History to test (look back)", initial: "Starting amount", monthly: "Monthly contribution", years: "Horizon",
 };
 
 export interface LabChangeResult { change: LabChange; understood: string[]; errors: string[] }
@@ -37,7 +37,12 @@ export function labChangeFromText(text: string): LabChangeResult {
   if (monthly) { const v = amount(monthly[1] ?? monthly[2] ?? monthly[3]); if (v != null) change.monthly = v; }
   const initial = new RegExp(String.raw`(?:start(?:ing)?(?:\s+(?:amount|capital|balance))?(?:\s+with)?|initial(?:\s+(?:amount|capital|investment))?|lump[- ]sum|invest)\s*(?:of|to|=|:|at)?\s*(${AMT})(?![\d.,]|\s*(?:k|thousand|m|million)\b)(?!\s*(?:a|per|each|every|\/)\s*month)`, "i").exec(text);
   if (initial) { const v = amount(initial[1]); if (v != null) change.initial = v; }
-  const years = /(\d{1,2})[- ]?(?:years?|yrs?)\b/i.exec(text);
+  // "the last 10 years" is how much history to test; it must not be read as the projection horizon
+  const back = /\b(?:last|past|previous|prior|trailing)\s+(\d{1,2})[- ]?(?:years?|yrs?)\b|\b(\d{1,2})[- ]?(?:years?|yrs?)\s+(?:of\s+)?(?:history|data|backtest|look[- ]?back)\b|\blook(?:ing)?[- ]?back\s+(?:of\s+)?(\d{1,2})[- ]?(?:years?|yrs?)\b/i.exec(text);
+  if (back) change.lookbackYears = Number(back[1] ?? back[2] ?? back[3]);
+  else if (/\b(all|full|entire|whole)\s+(?:available\s+)?(?:history|data)\b|\ball available\b/i.test(text)) change.lookbackYears = null;
+  const rest = back ? text.replace(back[0], " ") : text;
+  const years = /(\d{1,2})[- ]?(?:years?|yrs?)\b/i.exec(rest);
   if (years) change.years = Number(years[1]);
 
   if (change.etf && change.alsoEtfs?.length) {
@@ -47,6 +52,7 @@ export function labChangeFromText(text: string): LabChangeResult {
   if (change.initial != null) understood.push(`${LAB_CHANGE_FIELDS.initial} → $${change.initial.toLocaleString("en-US")}.`);
   if (change.monthly != null) understood.push(`${LAB_CHANGE_FIELDS.monthly} → $${change.monthly.toLocaleString("en-US")}.`);
   if (change.years != null) understood.push(`${LAB_CHANGE_FIELDS.years} → ${change.years} years.`);
+  if ("lookbackYears" in change) understood.push(change.lookbackYears == null ? "History to test → everything available." : `History to test → the last ${change.lookbackYears} years (${LAB_CHANGE_FIELDS.years.toLowerCase()} is how far the projection runs).`);
 
   // validate the fields on their own, so an unrelated bad current input does not block the change
   const errors = Object.keys(change).length ? validateLab({ ...DEFAULT_LAB, ...change, initial: change.initial ?? 1 }) : [];

@@ -1,5 +1,5 @@
 import { OBJECTIVES } from "@/quant/optimizer";
-import type { LabInputs } from "@/quant/lab";
+import { MIN_PROJECTION_YEARS, type LabInputs } from "@/quant/lab";
 import { cn } from "@/lib/cn";
 import { CORE_ETFS } from "@/quant/instruments";
 import { EtfSelect } from "@/components/quant/EtfSelect";
@@ -49,7 +49,26 @@ export function InputsPane({ inputs: i, set, basketNames, unchanged, errors, onR
       <Num label="Existing holdings" prefix="$" value={i.existing} onChange={(v) => set({ existing: v })} step={50}
         hint="Value already held in ETFs. Treated as extra starting capital invested according to the plan from day one, not tracked lot by lot." />
       <Num label="Monthly contribution" prefix="$" value={i.monthly} onChange={(v) => set({ monthly: v })} step={10} />
-      <Num label="Horizon" suffix="years" value={i.years} onChange={(v) => set({ years: v })} step={1} min={1} hint="1 to 30 years" />
+      <Num label="Look forward" suffix="years" value={i.years} onChange={(v) => set({ years: v })} step={1} min={1} hint="How far the projection runs: 1 to 30 years" />
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center justify-between">
+          <span className="sub-header" title="How much past data the backtest, optimizer and projection use">Look back</span>
+          <label className="flex items-center gap-1 text-[10px] text-term-muted cursor-pointer">
+            <input type="checkbox" checked={i.lookbackYears == null} onChange={(e) => set({ lookbackYears: e.target.checked ? null : 10 })} className="accent-[#ff8c00]" /> All available
+          </label>
+        </div>
+        <span className={cn("flex items-center border border-term-border bg-term-bg focus-within:border-term-amberDim", i.lookbackYears == null && "opacity-40")}>
+          <input type="number" step={1} min={1} max={30} disabled={i.lookbackYears == null} value={i.lookbackYears == null ? "" : i.lookbackYears} placeholder="all"
+            aria-label="Years of history to test" onChange={(e) => set({ lookbackYears: e.target.value === "" ? NaN : Number(e.target.value) })}
+            className="w-full bg-transparent px-2 py-1 num text-term-text focus:outline-none" />
+          <span className="pr-2 text-term-muted">years</span>
+        </span>
+        <div className="text-[10px] text-term-muted leading-snug">
+          {i.lookbackYears == null ? "Tests every year of history the data has." : `Tests the last ${i.lookbackYears} years only.`}
+          {i.lookbackYears != null && i.lookbackYears < MIN_PROJECTION_YEARS && <> Projections need at least {MIN_PROJECTION_YEARS} years of history, so only the backtest will run.</>}
+          {" "}Strategies with long averages spend the first months in safety while those warm up, so short windows understate them.
+        </div>
+      </div>
       <div className="text-[10px] text-term-muted -mt-1">Currency: USD only. Other currencies are not supported.</div>
 
       <div>
