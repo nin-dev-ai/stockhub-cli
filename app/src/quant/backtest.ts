@@ -308,6 +308,11 @@ function simulateOne(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult 
     moneyWeightedReturn: null, flags: [{ code: "no_run", severity: "error", message: msg }],
   });
   if (n < 2) return empty("Not enough dates to run a backtest.");
+  // signals see the whole history; money only enters at the window start, so indicators are already warm
+  const startIdx = cfg.start ? dates.findIndex((d) => d >= cfg.start!) : 0;
+  const t0 = startIdx < 0 ? n : startIdx;
+  if (t0 > n - 2) return empty("Not enough dates after the start of the window to run a backtest.");
+  const outDates = dates.slice(t0);
   if (cfg.initial <= 0 && cfg.contribution.amount <= 0) return empty("Initial capital or a contribution must be positive.");
 
   const signal = makeSignal(def.allocation, panel);
@@ -411,7 +416,7 @@ function simulateOne(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult 
     const notes: string[] = [];
     let releaseDca = 0, releaseReserve = 0;
 
-    if (deployN > 0 && dcaReleased < deployN && (t === 0 || periodKey(date, "monthly") !== periodKey(dates[t - 1], "monthly"))) {
+    if (deployN > 0 && dcaReleased < deployN && (t === t0 || periodKey(date, "monthly") !== periodKey(dates[t - 1], "monthly"))) {
       releaseDca = cfg.initial / deployN;
       dcaReleased++;
       notes.push(`release DCA tranche ${dcaReleased}/${deployN}`);
@@ -423,10 +428,10 @@ function simulateOne(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult 
 
     const sig = signal(t);
     const { schedule, thresholdPct, minTradeWeight = 0 } = def.rebalance;
-    const boundary = t > 0 && periodKey(date, schedule) !== periodKey(dates[t - 1], schedule);
+    const boundary = t > t0 && periodKey(date, schedule) !== periodKey(dates[t - 1], schedule);
     let full = false;
     let why = "";
-    if (t === 0) { full = true; why = `Initial allocation: ${sig.reason}`; }
+    if (t === t0) { full = true; why = `Initial allocation: ${sig.reason}`; }
     else if (thresholdPct !== undefined) {
       const drift = maxAbsDiff(currentWeights(t), lastTargets ?? {});
       if (drift > thresholdPct) { full = true; why = `Drift ${(drift * 100).toFixed(1)}% exceeds ${(thresholdPct * 100).toFixed(0)}% threshold`; }
@@ -455,11 +460,11 @@ function simulateOne(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult 
     return null;
   }
 
-  for (let t = 0; t < n; t++) {
+  for (let t = t0; t < n; t++) {
     if (pending) { execute(pending, t); pending = null; }
 
     let flow = 0;
-    if (t === 0) {
+    if (t === t0) {
       flow = cfg.initial;
       if (deployN > 0) lockedDca = cfg.initial;
     } else if (cfg.contribution.frequency !== "none" && cfg.contribution.amount > 0
@@ -467,12 +472,13 @@ function simulateOne(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult 
       flow = cfg.contribution.amount;
       if (def.reserve) lockedReserve += def.reserve.fraction * flow;
     }
-    if (flow > 0) { cash += flow; contributed += flow; flows.push({ t, amount: flow }); }
+    if (flow > 0) { cash += flow; contributed += flow; flows.push({ t: t - t0, amount: flow }); }
 
     const v = posValue(t) + cash;
     equity.push(v);
     invested.push(contributed);
-    if (t > 0) returns.push(equity[t - 1] > EPS ? (v - flow) / equity[t - 1] - 1 : 0);
+    const k0 = t - t0;
+    if (k0 > 0) returns.push(equity[k0 - 1] > EPS ? (v - flow) / equity[k0 - 1] - 1 : 0);
 
     if (v > EPS) {
       for (const k of tickers) {
@@ -484,10 +490,11 @@ function simulateOne(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult 
     if (t < n - 1) pending = decide(t);
   }
 
-  const years = yearsBetween(dates[0], dates[n - 1]);
-  const avgEq = equity.reduce((a, b) => a + b, 0) / n;
-  const avgExposure = Object.fromEntries(Object.entries(exposureSum).map(([k, s]) => [k, s / n]));
-  const finalValue = equity[n - 1];
+  const m = equity.length;
+  const years = yearsBetween(outDates[0], outDates[m - 1]);
+  const avgEq = equity.reduce((a, b) => a + b, 0) / m;
+  const avgExposure = Object.fromEntries(Object.entries(exposureSum).map(([k, s]) => [k, s / m]));
+  const finalValue = equity[m - 1];
 
   if (cfg.initial > 0 && cfg.initial < 500 && (cfg.costs.fixedFee > 0 || !cfg.fractional)) {
     flags.push({ code: "small_balance", severity: "info", message: "With a small balance, fixed fees and whole-share constraints can dominate results." });
@@ -497,12 +504,12 @@ function simulateOne(def: StrategyDef, panel: Panel, cfg: RunConfig): SimResult 
   }
 
   return {
-    dates, equity, invested, returns,
-    metrics: computeMetrics(returns, dates, { riskFreeRate: cfg.riskFreeRate }),
+    dates: outDates, equity, invested, returns,
+    metrics: computeMetrics(returns, outDates, { riskFreeRate: cfg.riskFreeRate }),
     trades, decisions, tradeCount: trades.length,
     turnover: years >= 1 && avgEq > 0 ? tradedNotional / avgEq / years : null,
     costsPaid, avgExposure, finalValue, totalContributed: contributed, gain: finalValue - contributed,
-    moneyWeightedReturn: years >= 1 ? irr(flows, dates, finalValue) : null,
+    moneyWeightedReturn: years >= 1 ? irr(flows, outDates, finalValue) : null,
     flags,
   };
 }

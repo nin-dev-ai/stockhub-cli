@@ -73,10 +73,12 @@ export function runBacktestOn(
   if (hasErrors(relevant)) throw new DataError("The dataset has errors and cannot be used.", relevant);
 
   const full = subPanel(dataset.panel, need);
+  // the run gets the history before the window too, so its indicators are warm when trading starts
+  const history = slicePanel(full, undefined, cfg.end);
   const panel = slicePanel(full, cfg.start, cfg.end);
-  const run = simulate(strategy, panel, cfg);
+  const run = simulate(strategy, history, cfg);
   if (run.flags.some((f) => f.severity === "error")) throw new DataError(run.flags[0].message, run.flags);
-  const bench = simulate(benchmarkDef(strategy.benchmark), panel, cfg);
+  const bench = simulate(benchmarkDef(strategy.benchmark), history, cfg);
 
   const diff = (a: number | null, b: number | null) => (a != null && b != null ? a - b : null);
   const years = run.metrics.years;
@@ -101,8 +103,8 @@ export function runBacktestOn(
       finalValue: run.finalValue - bench.finalValue,
     },
     conventions: conventionsFor(cfg, years), flags, caveats: strategy.caveats,
-    robustness: opts.robustness ? assessRobustness(strategy, panel, cfg) : null,
-    spread: spreadReport(strategy, run, panel, cfg),
+    robustness: opts.robustness ? assessRobustness(strategy, panel, { ...cfg, start: undefined }) : null,
+    spread: spreadReport(strategy, run, history, cfg),
   };
 }
 
