@@ -181,7 +181,33 @@ export function fitCandidate(c: Candidate, plan: { sleeves: Sleeve[]; weights: W
   return { score, correlation: corr, fillsRole, reasons, fallBefore, fallAfter };
 }
 
-export interface Suggestion { ids: string[]; weights: Weights; metrics: Metrics; withinLimit: boolean; fallLimit: number | null; notes: string[] }
+/** The proposal re-made on early history only and judged on the later years it never saw. */
+export interface OutOfSample {
+  /** First date of the test period. */
+  split: string;
+  fitWeights: Weights;
+  /** The early-fit weights, then equal weights and the best single sleeve, over the test period. */
+  test: Metrics;
+  equal: Metrics;
+  bestSingle: { id: string; metrics: Metrics };
+  /** True when the early-fit weights did clearly worse later than simply splitting equally, or broke the limit when equal weights did not. */
+  clearlyWorse: boolean;
+  summary: string;
+}
+
+export interface Suggestion { ids: string[]; weights: Weights; metrics: Metrics; withinLimit: boolean; fallLimit: number | null; notes: string[]; outOfSample: OutOfSample | null }
+
+/** The plain-language verdict for an out-of-sample check; exported for tests. */
+export function oosVerdict(test: Metrics, equal: Metrics, fallLimit: number | null): { clearlyWorse: boolean; reason: string } {
+  const broke = (m: Metrics) => fallLimit != null && m.maxDrawdown != null && m.maxDrawdown < -fallLimit;
+  const sharpeGap = (equal.sharpe ?? 0) - (test.sharpe ?? 0);
+  if (broke(test) && !broke(equal)) return { clearlyWorse: true, reason: "broke your fall limit in the later years while an equal split did not" };
+  if (sharpeGap > 0.15) return { clearlyWorse: true, reason: `earned clearly less per unit of risk later than an equal split (Sharpe ${(test.sharpe ?? 0).toFixed(2)} against ${(equal.sharpe ?? 0).toFixed(2)})` };
+  const pair = `(Sharpe ${(test.sharpe ?? 0).toFixed(2)} against ${(equal.sharpe ?? 0).toFixed(2)})`;
+  return sharpeGap > 0.005
+    ? { clearlyWorse: false, reason: `did a little worse in the later years than an equal split, within the margin of noise ${pair}` }
+    : { clearlyWorse: false, reason: `did as well as or better than an equal split in the later years ${pair}` };
+}
 
 /** Compositions of `total` units over `n` parts, each at least `min` and at most `cap`. */
 function grid(n: number, total: number, min: number, cap: number): number[][] {
@@ -225,20 +251,42 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
   const ids = aligned.map((s) => s.id);
   if (n === 1) {
     const m = evaluateWeights(aligned, { [ids[0]]: 1 }, rf, 0, undefined, blend).metrics;
-    return { ids, weights: { [ids[0]]: 1 }, metrics: m, withinLimit: fallLimit == null || (m.maxDrawdown ?? 0) >= -fallLimit, fallLimit, notes };
+    return { ids, weights: { [ids[0]]: 1 }, metrics: m, withinLimit: fallLimit == null || (m.maxDrawdown ?? 0) >= -fallLimit, fallLimit, notes, outOfSample: null };
   }
-  let best: { w: number[]; m: Metrics } | null = null, shallow: { w: number[]; m: Metrics } | null = null;
-  for (const c of grid(n, 20, 2, 14)) {
-    const w = Object.fromEntries(ids.map((id, i) => [id, c[i] / 20]));
-    const m = evaluateWeights(aligned, w, rf, 0, undefined, blend).metrics;
-    const dd = m.maxDrawdown ?? -1;
-    if (!shallow || dd > (shallow.m.maxDrawdown ?? -1) + 1e-9) shallow = { w: c, m };
-    if ((fallLimit == null || dd >= -fallLimit) && (m.cagr ?? -1) > (best?.m.cagr ?? -Infinity)) best = { w: c, m };
+  // the weight search over [from, to) of the aligned returns; `to` undefined means to the end
+  const search = (from: number, to?: number) => {
+    let best: { w: number[]; m: Metrics } | null = null, shallow: { w: number[]; m: Metrics } | null = null;
+    for (const c of grid(n, 20, 2, 14)) {
+      const w = Object.fromEntries(ids.map((id, i) => [id, c[i] / 20]));
+      const m = evaluateWeights(aligned, w, rf, from, to, blend).metrics;
+      const dd = m.maxDrawdown ?? -1;
+      if (!shallow || dd > (shallow.m.maxDrawdown ?? -1) + 1e-9) shallow = { w: c, m };
+      if ((fallLimit == null || dd >= -fallLimit) && (m.cagr ?? -1) > (best?.m.cagr ?? -Infinity)) best = { w: c, m };
+    }
+    return { pick: best ?? shallow!, within: !!best };
+  };
+  const toWeights = (c: number[]) => Object.fromEntries(ids.map((id, i) => [id, c[i] / 20]));
+  const full = search(0);
+  if (!full.within) notes.push(`No mix of these sleeves kept the worst fall within ${pct(fallLimit ?? 0)}; this is the shallowest one found.`);
+
+  // re-make the proposal on the first 60% of history and judge it on the rest, which it never saw
+  let outOfSample: OutOfSample | null = null;
+  const len = aligned[0].returns.length, cut = Math.floor(len * 0.6);
+  if (cut >= 252 && len - cut >= 252) {
+    const fitWeights = toWeights(search(0, cut).pick.w);
+    const test = evaluateWeights(aligned, fitWeights, rf, cut, undefined, blend).metrics;
+    const equal = evaluateWeights(aligned, Object.fromEntries(ids.map((id) => [id, 1 / n])), rf, cut, undefined, blend).metrics;
+    const singles = ids.map((id) => ({ id, metrics: evaluateWeights(aligned, { [id]: 1 }, rf, cut, undefined, blend).metrics }));
+    const bestSingle = [...singles].sort((a, b) => (b.metrics.sharpe ?? -9) - (a.metrics.sharpe ?? -9))[0];
+    const split = aligned[0].dates[cut];
+    const v = oosVerdict(test, equal, fallLimit);
+    outOfSample = {
+      split, fitWeights, test, equal, bestSingle, clearlyWorse: v.clearlyWorse,
+      summary: `Picked again using only the years before ${split}, the weights ${v.reason}.`,
+    };
+    if (v.clearlyWorse) notes.push("The out-of-sample check is weak: treat these weights with caution, and an equal split as a fair alternative.");
   }
-  const pickW = best ?? shallow!;
-  const withinLimit = !!best;
-  if (!withinLimit) notes.push(`No mix of these sleeves kept the worst fall within ${pct(fallLimit ?? 0)}; this is the shallowest one found.`);
-  return { ids, weights: Object.fromEntries(ids.map((id, i) => [id, pickW.w[i] / 20])), metrics: pickW.m, withinLimit, fallLimit, notes };
+  return { ids, weights: toWeights(full.pick.w), metrics: full.pick.m, withinLimit: full.within, fallLimit, notes, outOfSample };
 }
 
 /** Rescales the other weights so the total stays 100% when one weight is set. */
