@@ -9,6 +9,15 @@ interface PersonaState {
   /** Per persona, the newest SEC acceptance time the user has already seen; later filings are shown as new. */
   seen: Record<string, string>;
   markSeen: (id: string, at: string) => void;
+  /** Browser notifications for new filings; off until the user turns them on. */
+  alerts: boolean;
+  setAlerts: (on: boolean) => void;
+  /** Personas the user does not want alerts for. */
+  muted: string[];
+  toggleMute: (id: string) => void;
+  /** Filings already notified, so none is announced twice. */
+  notified: string[];
+  addNotified: (keys: string[]) => void;
   toggle: (id: string) => void;
   follow: (id: string) => void;
   addCustom: (p: Persona) => void;
@@ -21,6 +30,12 @@ export const usePersonas = create<PersonaState>()(
       followed: ["buffett", "huang"],
       custom: [],
       seen: {},
+      alerts: false,
+      setAlerts: (on) => set({ alerts: on }),
+      muted: [],
+      toggleMute: (id) => set({ muted: get().muted.includes(id) ? get().muted.filter((x) => x !== id) : [...get().muted, id] }),
+      notified: [],
+      addNotified: (keys) => set({ notified: [...get().notified, ...keys.filter((k) => !get().notified.includes(k))].slice(-500) }),
       // never moves backwards and ignores an empty time (nothing was loaded yet)
       markSeen: (id, at) => { if (at && (get().seen[id] ?? "") < at) set({ seen: { ...get().seen, [id]: at } }); },
       toggle: (id) => set({ followed: get().followed.includes(id) ? get().followed.filter((x) => x !== id) : [...get().followed, id] }),
