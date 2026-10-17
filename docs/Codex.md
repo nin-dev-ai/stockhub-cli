@@ -20,7 +20,9 @@ Start with the root [README](../README.md), then use the [docs index](README.md)
 
 ## Checking the UI
 
-Unit tests do not show layout problems; several Phase 3 bugs (a clipped card summary, a collapsing panel, a quick bar overflowing at 1440 px) were only visible in a browser. A quick way to check without the Chrome extension:
+`npm run e2e` (from `app/`) runs the committed Playwright suite in `app/e2e/`: every screen without page errors or horizontal overflow at 1440 and 1024 px (and the quick bar fitting at 1440), the plan flow, the Copilot cards, live persona filings and the paper-order flow. All backends are answered in the browser by `e2e/backends.ts` (fixtures and seeded synthetic prices; the clock is fixed at 16 October 2026), so it needs no market data, SEC access or broker and runs in CI as the `e2e` job. Locally it uses the installed Google Chrome; CI installs Playwright's Chromium. Add a check there when a layout or flow bug is found.
+
+For one-off investigation beyond the suite:
 
 1. Install `playwright-core` in a scratch folder (not in `app/`), launch the system Chrome with `executablePath` set to Google Chrome and `args: ["--headless=new"]` (Chrome removed the old headless mode), open `http://localhost:5173/`, type a function code into the first input and press Enter, then take screenshots.
 2. Collect `pageerror` and console errors while doing it.

@@ -50,3 +50,7 @@ VIDEO_SCRIPT.md
 *.private.md
 .harness/worktrees/
 .harness/runs/
+
+# Playwright end-to-end output
+app/test-results/
+app/playwright-report/
