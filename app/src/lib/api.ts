@@ -98,8 +98,8 @@ export const fetchQuote = (s: string) =>
     .then((r) => (Array.isArray(r) ? r[0] : r));
 
 /** Form 13F holdings for the two most recent quarters, from SEC EDGAR (free, no key). */
-export const fetchForm13F = (cik: string) =>
-  get<Record<string, unknown>[]>("/equity/ownership/form_13f", { provider: "sec", symbol: cik, limit: 2 });
+export const fetchForm13F = (cik: string, quarters = 2) =>
+  get<Record<string, unknown>[]>("/equity/ownership/form_13f", { provider: "sec", symbol: cik, limit: quarters });
 
 /** Form 4 insider transactions for a company from SEC EDGAR (free, no key); about the last four months. */
 export const fetchInsiderTrades = (symbol: string) =>
