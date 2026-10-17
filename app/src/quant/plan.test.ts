@@ -8,7 +8,7 @@ import { currentTargets } from "./backtest";
 import { planTargets } from "./tracking";
 import { withSpread } from "./strategy";
 import { evaluateWeights } from "./portfolio";
-import { alignSleeves, assetClasses, checkPlan, fitCandidate, isRedundant, planHoldings, planRole, setWeight, suggestPlan, type Candidate, type PlanSleeve } from "./plan";
+import { alignSleeves, assetClasses, checkPlan, fitCandidate, isRedundant, oosVerdict, planHoldings, planRole, setWeight, suggestPlan, type Candidate, type PlanSleeve } from "./plan";
 
 const ds = syntheticDataset(15, 11);
 const run = (id: string) => runBacktestOn(ds, CATALOG_BY_ID[id], SCORECARD_CONFIG);
@@ -133,6 +133,27 @@ describe("candidates and suggestions", () => {
       const checks = checkPlan({ sleeves: picked.map((c) => ({ id: c.id, name: c.name, role: c.role, weight: s.weights[c.id], metrics: c.metrics })), overlap: analyzeOverlap(runs, s.weights), plan: s.metrics, fallLimit: null });
       expect(checks.filter((c) => c.id.startsWith("overlap")), `limit ${limit}`).toEqual([]);
     }
+  });
+  it("re-makes the proposal on early history and judges it on the later years it never saw", () => {
+    const s = suggestPlan(cands, 0.35)!;
+    const o = s.outOfSample!;
+    expect(o).not.toBeNull();
+    const dates = alignSleeves(s.ids.map((id) => cands.find((c) => c.id === id)!.sleeve))[0].dates;
+    expect(o.split > dates[0] && o.split < dates[dates.length - 1]).toBe(true);
+    expect(Object.values(o.fitWeights).reduce((a, b) => a + b, 0)).toBeCloseTo(1, 9);
+    expect(s.ids).toContain(o.bestSingle.id);
+    expect(o.test.cagr).not.toBeNull();
+    expect(o.summary).toMatch(/^Picked again using only the years before \d{4}-\d{2}-\d{2}, the weights /);
+    if (o.clearlyWorse) expect(s.notes.join()).toMatch(/out-of-sample check is weak/);
+  });
+  it("calls an out-of-sample result clearly worse only for a real gap or a broken limit", () => {
+    const m = (sharpe: number, dd: number) => ({ ...cands[0].metrics, sharpe, maxDrawdown: dd });
+    expect(oosVerdict(m(0.8, -0.2), m(0.8, -0.2), 0.3).clearlyWorse).toBe(false);
+    expect(oosVerdict(m(0.7, -0.2), m(0.8, -0.2), 0.3)).toMatchObject({ clearlyWorse: false, reason: expect.stringMatching(/a little worse/) });
+    expect(oosVerdict(m(0.9, -0.2), m(0.8, -0.2), 0.3).reason).toMatch(/as well as or better/);
+    expect(oosVerdict(m(0.5, -0.2), m(0.8, -0.2), 0.3)).toMatchObject({ clearlyWorse: true, reason: expect.stringMatching(/Sharpe 0\.50 against 0\.80/) });
+    expect(oosVerdict(m(0.9, -0.4), m(0.8, -0.25), 0.3)).toMatchObject({ clearlyWorse: true, reason: expect.stringMatching(/broke your fall limit/) });
+    expect(oosVerdict(m(0.9, -0.4), m(0.8, -0.45), 0.3).clearlyWorse).toBe(false);
   });
   it("says so when no mix fits the limit, and returns the shallowest", () => {
     const s = suggestPlan(cands, 0.001)!;
