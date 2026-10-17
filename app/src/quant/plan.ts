@@ -5,7 +5,7 @@
  */
 import { INSTRUMENT_BY_TICKER, type Bucket } from "./instruments";
 import { sharedOf, type OverlapReport } from "./overlap";
-import { blendReturns, evaluateWeights, type Sleeve, type Weights } from "./portfolio";
+import { blendReturns, evaluateWeights, type BlendOptions, type Sleeve, type Weights } from "./portfolio";
 import { sleeveDef, type StrategyDef } from "./strategy";
 import { computeMetrics, correlation } from "./metrics";
 import type { Metrics } from "./types";
@@ -152,12 +152,12 @@ export interface Fit { score: number; correlation: number | null; fillsRole: boo
 const ADD_SHARE = 0.25;
 
 /** How well a candidate would sit in the plan: fills a missing role, low overlap, sound evidence, and the effect on the worst fall at a 25% share. */
-export function fitCandidate(c: Candidate, plan: { sleeves: Sleeve[]; weights: Weights; roles: Role[] }, rf = 0): Fit {
+export function fitCandidate(c: Candidate, plan: { sleeves: Sleeve[]; weights: Weights; roles: Role[] }, rf = 0, mix: BlendOptions = {}): Fit {
   const reasons: string[] = [];
   const blend = plan.sleeves.length ? (() => {
     const [aligned] = [alignSleeves([...plan.sleeves, c.sleeve])];
     const w = Object.fromEntries(plan.sleeves.map((s) => [s.id, plan.weights[s.id] ?? 0]));
-    const planR = blendReturns(aligned.slice(0, -1), w);
+    const planR = blendReturns(aligned.slice(0, -1), w, mix);
     return { aligned, planR };
   })() : null;
   const corr = blend ? correlation(blend.planR, blend.aligned[blend.aligned.length - 1].returns) : null;
@@ -201,7 +201,7 @@ function grid(n: number, total: number, min: number, cap: number): number[][] {
  * each sleeve at least 10% and at most 70%) whose worst fall stays within the limit. If no weights
  * fit, the shallowest fall is used and `withinLimit` is false.
  */
-export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0): Suggestion | null {
+export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0, blend: BlendOptions = {}): Suggestion | null {
   const pool = cands.filter((c) => !c.experimental && c.verdict !== "inconsistent" && c.verdict !== "insufficient" && c.sleeve.returns.length >= 252);
   const notes: string[] = [];
   const byRole = (r: Role) => pool.filter((c) => c.role === r);
@@ -213,7 +213,7 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
     if (!rest.length) return;
     const planSleeves = chosen.map((c) => c.sleeve);
     const w = Object.fromEntries(chosen.map((c) => [c.id, 1 / chosen.length]));
-    const best = rest.map((c) => ({ c, f: fitCandidate(c, { sleeves: planSleeves, weights: w, roles: chosen.map((x) => x.role) }, rf) }))
+    const best = rest.map((c) => ({ c, f: fitCandidate(c, { sleeves: planSleeves, weights: w, roles: chosen.map((x) => x.role) }, rf, blend) }))
       .sort((x, y) => y.f.score - x.f.score)[0];
     if (best) chosen.push(best.c);
   };
@@ -224,13 +224,13 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
   const n = aligned.length;
   const ids = aligned.map((s) => s.id);
   if (n === 1) {
-    const m = evaluateWeights(aligned, { [ids[0]]: 1 }, rf).metrics;
+    const m = evaluateWeights(aligned, { [ids[0]]: 1 }, rf, 0, undefined, blend).metrics;
     return { ids, weights: { [ids[0]]: 1 }, metrics: m, withinLimit: fallLimit == null || (m.maxDrawdown ?? 0) >= -fallLimit, fallLimit, notes };
   }
   let best: { w: number[]; m: Metrics } | null = null, shallow: { w: number[]; m: Metrics } | null = null;
   for (const c of grid(n, 20, 2, 14)) {
     const w = Object.fromEntries(ids.map((id, i) => [id, c[i] / 20]));
-    const m = evaluateWeights(aligned, w, rf).metrics;
+    const m = evaluateWeights(aligned, w, rf, 0, undefined, blend).metrics;
     const dd = m.maxDrawdown ?? -1;
     if (!shallow || dd > (shallow.m.maxDrawdown ?? -1) + 1e-9) shallow = { w: c, m };
     if ((fallLimit == null || dd >= -fallLimit) && (m.cagr ?? -1) > (best?.m.cagr ?? -Infinity)) best = { w: c, m };
