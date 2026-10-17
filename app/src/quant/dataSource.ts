@@ -1,5 +1,5 @@
 import { fetchAdjustedHistory } from "@/lib/api";
-import { buildDataset, type Dataset, type RawBar, type RawSeries } from "./data";
+import { buildDataset, cleanSeries, type Dataset, type RawBar, type RawSeries } from "./data";
 
 const TTL_MS = 12 * 3600_000;
 const KEY = "stockhub-prices-v1";
@@ -42,6 +42,17 @@ export async function loadDataset(tickers: string[], start = DEFAULT_START): Pro
     raw[t] = await memo.get(k)!.catch(() => []);
   }));
   return buildDataset(raw, { provider: "yfinance via OpenBB", fetchedAt: new Date().toISOString() });
+}
+
+/** One ticker's adjusted closes from `start`, cleaned, without aligning to other tickers (shared cache with datasets). */
+export async function loadBars(ticker: string, start: string): Promise<RawBar[]> {
+  const t = ticker.toUpperCase(), k = `${t}|${start}`;
+  if (!memo.has(k)) {
+    const p = loadTicker(t, start);
+    p.catch(() => memo.delete(k));
+    memo.set(k, p);
+  }
+  return cleanSeries(await memo.get(k)!).bars;
 }
 
 export function clearPriceCache() {
