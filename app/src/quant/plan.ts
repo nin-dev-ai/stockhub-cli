@@ -104,7 +104,7 @@ export function checkPlan(a: { sleeves: PlanSleeve[]; overlap: OverlapReport | n
   }
 
   const top = a.overlap?.topBucket;
-  if (top && top.share >= 0.6 && sleeves.length > 1) out.push({ id: "concentration", level: "warn", title: `${pct(top.share)} of the plan is in one asset class`, detail: `${BUCKET_LABEL[top.bucket as Bucket] ?? top.bucket}: a fall there would hit most of the plan at once.` });
+  if (top && top.share >= 0.6 && sleeves.length > 1) out.push({ id: "concentration", level: "warn", title: `${pct(top.share)} of the plan sat in one asset class on average over the test`, detail: `${BUCKET_LABEL[top.bucket as Bucket] ?? top.bucket}: a fall there would hit most of the plan at once. This is the average across the backtest; what the plan holds today is shown above.` });
 
   const tiny = sleeves.filter((s) => s.weight < MIN_SLEEVE);
   for (const s of tiny) out.push({ id: `tiny-${s.id}`, level: "warn", title: `${s.name} is only ${pct(s.weight)} of the plan`, detail: "Too small to change the result; give it a real share or drop it.", fix: { label: `Remove ${s.name}`, action: { kind: "remove", id: s.id } } });
@@ -195,7 +195,26 @@ export interface OutOfSample {
   summary: string;
 }
 
-export interface Suggestion { ids: string[]; weights: Weights; metrics: Metrics; withinLimit: boolean; fallLimit: number | null; notes: string[]; outOfSample: OutOfSample | null }
+export interface Suggestion {
+  ids: string[]; weights: Weights; metrics: Metrics; withinLimit: boolean; fallLimit: number | null; notes: string[]; outOfSample: OutOfSample | null;
+  /** One line per sleeve on why it was picked. */
+  reasons: Record<string, string>;
+  /** The largest asset class, averaged over the backtest. */
+  topClass: { label: string; share: number } | null;
+}
+
+/** The core is the plan's anchor: at least this share and never smaller than another sleeve. */
+export const CORE_MIN = 0.4;
+/** The builder keeps every asset class below this share (the share at which the plan check warns) on average when any mix inside the fall limit allows it. */
+export const MAX_CLASS = 0.6;
+
+/** A mix's largest asset class, from each sleeve's average exposure. */
+export function topClassOf(exposures: Partial<Record<string, number>>[], w: number[]): { bucket: string; share: number } | null {
+  const out: Record<string, number> = {};
+  exposures.forEach((e, i) => { for (const [b, x] of Object.entries(e)) if (b !== "cash") out[b] = (out[b] ?? 0) + w[i] * (x ?? 0); });
+  const top = Object.entries(out).sort((a, b) => b[1] - a[1])[0];
+  return top ? { bucket: top[0], share: top[1] } : null;
+}
 
 /** The plain-language verdict for an out-of-sample check; exported for tests. */
 export function oosVerdict(test: Metrics, equal: Metrics, fallLimit: number | null): { clearlyWorse: boolean; reason: string } {
@@ -203,10 +222,12 @@ export function oosVerdict(test: Metrics, equal: Metrics, fallLimit: number | nu
   const sharpeGap = (equal.sharpe ?? 0) - (test.sharpe ?? 0);
   if (broke(test) && !broke(equal)) return { clearlyWorse: true, reason: "broke your fall limit in the later years while an equal split did not" };
   if (sharpeGap > 0.15) return { clearlyWorse: true, reason: `earned clearly less per unit of risk later than an equal split (Sharpe ${(test.sharpe ?? 0).toFixed(2)} against ${(equal.sharpe ?? 0).toFixed(2)})` };
-  const pair = `(Sharpe ${(test.sharpe ?? 0).toFixed(2)} against ${(equal.sharpe ?? 0).toFixed(2)})`;
+  const sh = `Sharpe ${(test.sharpe ?? 0).toFixed(2)} against ${(equal.sharpe ?? 0).toFixed(2)}`;
+  const cg = (m: Metrics) => `${((m.cagr ?? 0) * 100).toFixed(1)}%`;
+  const grewFaster = (test.cagr ?? 0) > (equal.cagr ?? 0) + 0.0005;
   return sharpeGap > 0.005
-    ? { clearlyWorse: false, reason: `did a little worse in the later years than an equal split, within the margin of noise ${pair}` }
-    : { clearlyWorse: false, reason: `did as well as or better than an equal split in the later years ${pair}` };
+    ? { clearlyWorse: false, reason: `earned a little less per unit of risk in the later years than an equal split, within the margin of noise (${sh})${grewFaster ? `, though they grew faster (CAGR ${cg(test)} against ${cg(equal)})` : ""}` }
+    : { clearlyWorse: false, reason: `did as well as or better than an equal split per unit of risk in the later years (${sh}; CAGR ${cg(test)} against ${cg(equal)})` };
 }
 
 /** Compositions of `total` units over `n` parts, each at least `min` and at most `cap`. */
@@ -224,8 +245,8 @@ function grid(n: number, total: number, min: number, cap: number): number[][] {
 /**
  * Proposes a plan from the candidates: the best-evidenced core, then a diversifier and a tactical
  * chosen for low overlap with what is already in the plan (never redundant with a chosen sleeve), then the highest-growth weights (5% steps,
- * each sleeve at least 10% and at most 70%) whose worst fall stays within the limit. If no weights
- * fit, the shallowest fall is used and `withinLimit` is false.
+ * each sleeve at least 10% and at most 70%, the core at least 40% and the largest) whose worst fall stays within the limit, preferring
+ * mixes with every asset class under 60% on average. If no weights fit, the shallowest fall is used and `withinLimit` is false.
  */
 export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0, blend: BlendOptions = {}): Suggestion | null {
   const pool = cands.filter((c) => !c.experimental && c.verdict !== "inconsistent" && c.verdict !== "insufficient" && c.sleeve.returns.length >= 252);
@@ -234,6 +255,7 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
   const core = [...byRole("core")].sort((a, b) => (b.metrics.sharpe ?? 0) - (a.metrics.sharpe ?? 0))[0];
   if (!core) return null;
   const chosen: Candidate[] = [core];
+  const reasons: Record<string, string> = { [core.id]: `The anchor: best risk-adjusted of the core strategies (Sharpe ${(core.metrics.sharpe ?? 0).toFixed(2)}), kept at ${pct(CORE_MIN)} or more` };
   const pick = (role: Role) => {
     const rest = byRole(role).filter((c) => !chosen.includes(c) && !redundantWith(c, chosen));
     if (!rest.length) return;
@@ -241,7 +263,11 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
     const w = Object.fromEntries(chosen.map((c) => [c.id, 1 / chosen.length]));
     const best = rest.map((c) => ({ c, f: fitCandidate(c, { sleeves: planSleeves, weights: w, roles: chosen.map((x) => x.role) }, rf, blend) }))
       .sort((x, y) => y.f.score - x.f.score)[0];
-    if (best) chosen.push(best.c);
+    if (best) {
+      chosen.push(best.c);
+      const why = best.f.reasons.filter((r) => !/^Fills/.test(r)).slice(0, 2).join("; ").toLowerCase();
+      reasons[best.c.id] = `Adds the ${ROLES[role].label.toLowerCase()} job${why ? `: ${why}` : ""}`;
+    }
   };
   pick("diversifier"); pick("tactical");
   if (chosen.length < 2) { notes.push("Only one strategy qualified, so the plan is a single sleeve."); }
@@ -251,23 +277,35 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
   const ids = aligned.map((s) => s.id);
   if (n === 1) {
     const m = evaluateWeights(aligned, { [ids[0]]: 1 }, rf, 0, undefined, blend).metrics;
-    return { ids, weights: { [ids[0]]: 1 }, metrics: m, withinLimit: fallLimit == null || (m.maxDrawdown ?? 0) >= -fallLimit, fallLimit, notes, outOfSample: null };
+    const tc = topClassOf([chosen[0].exposure], [1]);
+    return { ids, weights: { [ids[0]]: 1 }, metrics: m, withinLimit: fallLimit == null || (m.maxDrawdown ?? 0) >= -fallLimit, fallLimit, notes, outOfSample: null, reasons, topClass: tc && { label: BUCKET_LABEL[tc.bucket as Bucket] ?? tc.bucket, share: tc.share } };
   }
   // the weight search over [from, to) of the aligned returns; `to` undefined means to the end
+  // the core (index 0) holds at least CORE_MIN and is never outweighed; within the fall limit, mixes that keep every
+  // asset class at or under MAX_CLASS win, and a concentrated mix is used only when no spread one fits
+  const exposures = chosen.map((c) => c.exposure);
   const search = (from: number, to?: number) => {
-    let best: { w: number[]; m: Metrics } | null = null, shallow: { w: number[]; m: Metrics } | null = null;
+    type Hit = { w: number[]; m: Metrics };
+    let best: Hit | null = null, bestAny: Hit | null = null, shallow: Hit | null = null;
     for (const c of grid(n, 20, 2, 14)) {
+      if (c[0] < CORE_MIN * 20 || c.some((x) => x > c[0])) continue;
       const w = Object.fromEntries(ids.map((id, i) => [id, c[i] / 20]));
       const m = evaluateWeights(aligned, w, rf, from, to, blend).metrics;
       const dd = m.maxDrawdown ?? -1;
       if (!shallow || dd > (shallow.m.maxDrawdown ?? -1) + 1e-9) shallow = { w: c, m };
-      if ((fallLimit == null || dd >= -fallLimit) && (m.cagr ?? -1) > (best?.m.cagr ?? -Infinity)) best = { w: c, m };
+      if (fallLimit != null && dd < -fallLimit) continue;
+      if ((m.cagr ?? -1) > (bestAny?.m.cagr ?? -Infinity)) bestAny = { w: c, m };
+      const spread = (topClassOf(exposures, c.map((x) => x / 20))?.share ?? 0) < MAX_CLASS - 1e-9;
+      if (spread && (m.cagr ?? -1) > (best?.m.cagr ?? -Infinity)) best = { w: c, m };
     }
-    return { pick: best ?? shallow!, within: !!best };
+    return { pick: best ?? bestAny ?? shallow!, within: !!(best ?? bestAny) };
   };
   const toWeights = (c: number[]) => Object.fromEntries(ids.map((id, i) => [id, c[i] / 20]));
   const full = search(0);
-  if (!full.within) notes.push(`No mix of these sleeves kept the worst fall within ${pct(fallLimit ?? 0)}; this is the shallowest one found.`);
+  if (!full.within) notes.push(`No mix of these sleeves with the core at ${pct(CORE_MIN)} or more kept the worst fall within ${pct(fallLimit ?? 0)}; this is the shallowest one found.`);
+  const top = topClassOf(exposures, full.pick.w.map((x) => x / 20));
+  const topClass = top && { label: BUCKET_LABEL[top.bucket as Bucket] ?? top.bucket, share: top.share };
+  if (full.within && topClass && topClass.share >= MAX_CLASS - 1e-9) notes.push(`No mix inside your fall limit kept every asset class under ${pct(MAX_CLASS)}: ${pct(topClass.share)} sits in ${topClass.label} on average.`);
 
   // re-make the proposal on the first 60% of history and judge it on the rest, which it never saw
   let outOfSample: OutOfSample | null = null;
@@ -286,7 +324,7 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
     };
     if (v.clearlyWorse) notes.push("The out-of-sample check is weak: treat these weights with caution, and an equal split as a fair alternative.");
   }
-  return { ids, weights: toWeights(full.pick.w), metrics: full.pick.m, withinLimit: full.within, fallLimit, notes, outOfSample };
+  return { ids, weights: toWeights(full.pick.w), metrics: full.pick.m, withinLimit: full.within, fallLimit, notes, outOfSample, reasons, topClass };
 }
 
 /** Rescales the other weights so the total stays 100% when one weight is set. */

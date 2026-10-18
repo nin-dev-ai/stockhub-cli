@@ -8,7 +8,8 @@ import { useCandidates } from "@/quant/useCandidates";
 
 /**
  * "Build me a plan": tests the catalog on the user's ETF choice, picks a core plus sleeves that do
- * different jobs, and sets weights to the highest growth that keeps the worst fall inside the limit.
+ * different jobs, and sets weights to the highest growth that keeps the worst fall inside the limit,
+ * with the core as the largest sleeve and no asset class dominating where possible.
  * Shows the proposal first; nothing changes until the user applies it.
  */
 export function BuildPlan({ inputs, fallLimit, onApply, onClose }: {
@@ -32,11 +33,11 @@ export function BuildPlan({ inputs, fallLimit, onApply, onClose }: {
         <>
           <div className="overflow-x-auto scroll-thin">
           <table className="w-full grid-data text-[11px]">
-            <thead><tr><th>Job</th><th>Strategy</th><th className="text-right">Weight</th><th className="text-right">CAGR</th><th className="text-right">Worst fall</th><th className="text-right">Sharpe</th></tr></thead>
+            <thead><tr><th>Job</th><th>Strategy</th><th>Why</th><th className="text-right">Weight</th><th className="text-right">CAGR</th><th className="text-right">Worst fall</th><th className="text-right">Sharpe</th></tr></thead>
             <tbody>{rows.map(({ cand, weight }) => (
               <tr key={cand.id}>
                 <td><Badge tone={cand.role === "core" ? "green" : cand.role === "tactical" ? "cyan" : "amber"} title={ROLES[cand.role].blurb}>{ROLES[cand.role].label}</Badge></td>
-                <td>{cand.name}</td><td className="num text-right">{(weight * 100).toFixed(0)}%</td>
+                <td>{cand.name}</td><td className="text-term-muted">{s.reasons[cand.id]}</td><td className="num text-right">{(weight * 100).toFixed(0)}%</td>
                 <td className="num text-right">{fmtRate(cand.metrics.cagr)}</td><td className="num text-right">{fmtRate(cand.metrics.maxDrawdown)}</td><td className="num text-right">{fmtRatio(cand.metrics.sharpe)}</td>
               </tr>
             ))}</tbody>
@@ -45,6 +46,7 @@ export function BuildPlan({ inputs, fallLimit, onApply, onClose }: {
           <div className="text-[11px] text-term-text">
             Together: CAGR <span className="num text-term-amber">{fmtRate(s.metrics.cagr)}</span>, worst fall <span className="num text-term-amber">{fmtRate(s.metrics.maxDrawdown)}</span>, Sharpe <span className="num text-term-amber">{fmtRatio(s.metrics.sharpe)}</span>
             {s.withinLimit ? <span className="text-term-green"> · within your limit</span> : <span className="text-term-red"> · not within your limit</span>}.
+            {s.topClass && <span className="text-term-muted"> Largest asset class on average: {s.topClass.label}, <span className="num">{(s.topClass.share * 100).toFixed(0)}%</span>.</span>}
           </div>
           {s.outOfSample && (
             <div className={`text-[11px] border-l-2 pl-2 ${s.outOfSample.clearlyWorse ? "border-term-red" : "border-term-greenDim"}`}>
