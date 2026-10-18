@@ -127,7 +127,7 @@ export function PlanView({ bundle, plan, inputs, set, weights, source, act }: {
           <div className="text-[10px] text-term-muted mt-1">Each strategy's current holdings times its weight. This is what Paper Orders rebalances to.</div>
         </div>
         <div>
-          <div className="sub-header mb-1">By asset class</div>
+          <div className="sub-header mb-1">By asset class today</div>
           {classes.map((c) => (
             <div key={c.bucket} className="flex items-center gap-2 text-[11px] py-0.5">
               <span className="w-44 text-term-text truncate" title={c.label}>{c.label}</span>
