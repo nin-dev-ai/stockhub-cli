@@ -164,4 +164,5 @@ Out of scope: new data sources, Senate trades, live trading, the heavier ML4T it
 | S-1 trade-off and crises (#27), S-2 Today line (#28) | Delivered, PR #40 |
 | One screen at a time (#41, owner request) | Delivered, PR #42: no tab per screen |
 | Achievements playbook | [github_achievements.md](github_achievements.md), PR #39 |
-| P-3 to P-5, R-1 to R-4, S-3 to S-5 (#29–#36) | Open |
+| P-3 buy list (#29) | Delivered: buy list on the Plan tab, in Save Plan and in My Portfolio; whole-share paper tracking. Decision 5: the $200 default stays and the minimum is shown |
+| P-4, P-5, R-1 to R-4, S-3 to S-5 (#30–#36) | Open |

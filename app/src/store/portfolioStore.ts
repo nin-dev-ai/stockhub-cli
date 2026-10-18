@@ -13,7 +13,7 @@ interface PortfolioState {
   /** Append-only. A snapshot is never edited; deleting its portfolio is the only way to remove it. */
   snapshots: PlanSnapshot[];
   selectedId: string | null;
-  createPortfolio: (a: { name: string; mode: PortfolioMode; snapshot?: (portfolioId: string) => PlanSnapshot; opening?: TxDraft[] }) => { id: string } | { error: string };
+  createPortfolio: (a: { name: string; mode: PortfolioMode; snapshot?: (portfolioId: string) => PlanSnapshot; opening?: TxDraft[]; wholeShares?: boolean }) => { id: string } | { error: string };
   addSnapshot: (portfolioId: string, s: PlanSnapshot) => string | null;
   /** Validates against the ledger; returns error messages, empty on success. */
   addTransactions: (portfolioId: string, drafts: TxDraft[]) => string[];
@@ -30,14 +30,14 @@ export const usePortfolios = create<PortfolioState>()(
       snapshots: [],
       selectedId: null,
 
-      createPortfolio: ({ name, mode, snapshot, opening = [] }) => {
+      createPortfolio: ({ name, mode, snapshot, opening = [], wholeShares }) => {
         const clean = name.trim();
         if (!clean) return { error: "Enter a name." };
         if (get().portfolios.some((p) => p.name.toLowerCase() === clean.toLowerCase())) return { error: "A portfolio with this name already exists." };
         const createdAt = now();
         const id = `pf_${hashId({ clean, createdAt }).slice(0, 10)}`;
         const snap = snapshot?.(id);
-        let p: Portfolio = { id, name: clean, mode, baseCurrency: "USD", createdAt, snapshotIds: snap ? [snap.id] : [], transactions: [] };
+        let p: Portfolio = { id, name: clean, mode, baseCurrency: "USD", createdAt, snapshotIds: snap ? [snap.id] : [], transactions: [], ...(wholeShares ? { wholeShares: true } : {}) };
         for (const d of opening) {
           const errs = validateTx(p.transactions, d, today());
           if (errs.length) return { error: errs.join(" ") };

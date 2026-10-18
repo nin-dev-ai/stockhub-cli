@@ -50,6 +50,8 @@ export interface Portfolio {
   /** Snapshot ids in creation order; the first is the original plan. Empty for a holdings-only record. */
   snapshotIds: string[];
   transactions: Transaction[];
+  /** Paper trades in whole shares only, like Paper Orders; absent means fractional shares. */
+  wholeShares?: boolean;
 }
 
 export interface LedgerState {
@@ -237,7 +239,8 @@ export function planTargets(runs: { id: string; run: Pick<SimResult, "decisions"
  * Paper trades that move holdings toward the plan's targets at the given date's closes.
  * Sells come first; buys are scaled down so cash never goes negative after fees.
  */
-export function rebalanceTrades(txs: Transaction[], panel: Panel, targets: Record<string, number>, date: string, feePerTrade = 0, minTrade = 1): TxDraft[] {
+/** With `wholeShares`, sales and purchases round down to whole shares, as Paper Orders does. */
+export function rebalanceTrades(txs: Transaction[], panel: Panel, targets: Record<string, number>, date: string, feePerTrade = 0, minTrade = 1, wholeShares = false): TxDraft[] {
   const scale = paperScale(panel);
   const valued = ledgerAt(txs, date, scale);
   const recorded = ledgerAt(txs, date);
@@ -256,7 +259,9 @@ export function rebalanceTrades(txs: Transaction[], panel: Panel, targets: Recor
     if (diff < -minTrade) {
       // sell in recorded units so the ledger never sells more than it holds
       const ratio = Math.min(1, -diff / cur);
-      const units = (recorded.units[t] ?? 0) * ratio;
+      const raw = (recorded.units[t] ?? 0) * ratio;
+      const units = wholeShares ? Math.floor(raw + 1e-9) : raw;
+      if (units <= 0) continue;
       sells.push({ date, kind: "sell", ticker: t, units, price: p, fee: feePerTrade, note: "Rebalance to plan" });
     } else if (diff > minTrade) buys.push({ t, notional: diff, p });
   }
@@ -265,8 +270,8 @@ export function rebalanceTrades(txs: Transaction[], panel: Panel, targets: Recor
   const want = buys.reduce((a, b) => a + b.notional, 0);
   const f = want > 0 ? Math.min(1, Math.max(0, cash) / want) : 0;
   const buyDrafts: TxDraft[] = buys
-    .map((b) => ({ date, kind: "buy" as const, ticker: b.t, units: (b.notional * f) / b.p, price: b.p, fee: feePerTrade, note: "Rebalance to plan" }))
-    .filter((b) => b.units * b.price > minTrade);
+    .map((b) => ({ date, kind: "buy" as const, ticker: b.t, units: wholeShares ? Math.floor((b.notional * f) / b.p + 1e-9) : (b.notional * f) / b.p, price: b.p, fee: feePerTrade, note: "Rebalance to plan" }))
+    .filter((b) => b.units > 0 && b.units * b.price > minTrade);
   return [...sells, ...buyDrafts];
 }
 

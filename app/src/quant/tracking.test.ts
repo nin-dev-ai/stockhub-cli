@@ -123,6 +123,18 @@ describe("plan targets and paper rebalancing", () => {
     for (const d of later) { expect(validateTx(txs, d, "2024-01-05")).toEqual([]); txs = [...txs, tx(d)]; }
     expect(ledgerAt(txs).cash).toBeGreaterThanOrEqual(-1e-6);
   });
+
+  it("trades whole shares only when asked, like Paper Orders", () => {
+    const targets = { AAA: 0.7, BBB: 0.3 };
+    let txs = [tx({ date: "2024-01-02", kind: "contribution", amount: 1000, fee: 0 })];
+    const first = rebalanceTrades(txs, panel, targets, "2024-01-02", 0, 1, true);
+    // $700 / $100 = 7 AAA, $300 / $50 = 6 BBB
+    expect(first.map((d) => [d.ticker, d.units])).toEqual([["AAA", 7], ["BBB", 6]]);
+    for (const d of first) txs = [...txs, tx(d)];
+    const later = rebalanceTrades(txs, panel, { AAA: 0.2, BBB: 0.8 }, "2024-01-05", 0, 1, true);
+    for (const d of later) { expect(Number.isInteger(d.units)).toBe(true); expect(validateTx(txs, d, "2024-01-05")).toEqual([]); txs = [...txs, tx(d)]; }
+    expect(ledgerAt(txs).cash).toBeGreaterThanOrEqual(-1e-6);
+  });
 });
 
 const slicePanel = (p: Panel, n: number): Panel => ({ dates: p.dates.slice(0, n), closes: Object.fromEntries(Object.entries(p.closes).map(([k, v]) => [k, v.slice(0, n)])) });
