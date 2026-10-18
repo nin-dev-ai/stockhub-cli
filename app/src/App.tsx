@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { CommandBar } from "@/components/CommandBar";
 import { PrimaryNav } from "@/components/PrimaryNav";
+import { PlanWatcher } from "@/components/PlanWatcher";
 import { PersonaWatcher } from "@/components/PersonaWatcher";
 import { CopilotPanel } from "@/components/CopilotPanel";
 import { QuickBar } from "@/components/QuickBar";
@@ -77,6 +78,7 @@ export default function App() {
         )}
         <CopilotPanel />
         <PersonaWatcher />
+        <PlanWatcher />
       </div>
       <StatusBar />
     </div>
