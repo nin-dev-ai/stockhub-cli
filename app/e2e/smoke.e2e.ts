@@ -54,6 +54,12 @@ test("plan: three S&P 500 strategies are flagged, Build me a plan proposes a mix
   await page.getByRole("button", { name: "Use this plan" }).click();
   await expect(page.getByText(/The sleeves cover \d different jobs/)).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText(/do almost the same thing/)).toHaveCount(0);
+  // guided save: one click runs the projection and opens the named drawer, Enter saves and opens My Portfolio
+  await page.getByRole("button", { name: "Save Plan" }).click();
+  await expect(page.getByLabel("Name", { exact: true })).toHaveValue("Balanced plan, 30% fall limit", { timeout: 90_000 });
+  await page.getByRole("button", { name: "Save plan", exact: true }).click();
+  await expect(page.getByText("Balanced plan, 30% fall limit").first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Plan vs Observed" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 

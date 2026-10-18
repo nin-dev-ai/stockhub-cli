@@ -71,7 +71,9 @@ export function InputsPane({ inputs: i, set, basketNames, unchanged, errors, onR
       </div>
       <div className="text-[10px] text-term-muted -mt-1">Currency: USD only. Other currencies are not supported.</div>
 
-      <div>
+      <details open={i.etf !== "SPY" || i.alsoEtfs.length > 0} className="group">
+        <summary className="sub-header cursor-pointer mb-1">Run on other ETFs <span className="normal-case tracking-normal text-term-text">({[i.etf, ...i.alsoEtfs].join(", ")})</span></summary>
+        <div className="text-[10px] text-term-muted mb-1 leading-snug">The strategies are written for the S&P 500 ETF (SPY). Swap or add ETFs here to test the same rules elsewhere.</div>
         <div className="sub-header mb-1">Run on ETF</div>
         <div className="flex flex-col gap-1">
           {CORE_ETFS.map((c) => (
@@ -95,7 +97,7 @@ export function InputsPane({ inputs: i, set, basketNames, unchanged, errors, onR
           {i.alsoEtfs.length ? "Spreads every basket strategy that trades SPY across these ETFs; the benchmark stays SPY." : "Replaces SPY in every basket strategy that trades it, and becomes the benchmark."} Parameters were tuned on SPY.
           {unchanged.length > 0 && <> Not affected (they do not trade SPY): {unchanged.join(", ")}.</>}
         </div>
-      </div>
+      </details>
 
       <div>
         <div className="sub-header mb-1">Strategies in plan ({basketNames.length}/{MAX_BASKET})</div>

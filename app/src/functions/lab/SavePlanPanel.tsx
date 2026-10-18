@@ -15,14 +15,15 @@ interface Props {
   inputs: LabInputs;
   weights: Weights;
   weightsSource: string | null;
+  defaultName: string;
   onClose: () => void;
 }
 
 /** Saves the plan with an immutable projection snapshot as a paper or manually reported portfolio (POR-01, POR-04). */
-export function SavePlanPanel({ bundle, projection, inputs, weights, weightsSource, onClose }: Props) {
+export function SavePlanPanel({ bundle, projection, inputs, weights, weightsSource, defaultName, onClose }: Props) {
   const create = usePortfolios((s) => s.createPortfolio);
   const openTab = useWorkspace((s) => s.openTab);
-  const [name, setName] = useState(`Plan ${new Date().toISOString().slice(0, 10)}`);
+  const [name, setName] = useState(defaultName);
   const [mode, setMode] = useState<PortfolioMode>("paper");
   const [fund, setFund] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +64,7 @@ export function SavePlanPanel({ bundle, projection, inputs, weights, weightsSour
           Saves these inputs, weights, strategy versions and the current projection as a snapshot that never changes. My Portfolio then compares what happens next against it.
         </div>
         <label className="flex flex-col gap-0.5"><span className="sub-header">Name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} className="bg-term-bg border border-term-border px-2 py-1 focus:outline-none focus:border-term-amberDim" /></label>
+          <input autoFocus value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && name.trim() && save()} className="bg-term-bg border border-term-border px-2 py-1 focus:outline-none focus:border-term-amberDim" /></label>
         <div className="flex flex-col gap-1">
           <span className="sub-header">Track as</span>
           {(["paper", "manual", "broker"] as PortfolioMode[]).map((m) => (
@@ -88,7 +89,7 @@ export function SavePlanPanel({ bundle, projection, inputs, weights, weightsSour
         </div>
         {error && <div role="alert" className="text-term-red text-[11px]">{error}</div>}
         <div className="flex gap-2">
-          <button onClick={save} className="px-3 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle">Save plan</button>
+          <button onClick={save} disabled={!name.trim()} className="disabled:opacity-30 px-3 py-1 border border-term-amber text-term-amber hover:bg-term-amberSubtle">Save plan</button>
           <button onClick={onClose} className="px-3 py-1 border border-term-border text-term-muted">Cancel</button>
         </div>
       </div>
