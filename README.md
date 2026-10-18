@@ -1,3 +1,7 @@
+<img src="assets/readme-banner.svg" alt="stockhub cli project banner" width="100%" />
+
+[![Frontend build](https://github.com/nin-dev-ai/stockhub-cli/actions/workflows/frontend-build.yml/badge.svg)](https://github.com/nin-dev-ai/stockhub-cli/actions/workflows/frontend-build.yml)
+
 # StockHub — a local stock research and backtesting terminal
 
 StockHub brings **market data, company research, ETF strategy backtesting, SEC filings, and paper portfolio tracking** into a keyboard-driven dashboard. It runs locally with [OpenBB Platform](https://github.com/OpenBB-finance/OpenBB), React, TypeScript, and TradingView Lightweight Charts. Core market views use free Yahoo Finance data without an API key.
