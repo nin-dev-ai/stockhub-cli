@@ -166,4 +166,5 @@ Out of scope: new data sources, Senate trades, live trading, the heavier ML4T it
 | Achievements playbook | [github_achievements.md](github_achievements.md), PR #39 |
 | P-3 buy list (#29) | Delivered: buy list on the Plan tab, in Save Plan and in My Portfolio; whole-share paper tracking. Decision 5: the $200 default stays and the minimum is shown |
 | P-4 to-do list and alerts (#30) | Delivered: *What needs doing* in My Portfolio and hourly plan alerts |
-| P-5, R-1 to R-4, S-3 to S-5 (#31–#36) | Open |
+| R-1 contact in the app (#31) | Delivered: name and email typed in Personas, sent only to the local proxy as a header |
+| P-5, R-2 to R-4, S-3 to S-5 (#32–#36) | Open |

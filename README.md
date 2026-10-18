@@ -126,7 +126,7 @@ Every optional feature is switched on by an environment variable, set in your sh
 
 | Variable | Turns on | Notes |
 | --- | --- | --- |
-| `STOCKHUB_SEC_CONTACT` | Live SEC filings and alerts on the Personas screen | Your name and email; the SEC requires a contact in the User-Agent and it is sent only to sec.gov |
+| `STOCKHUB_SEC_CONTACT` | Live SEC filings and alerts on the Personas screen | Your name and email; the SEC requires a contact in the User-Agent and it is sent only to sec.gov. Optional: you can instead type it on the Personas screen, which keeps it in the browser |
 | `IBKR_GATEWAY_URL` | Interactive Brokers read-only sync and paper orders | Default `https://localhost:5000`; on a Mac use `https://localhost:5001` (AirPlay holds 5000) |
 | `STOCKHUB_LLM_KEY` (`STOCKHUB_LLM_MODEL`, `STOCKHUB_LLM_URL`) | Claude wording for Copilot answers | The key stays in the local server process |
 | `STOCKHUB_API_URL` | A market data API on another address | Default `http://127.0.0.1:6900` |

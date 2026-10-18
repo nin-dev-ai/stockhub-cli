@@ -3,9 +3,20 @@ import {
   type Freshness, type SecFiling,
 } from "@/quant/edgar";
 import type { PersonaTrade } from "@/quant/personas";
+import { usePersonas } from "@/store/personaStore";
 
 /** True when the dev server was started with STOCKHUB_SEC_CONTACT, which the SEC's User-Agent rule requires. */
 export const SEC_CONFIGURED = import.meta.env.VITE_SEC_CONFIGURED === "true";
+
+/** Must match SEC_CONTACT_HEADER in stockhub.config.ts: the local proxy turns it into the SEC User-Agent. */
+const CONTACT_HEADER = "x-stockhub-sec-contact";
+
+/** A name and an email address on one line, under 120 characters; same rule as the proxy. */
+export const validSecContact = (v: string) => { const s = v.trim(); return !!s && s.length <= 120 && !/[\r\n]/.test(s) && /[^\s@]+@[^\s@]+\.[^\s@]+/.test(s); };
+
+/** Live SEC filings are on when the server has a contact or the user typed one in Personas. */
+export const secLive = () => SEC_CONFIGURED || validSecContact(usePersonas.getState().secContact);
+export const useSecLive = () => { const c = usePersonas((s) => s.secContact); return SEC_CONFIGURED || validSecContact(c); };
 
 const CACHE_KEY = "stockhub-sec-events-v1";
 const MAX_CACHED = 400;
@@ -26,8 +37,11 @@ async function slot<T>(fn: () => Promise<T>): Promise<T> {
 
 /** One retry after a pause when the SEC throttles (429) or hiccups (5xx): its fair-access limit is per second, so a short wait clears it. */
 async function get(url: string, fetcher: typeof fetch): Promise<Response> {
-  let res = await slot(() => fetcher(url));
-  if (res.status === 429 || res.status >= 500) { await new Promise((r) => setTimeout(r, 1500)); res = await slot(() => fetcher(url)); }
+  const contact = usePersonas.getState().secContact;
+  // the server's own contact wins; otherwise pass the one typed in Personas to the local proxy
+  const init = !SEC_CONFIGURED && validSecContact(contact) ? { headers: { [CONTACT_HEADER]: contact } } : undefined;
+  let res = await slot(() => fetcher(url, init));
+  if (res.status === 429 || res.status >= 500) { await new Promise((r) => setTimeout(r, 1500)); res = await slot(() => fetcher(url, init)); }
   return res;
 }
 
@@ -51,7 +65,7 @@ export async function fetchFilingRows(f: SecFiling, fetcher: typeof fetch = fetc
 
 export async function fetchSubmissions(cik: string, fetcher: typeof fetch = fetch): Promise<SecFiling[]> {
   const res = await get(`/sec/data/submissions/CIK${cik.replace(/^0+/, "").padStart(10, "0")}.json`, fetcher);
-  if (!res.ok) throw new Error(res.status === 403 ? "SEC refused the request: check STOCKHUB_SEC_CONTACT." : `SEC returned ${res.status} for CIK ${cik}.`);
+  if (!res.ok) throw new Error(res.status === 403 ? "SEC refused the request: check the contact (Personas, or STOCKHUB_SEC_CONTACT)." : `SEC returned ${res.status} for CIK ${cik}.`);
   return parseSubmissions(await res.json(), cik);
 }
 

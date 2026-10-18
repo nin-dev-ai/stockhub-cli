@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
-import { fetchLiveFeed, SEC_CONFIGURED } from "@/lib/edgar";
+import { fetchLiveFeed, useSecLive } from "@/lib/edgar";
 import { batchNotifications, newAlerts } from "@/quant/alerts";
 import { edgarCiks } from "@/quant/personas";
 import { allPersonas, usePersonas } from "@/store/personaStore";
@@ -15,7 +15,8 @@ export const WATCH_MINUTES = 10;
  */
 export function PersonaWatcher() {
   const { followed, custom, seen, markSeen, alerts, muted, notified, addNotified } = usePersonas();
-  const watched = useMemo(() => (SEC_CONFIGURED ? allPersonas(custom).filter((p) => followed.includes(p.id) && edgarCiks(p).length > 0) : []), [custom, followed]);
+  const live = useSecLive();
+  const watched = useMemo(() => (live ? allPersonas(custom).filter((p) => followed.includes(p.id) && edgarCiks(p).length > 0) : []), [custom, followed, live]);
   const qs = useQueries({
     queries: watched.map((p) => ({
       queryKey: ["persona-live", p.id, edgarCiks(p).join(",")],
