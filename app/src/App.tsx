@@ -4,7 +4,6 @@ import { PrimaryNav } from "@/components/PrimaryNav";
 import { PersonaWatcher } from "@/components/PersonaWatcher";
 import { CopilotPanel } from "@/components/CopilotPanel";
 import { QuickBar } from "@/components/QuickBar";
-import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { StatusBar } from "@/components/StatusBar";
 import { FunctionPanel } from "@/components/FunctionPanel";
 import { useWorkspace } from "@/store/workspaceStore";
@@ -70,7 +69,6 @@ export default function App() {
       <CommandBar />
       <PrimaryNav />
       <QuickBar />
-      <WorkspaceTabs />
       <div className="flex-1 min-h-0 p-1 flex">
         {active && (
           <FunctionPanel code={active.code} symbol={active.symbol}>
