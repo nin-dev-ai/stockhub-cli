@@ -2,11 +2,11 @@
 
 ## Structure
 
-The interface is a dark, amber-accented terminal workspace. [`App.tsx`](../app/src/App.tsx) stacks the command bar, quick bar, workspace tabs, active function panel, and status bar. A function opens as a tab so users can move between market and ticker views without losing context.
+The interface is a dark, amber-accented terminal workspace. [`App.tsx`](../app/src/App.tsx) stacks the command bar, section strip, quick bar, the active function panel and the status bar. One screen shows at a time: opening a function from the command bar, quick bar, section strip or a link replaces the current screen (there is no tab strip). Each screen keeps its own state in its store, so returning to it picks up where you left off.
 
 ## Primary navigation
 
-A strip under the command bar switches between the product's sections: **Explore** (the original terminal), **Strategies**, **Personas**, **Simulation Lab** and **My Portfolio**. Each section opens ordinary workspace tabs, so tabs, the command bar and the quick bar work everywhere. `sectionOf` in [`functions.ts`](../app/src/lib/functions.ts) assigns every function code to a section.
+A strip under the command bar switches between the product's sections: **Explore** (the original terminal), **Strategies**, **Personas**, **Simulation Lab** and **My Portfolio**. Each section opens its screen in the single workspace, so the command bar and the quick bar work everywhere. `sectionOf` in [`functions.ts`](../app/src/lib/functions.ts) assigns every function code to a section.
 
 ## Strategies screen (`STRAT`)
 
@@ -40,7 +40,7 @@ A **Copilot** toggle at the right of the primary navigation opens a 360px panel 
 - Commands accept a symbol followed by a function code, such as `AAPL GP`; the parser also accepts a function code followed by a symbol.
 - A symbol-requiring function can use the active symbol when entered by itself.
 - The command bar provides autocomplete and keyboard navigation. The [README](../README.md#the-function-codes) lists user-facing shortcuts.
-- The workspace restores a Command Center tab when all tabs are closed and persists tabs in browser storage.
+- The workspace shows one screen at a time and remembers the last one in browser storage; older saved workspaces with several tabs keep only the screen that was showing.
 
 ## Visual conventions
 
