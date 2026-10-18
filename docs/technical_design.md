@@ -49,6 +49,8 @@ State for baskets, drafts and the screen-wide ETF switch (`target`, applied by `
 
 **Card facts (Phase 6).** `quant/cardFacts.ts` is pure: `tradeOff` compares CAGR and worst fall with the benchmark (gaps under 0.1 point and falls within 1 point count as equal), `isYardstick` marks a static 100% benchmark holding without `entry` or `reserve` rules, `crisisFalls` takes the time-weighted worst peak-to-trough inside fixed S&P 500 crisis windows (`CRISES`; null when the run does not cover one), and `holdingToday` reads `currentTargets` and walks the rebalance decisions back to the last change (targets within 2 points count as the same) for *since* and *before*, with `nextCheckDate` giving the first weekday of the next period. Spread strategies show holdings without a switch date.
 
+**Buy list (Phase 6).** `quant/buyList.ts`: `buyList(targets, price, amount)` floors each target notional over the latest close, the same rounding `proposeRebalance` uses from cash (a test checks they agree), and reports cost, weight, gap, leftover cash, ETFs it cannot buy and `minimum` = the largest price / target. `rebalanceTrades(..., wholeShares)` rounds paper sales and purchases down to whole shares; `Portfolio.wholeShares` records the choice made in Save Plan, and My Portfolio shows the buy list at today's value for fractional paper plans.
+
 ### Portfolio tracking
 
 - **Snapshots.** A snapshot holds the inputs, weights, full strategy definitions and hashes, dataset id, plan targets and the projection's fan and percentiles. Its id is the hash of its content, so `verifySnapshot` detects any later edit, and it is deep-frozen in memory. Reforecasts are new snapshots that point to the original.

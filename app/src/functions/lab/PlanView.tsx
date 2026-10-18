@@ -11,6 +11,10 @@ import type { BacktestBundle } from "@/quant/useLab";
 import { AddStrategy } from "./AddStrategy";
 import { BuildPlan } from "./BuildPlan";
 import { MAX_BASKET } from "@/store/strategyStore";
+import { BuyListTable } from "@/components/quant/BuyListTable";
+import { buyList } from "@/quant/buyList";
+import { startingCapital } from "@/quant/lab";
+import { closeOn } from "@/quant/tracking";
 
 const tone = (r: Role) => (r === "core" ? "green" : r === "tactical" ? "cyan" : "amber") as "green" | "cyan" | "amber";
 const LEVEL = { issue: "border-term-red text-term-red", warn: "border-term-amberDim text-term-amberBright", good: "border-term-greenDim text-term-green" } as const;
@@ -138,6 +142,9 @@ export function PlanView({ bundle, plan, inputs, set, weights, source, act }: {
           <div className="text-[10px] text-term-muted mt-1">From each ETF's broad asset-class makeup, not live fund holdings.</div>
         </div>
       </section>
+
+      <BuyListTable title={`Buy list for ${startingCapital(inputs).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}`}
+        list={buyList(Object.fromEntries(held.map((h) => [h.ticker, h.weight])), (t) => closeOn(bundle.dataset.panel, t, bundle.dataset.panel.dates[bundle.dataset.panel.dates.length - 1]), startingCapital(inputs))} />
 
       <section className="flex flex-col gap-1.5">
         <div className="sub-header">Does this plan make sense?</div>

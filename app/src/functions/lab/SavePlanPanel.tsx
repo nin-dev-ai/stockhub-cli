@@ -4,7 +4,8 @@ import { fmtMoney } from "@/lib/format";
 import type { LabInputs } from "@/quant/lab";
 import type { Weights } from "@/quant/portfolio";
 import type { ProjectionResult } from "@/quant/projection";
-import { MODE_LABEL, rebalanceTrades, snapshotFrom, type PortfolioMode, type TxDraft } from "@/quant/tracking";
+import { closeOn, MODE_LABEL, planTargets, rebalanceTrades, snapshotFrom, type PortfolioMode, type TxDraft } from "@/quant/tracking";
+import { buyList, buyListSummary } from "@/quant/buyList";
 import type { BacktestBundle } from "@/quant/useLab";
 import { usePortfolios } from "@/store/portfolioStore";
 import { useWorkspace } from "@/store/workspaceStore";
@@ -29,6 +30,9 @@ export function SavePlanPanel({ bundle, projection, inputs, weights, weightsSour
   const [error, setError] = useState<string | null>(null);
   const asOf = bundle.results[0].window.end;
   const start = inputs.initial + inputs.existing;
+  const list = buyList(planTargets(bundle.results.map((r) => ({ id: r.strategy.id, run: r.run })), weights), (t) => closeOn(bundle.dataset.panel, t, asOf), start);
+  // whole shares by default when the starting amount can hold every ETF, as Paper Orders would trade it
+  const [whole, setWhole] = useState(list.zero.length === 0 && list.rows.length > 0);
 
   const save = () => {
     try {
@@ -42,9 +46,9 @@ export function SavePlanPanel({ bundle, projection, inputs, weights, weightsSour
         const probe = snapshot("probe");
         const contribution: TxDraft = { date: asOf, kind: "contribution", amount: start, fee: 0, note: "Plan starting amount" };
         const asTx = [{ ...contribution, id: "c", createdAt: "0", amount: start }];
-        opening = [contribution, ...rebalanceTrades(asTx, bundle.dataset.panel, probe.targets, asOf, inputs.fixedFee)];
+        opening = [contribution, ...rebalanceTrades(asTx, bundle.dataset.panel, probe.targets, asOf, inputs.fixedFee, 1, whole)];
       }
-      const r = create({ name, mode, snapshot, opening });
+      const r = create({ name, mode, snapshot, opening, wholeShares: mode === "paper" && whole });
       if ("error" in r) { setError(r.error); return; }
       onClose();
       openTab("PORT");
@@ -82,6 +86,12 @@ export function SavePlanPanel({ bundle, projection, inputs, weights, weightsSour
           <label className="flex items-start gap-2 text-[11px] cursor-pointer">
             <input type="checkbox" checked={fund} onChange={(e) => setFund(e.target.checked)} className="accent-[#ff8c00] mt-0.5" />
             <span>Fund with {fmtMoney(start)} and buy the plan's current targets at the {asOf} close.</span>
+          </label>
+        )}
+        {mode === "paper" && (
+          <label className="flex items-start gap-2 text-[11px] cursor-pointer">
+            <input type="checkbox" checked={whole} onChange={(e) => setWhole(e.target.checked)} className="accent-[#ff8c00] mt-0.5" />
+            <span>Whole shares only, like Paper Orders. <span className="text-term-muted">{buyListSummary(list)}</span></span>
           </label>
         )}
         <div className="text-[11px] text-term-muted">

@@ -2,7 +2,9 @@ import { useState } from "react";
 import { SeriesChart } from "@/components/charts/SeriesChart";
 import { Badge } from "@/components/quant/Badges";
 import { fmtMoney, fmtRate } from "@/lib/format";
-import { rebalanceTrades, TX_LABEL, type PlanSnapshot, type Portfolio, type TxDraft, type Attribution } from "@/quant/tracking";
+import { BuyListTable } from "@/components/quant/BuyListTable";
+import { buyList } from "@/quant/buyList";
+import { closeOn, rebalanceTrades, TX_LABEL, type PlanSnapshot, type Portfolio, type TxDraft, type Attribution } from "@/quant/tracking";
 import type { useTracking } from "@/quant/useTracking";
 import { usePortfolios } from "@/store/portfolioStore";
 
@@ -56,7 +58,7 @@ function PaperActions({ p, original, t }: { p: Portfolio; original: PlanSnapshot
     const e = addTransactions(p.id, [{ date, kind: "contribution", amount: v, fee: 0, note: "Paper contribution" }]);
     setMsg(e.length ? e.join(" ") : `Recorded a ${fmtMoney(v)} contribution on ${date}. Rebalance to invest it.`);
   };
-  const plan = () => { setPreview(rebalanceTrades(p.transactions, panel, targets, date, fee)); setMsg(null); };
+  const plan = () => { setPreview(rebalanceTrades(p.transactions, panel, targets, date, fee, 1, !!p.wholeShares)); setMsg(null); };
   const confirm = () => {
     const e = addTransactions(p.id, preview ?? []);
     setMsg(e.length ? e.join(" ") : `Recorded ${preview!.length} paper trade(s) at the ${date} close.`);
@@ -66,7 +68,7 @@ function PaperActions({ p, original, t }: { p: Portfolio; original: PlanSnapshot
   return (
     <div className="border border-term-border p-3 flex flex-col gap-2 text-[11px]">
       <div className="flex items-center gap-2"><span className="sub-header">Paper actions</span><Badge tone="cyan">Hypothetical</Badge>
-        <span className="text-term-muted">Priced at the {date} adjusted close. Nothing is sent to a broker.</span></div>
+        <span className="text-term-muted">Priced at the {date} adjusted close. Nothing is sent to a broker. {p.wholeShares ? "Whole shares only, like Paper Orders." : "Fractional shares."}</span></div>
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex items-center border border-term-border"><span className="pl-2 text-term-muted">$</span>
           <input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} className="w-24 bg-transparent px-2 py-1 num focus:outline-none" /></span>
@@ -173,7 +175,7 @@ export function OverviewView({ p, snaps, t }: { p: Portfolio; snaps: PlanSnapsho
           <tbody>
             {v.holdings.rows.map((r) => (
               <tr key={r.ticker}>
-                <td>{r.ticker}</td><td className="num text-right">{r.units.toFixed(4)}</td><td className="num text-right">{fmtMoney(r.price, 2)}</td>
+                <td>{r.ticker}</td><td className="num text-right">{p.wholeShares ? r.units.toFixed(0) : r.units.toFixed(4)}</td><td className="num text-right">{fmtMoney(r.price, 2)}</td>
                 <td className="num text-right">{fmtMoney(r.value, 2)}</td><td className="num text-right">{fmtRate(r.weight)}</td>
                 <td className="num text-right">{r.target == null ? "—" : fmtRate(r.target)}</td>
                 <td className="num text-right">{r.target == null || r.weight == null ? "—" : `${((r.weight - r.target) * 100).toFixed(1)} pts`}</td>
@@ -188,6 +190,10 @@ export function OverviewView({ p, snaps, t }: { p: Portfolio; snaps: PlanSnapsho
         </div>
       </div>
 
+      {p.mode === "paper" && !p.wholeShares && t.data?.plan && t.data.holdings?.panel && v.lastDate && v.holdings.total > 0 && (
+        <BuyListTable title={`This plan in whole shares at today's value (${fmtMoney(v.holdings.total)})`}
+          list={buyList(t.data.plan.targets, (x) => closeOn(t.data!.holdings!.panel, x, v.lastDate!), v.holdings.total)} />
+      )}
       {p.mode === "paper" && original && <PaperActions p={p} original={original} t={t} />}
     </div>
   );
