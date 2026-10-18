@@ -1,9 +1,9 @@
 import { SeriesChart } from "@/components/charts/SeriesChart";
 import { Badge, FlagList } from "@/components/quant/Badges";
 import { fmtMoney, fmtRate, fmtRatio } from "@/lib/format";
-import { blendPath, equalWeights, evaluateWeights } from "@/quant/portfolio";
+import { blendPath, equalWeights, evaluateWeights, REBALANCE_LABEL } from "@/quant/portfolio";
 import type { PlanBacktest } from "@/quant/lab";
-import { startingCapital, type LabInputs } from "@/quant/lab";
+import { blendOf, startingCapital, type LabInputs } from "@/quant/lab";
 import type { BacktestBundle } from "@/quant/useLab";
 import { blendReturns } from "@/quant/portfolio";
 import type { Metrics } from "@/quant/types";
@@ -17,12 +17,12 @@ export function BacktestView({ bundle, plan, inputs }: { bundle: BacktestBundle;
   const dates = plan.dates;
   const ids = sleeves.map((s) => s.id);
   const eqW = equalWeights(ids);
-  const eq = blendPath(blendReturns(sleeves, eqW), dates, { initial: startingCapital(inputs), contribution: { amount: inputs.monthly, frequency: inputs.monthly > 0 ? "monthly" : "none" } });
+  const eq = blendPath(blendReturns(sleeves, eqW, blendOf(inputs)), dates, { initial: startingCapital(inputs), contribution: { amount: inputs.monthly, frequency: inputs.monthly > 0 ? "monthly" : "none" } });
   const bench = results[0].benchmark.run;
 
   const rows: Row[] = [
     { label: "Your plan (selected weights)", final: plan.equity[plan.equity.length - 1], contributed: plan.invested[plan.invested.length - 1], metrics: plan.metrics, bold: true },
-    { label: "Equal weight", final: eq.equity[eq.equity.length - 1], contributed: eq.invested[eq.invested.length - 1], metrics: evaluateWeights(sleeves, eqW, inputs.riskFreeRate).metrics },
+    { label: "Equal weight", final: eq.equity[eq.equity.length - 1], contributed: eq.invested[eq.invested.length - 1], metrics: evaluateWeights(sleeves, eqW, inputs.riskFreeRate, 0, undefined, blendOf(inputs)).metrics },
     { label: `${results[0].benchmark.ticker} buy and hold`, final: bench.finalValue, contributed: bench.totalContributed, metrics: bench.metrics },
     ...results.map((r) => ({ label: r.strategy.name, final: r.run.finalValue, contributed: r.run.totalContributed, metrics: r.run.metrics })),
   ];
@@ -57,7 +57,7 @@ export function BacktestView({ bundle, plan, inputs }: { bundle: BacktestBundle;
         </tbody>
       </table>
       <div className="text-[10px] text-term-muted leading-snug">
-        CAGR, volatility, Sharpe and drawdown are time-weighted, so contributions do not count as performance. Your plan blends the strategies as if their weights were restored daily. Dataset {dataset.version.id.slice(0, 8)} · dividend-adjusted · costs {inputs.slippageBps} bps slippage{inputs.fixedFee > 0 ? ` + $${inputs.fixedFee}/trade` : ""} · taxes excluded.
+        CAGR, volatility, Sharpe and drawdown are time-weighted, so contributions do not count as performance. Your plan and the equal-weight mix move money between strategies by the plan's rule ({REBALANCE_LABEL[inputs.rebalance ?? "quarterly"].toLowerCase()}), charged at the slippage below. Dataset {dataset.version.id.slice(0, 8)} · dividend-adjusted · costs {inputs.slippageBps} bps slippage{inputs.fixedFee > 0 ? ` + $${inputs.fixedFee}/trade` : ""} · taxes excluded.
       </div>
       <FlagList flags={[...new Map(results.flatMap((r) => r.flags).map((f) => [f.message, f])).values()]} />
     </div>
