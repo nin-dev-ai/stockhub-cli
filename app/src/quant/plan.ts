@@ -327,6 +327,16 @@ export function suggestPlan(cands: Candidate[], fallLimit: number | null, rf = 0
   return { ids, weights: toWeights(full.pick.w), metrics: full.pick.m, withinLimit: full.within, fallLimit, notes, outOfSample, reasons, topClass };
 }
 
+/** A saved plan's default name from its fall limit, e.g. "Balanced plan, 30% fall limit", numbered when the name is taken. */
+export function defaultPlanName(fallLimit: number, taken: string[]): string {
+  const style = fallLimit < 0.2 ? "Cautious" : fallLimit < 0.35 ? "Balanced" : fallLimit < 0.5 ? "Growth" : "Aggressive";
+  const base = `${style} plan, ${Math.round(fallLimit * 100)}% fall limit`;
+  if (!taken.includes(base)) return base;
+  let k = 2;
+  while (taken.includes(`${base} (${k})`)) k++;
+  return `${base} (${k})`;
+}
+
 /** Rescales the other weights so the total stays 100% when one weight is set. */
 export function setWeight(w: Weights, id: string, value: number): Weights {
   const v = Math.min(1, Math.max(0, value));

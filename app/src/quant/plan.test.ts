@@ -8,7 +8,7 @@ import { currentTargets } from "./backtest";
 import { planTargets } from "./tracking";
 import { withSpread } from "./strategy";
 import { evaluateWeights } from "./portfolio";
-import { alignSleeves, assetClasses, checkPlan, CORE_MIN, fitCandidate, isRedundant, MAX_CLASS, oosVerdict, planHoldings, planRole, setWeight, suggestPlan, topClassOf, type Candidate, type PlanSleeve } from "./plan";
+import { alignSleeves, assetClasses, checkPlan, CORE_MIN, defaultPlanName, fitCandidate, isRedundant, MAX_CLASS, oosVerdict, planHoldings, planRole, setWeight, suggestPlan, topClassOf, type Candidate, type PlanSleeve } from "./plan";
 
 const ds = syntheticDataset(15, 11);
 const run = (id: string) => runBacktestOn(ds, CATALOG_BY_ID[id], SCORECARD_CONFIG);
@@ -186,6 +186,13 @@ describe("candidates and suggestions", () => {
     const s = suggestPlan(cands, 0.001)!;
     expect(s.withinLimit).toBe(false);
     expect(s.notes.join()).toMatch(/shallowest/);
+  });
+  it("names a saved plan from its fall limit and numbers repeats", () => {
+    expect(defaultPlanName(0.3, [])).toBe("Balanced plan, 30% fall limit");
+    expect(defaultPlanName(0.15, [])).toBe("Cautious plan, 15% fall limit");
+    expect(defaultPlanName(0.4, [])).toBe("Growth plan, 40% fall limit");
+    expect(defaultPlanName(0.6, [])).toBe("Aggressive plan, 60% fall limit");
+    expect(defaultPlanName(0.3, ["Balanced plan, 30% fall limit", "Balanced plan, 30% fall limit (2)"])).toBe("Balanced plan, 30% fall limit (3)");
   });
   it("returns nothing without a core", () => {
     expect(suggestPlan(cands.filter((c) => c.role !== "core"), 0.3)).toBeNull();

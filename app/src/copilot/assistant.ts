@@ -280,7 +280,7 @@ function strategy(m: string, s: StrategyContext, focusEvidence: boolean): Answer
 function backtest(m: string, lab: LabContext | null): Answer {
   const c = new Composer("backtest", "Historical backtest of your plan", m);
   if (!lab || lab.backtests.length === 0 || !lab.planMetrics) {
-    c.note("No backtest has been run in the Simulation Lab yet, so there are no results to explain. Run Backtest first.");
+    c.note("No backtest has been run in the Simulation Lab yet, so there are no results to explain. Add strategies to a plan in the Lab; the backtest runs by itself.");
     return c.done();
   }
   const pm = lab.planMetrics, first = lab.backtests[0];
@@ -296,7 +296,7 @@ function optimization(m: string, lab: LabContext | null): Answer {
   const c = new Composer("optimization", "Why these weights", m);
   const o = lab?.optimization;
   if (!lab || !o) {
-    c.note("No optimization result is available. Run Optimize Allocation in the Simulation Lab, then ask again.");
+    c.note("No optimization result is available. Open the Allocation tab in the Simulation Lab, then ask again.");
     return c.done();
   }
   const obj = lab.inputs.objective;
@@ -330,7 +330,7 @@ function projection(m: string, lab: LabContext | null): Answer {
   const c = new Composer("projection", "Your projection, explained", m);
   const p = lab?.projection;
   if (!p) {
-    c.note("No projection has been run. Run Projection in the Simulation Lab to simulate a range of outcomes for your plan.");
+    c.note("No projection has been run. Open the Projection tab in the Simulation Lab, or choose Save Plan, to simulate a range of outcomes for your plan.");
     return c.done();
   }
   c.p(`Method: ${p.input.method === "bootstrap" ? `block bootstrap, resampling ${c.int(p.input.observations)} historical monthly returns in blocks of ${c.int(p.input.blockMonths)} months` : `parametric, drawing from a normal distribution fitted to ${c.int(p.input.observations)} monthly returns`}, ${c.int(p.input.paths)} paths, random seed ${c.int(p.input.seed)}. Data quality: ${p.quality}.`);

@@ -109,7 +109,7 @@ export function AllocationView({ bundle, opt, inputs, weights, weightsSource, ov
           <ul className="text-[10px] text-term-muted list-disc pl-4 space-y-0.5">{opt.notes.map((n) => <li key={n}>{n}</li>)}</ul>
         </>
       ) : (
-        <div className="text-term-muted text-[12px]">Run “Optimize Allocation” to see proposals for each objective next to equal-weight and single-strategy baselines.</div>
+        <div className="text-term-muted text-[12px]">Comparing weightings for each objective with equal-weight and single-strategy baselines…</div>
       )}
 
       <div className="border-t border-term-border pt-3">
