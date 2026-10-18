@@ -4,6 +4,7 @@ import { SeriesChart } from "@/components/charts/SeriesChart";
 import { Badge, EvidenceBadge, FlagList, VerdictBadge } from "@/components/quant/Badges";
 import { MetricsTable, UnavailableNotes } from "@/components/quant/MetricsTable";
 import { fmtMoney, fmtPts, fmtRate, fmtRatio } from "@/lib/format";
+import { crisisFalls, holdingToday, todayLine, tradeOff } from "@/quant/cardFacts";
 import { drawdownSeries } from "@/quant/indicators";
 import { twrIndex } from "@/quant/ranking";
 import { describeRuleParts } from "@/quant/rules";
@@ -243,6 +244,22 @@ export function StrategyDetail({ def, result, draft, unsavedVariant, onSaveVaria
               <div className="sub-header mb-3">Drawdown from prior peak</div>
               <MetricsTable cols={cols} />
               <UnavailableNotes cols={cols} />
+            </Section>
+
+            <Section title="Trade-off, crises and today">
+              <div className="text-[12px] text-term-text mb-2">{tradeOff(def, r)}</div>
+              <table className="w-full grid-data text-[11px] mb-2">
+                <thead><tr><th>Crisis (S&P 500 peak to trough)</th><th className="text-right">This strategy</th><th className="text-right">{r.benchmark.ticker} buy & hold</th></tr></thead>
+                <tbody>{crisisFalls(r.run).map((c, i) => {
+                  const b = crisisFalls(r.benchmark.run)[i];
+                  return (
+                    <tr key={c.id}><td>{c.label} <span className="text-term-muted num">{c.start} → {c.end}</span></td>
+                      <td className="num text-right down">{c.fall == null ? "not covered" : fmtRate(c.fall)}</td>
+                      <td className="num text-right text-term-muted">{b.fall == null ? "not covered" : fmtRate(b.fall)}</td></tr>
+                  );
+                })}</tbody>
+              </table>
+              <div className="text-[11px] text-term-muted"><span className="text-term-amber">Today:</span> {todayLine(holdingToday(def, r))}. From the backtest's last rebalance on prices through {r.window.end}.</div>
             </Section>
 
             {r.spread && <Section title="Spread across ETFs — per-ETF results"><SpreadResults r={r} /></Section>}

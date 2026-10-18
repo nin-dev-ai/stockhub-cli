@@ -3,6 +3,8 @@ import { FlagList } from "@/components/quant/Badges";
 import { MetricsTable, UnavailableNotes } from "@/components/quant/MetricsTable";
 import { twrIndex } from "@/quant/ranking";
 import type { BacktestResult } from "@/quant/service";
+import { CRISES, crisisFalls } from "@/quant/cardFacts";
+import { fmtRate } from "@/lib/format";
 
 const COLORS = ["#ff8c00", "#22ccee", "#22ee22", "#c084fc"];
 
@@ -29,6 +31,13 @@ export function ComparePanel({ results }: { results: BacktestResult[] }) {
       <div className="sub-header">Growth of 100, time-weighted, log scale</div>
       <MetricsTable cols={cols} />
       <UnavailableNotes cols={cols} />
+      <div className="sub-header">Falls in named crises (time-weighted, peak to trough inside each window)</div>
+      <table className="w-full grid-data text-[11px]">
+        <thead><tr><th>Crisis</th>{cols.map((c) => <th key={c.label} className="text-right">{c.label}</th>)}</tr></thead>
+        <tbody>{CRISES.map((cr, i) => (
+          <tr key={cr.id}><td>{cr.label}</td>{cols.map((c) => { const f = crisisFalls(c.run)[i].fall; return <td key={c.label} className="num text-right">{f == null ? "—" : fmtRate(f)}</td>; })}</tr>
+        ))}</tbody>
+      </table>
       <FlagList flags={flags} />
     </div>
   );

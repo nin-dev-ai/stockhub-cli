@@ -41,6 +41,9 @@ test("plan: three S&P 500 strategies are flagged, Build me a plan proposes a mix
   await page.goto("/");
   await open(page, "STRAT");
   await expect(page.getByText(/shared dataset/)).toBeVisible({ timeout: 60_000 });
+  // every card states its trade-off and what it holds today; buy-and-hold SPY is the yardstick
+  await expect(page.getByText(/^The yardstick: every strategy is compared with buying and holding SPY\.$/)).toHaveCount(1, { timeout: 60_000 });
+  await expect(page.getByText(/^Today:/).first()).toBeVisible();
   for (const q of ["Buy and hold", "200-day moving average", "Golden cross"]) {
     await page.getByPlaceholder("Search strategies").fill(q);
     await page.getByTitle("Add to basket").first().click();

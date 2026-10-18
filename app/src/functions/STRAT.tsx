@@ -12,6 +12,7 @@ import { EtfSelect } from "@/components/quant/EtfSelect";
 import { useWorkspace } from "@/store/workspaceStore";
 import { FlagList } from "@/components/quant/Badges";
 import { StrategyCard } from "./strategies/StrategyCard";
+import { isYardstick } from "@/quant/cardFacts";
 import { StrategyDetail } from "./strategies/StrategyDetail";
 import { ComparePanel } from "./strategies/ComparePanel";
 import { DraftEditor } from "./strategies/DraftEditor";
@@ -79,7 +80,9 @@ export function STRAT() {
       .filter((d) => risks.size === 0 || (d.riskLevel != null && risks.has(d.riskLevel)))
       .filter((d) => verdicts.size === 0 || verdicts.has(results[d.id]?.robustness?.verdict ?? "none"))
       .map((d) => ({ d, r: results[d.id] }))
-      .sort((a, b) => compareResults({ name: a.d.name, r: a.r }, { name: b.d.name, r: b.r }, sort));
+      .sort((a, b) => compareResults({ name: a.d.name, r: a.r }, { name: b.d.name, r: b.r }, sort))
+      // the benchmark buy-and-hold stays first as the yardstick whatever the sort
+      .sort((a, b) => Number(isYardstick(b.d)) - Number(isYardstick(a.d)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defs, query, tags, risks, verdicts, draftsOnly, retargetedOnly, sort, results, drafts]);
 
