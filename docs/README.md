@@ -10,8 +10,10 @@
 | [PRD_phase4.md](PRD_phase4.md) | Phase 4: plan builder (roles, what a plan holds, fit checks) and live persona data (EDGAR filings, ARK daily trades); research notes | Phase 4 scope or status change |
 | [PRD_phase5.md](PRD_phase5.md) | Phase 5 (delivered except real-account checks): trustworthy plan numbers (rebalancing, warm-up, out-of-sample), persona signals (copy-test funds, results since the trade, alerts), end-to-end tests and a runnable build | Phase 5 scope or status change |
 | [PRD_phase6.md](PRD_phase6.md) | Phase 6 (proposed): strategies that explain themselves, a plan you can build, save and follow (buy list, to-do list, alerts), personas live without a restart; walkthrough findings | Phase 6 scope or status change |
+| [github_achievements.md](github_achievements.md) | GitHub achievements playbook: account checks, what Phase 6 can legitimately earn, evidence log | An achievement's status, the target account or the rules change |
 | [design.md](design.md) | Interface behavior and visual conventions | Screens or interaction patterns change |
 | [technical_design.md](technical_design.md) | Architecture and implementation map | Data flow, dependencies, or deployment change |
+| [Claude.md](Claude.md) | Instructions for Claude Code and other coding agents, including the push-only-as-nin-dev-ai rule | Agent workflow, git rules or entry points change |
 | [Codex.md](Codex.md) | Working notes and maintenance routine | Project conventions or documentation process change |
 
 The root [README](../README.md) remains the public setup and usage guide. [`AGENTS.md`](../AGENTS.md) tells coding agents to maintain these documents alongside relevant changes.
