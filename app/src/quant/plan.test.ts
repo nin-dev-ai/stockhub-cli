@@ -8,7 +8,7 @@ import { currentTargets } from "./backtest";
 import { planTargets } from "./tracking";
 import { withSpread } from "./strategy";
 import { evaluateWeights } from "./portfolio";
-import { alignSleeves, assetClasses, checkPlan, fitCandidate, isRedundant, oosVerdict, planHoldings, planRole, setWeight, suggestPlan, type Candidate, type PlanSleeve } from "./plan";
+import { alignSleeves, assetClasses, checkPlan, CORE_MIN, fitCandidate, isRedundant, MAX_CLASS, oosVerdict, planHoldings, planRole, setWeight, suggestPlan, topClassOf, type Candidate, type PlanSleeve } from "./plan";
 
 const ds = syntheticDataset(15, 11);
 const run = (id: string) => runBacktestOn(ds, CATALOG_BY_ID[id], SCORECARD_CONFIG);
@@ -149,11 +149,38 @@ describe("candidates and suggestions", () => {
   it("calls an out-of-sample result clearly worse only for a real gap or a broken limit", () => {
     const m = (sharpe: number, dd: number) => ({ ...cands[0].metrics, sharpe, maxDrawdown: dd });
     expect(oosVerdict(m(0.8, -0.2), m(0.8, -0.2), 0.3).clearlyWorse).toBe(false);
-    expect(oosVerdict(m(0.7, -0.2), m(0.8, -0.2), 0.3)).toMatchObject({ clearlyWorse: false, reason: expect.stringMatching(/a little worse/) });
+    expect(oosVerdict(m(0.7, -0.2), m(0.8, -0.2), 0.3)).toMatchObject({ clearlyWorse: false, reason: expect.stringMatching(/a little less per unit of risk/) });
     expect(oosVerdict(m(0.9, -0.2), m(0.8, -0.2), 0.3).reason).toMatch(/as well as or better/);
     expect(oosVerdict(m(0.5, -0.2), m(0.8, -0.2), 0.3)).toMatchObject({ clearlyWorse: true, reason: expect.stringMatching(/Sharpe 0\.50 against 0\.80/) });
     expect(oosVerdict(m(0.9, -0.4), m(0.8, -0.25), 0.3)).toMatchObject({ clearlyWorse: true, reason: expect.stringMatching(/broke your fall limit/) });
     expect(oosVerdict(m(0.9, -0.4), m(0.8, -0.45), 0.3).clearlyWorse).toBe(false);
+  });
+  it("keeps the core as the anchor: at least 40% and never outweighed", () => {
+    for (const limit of [0.2, 0.3, 0.35, 0.5]) {
+      const s = suggestPlan(cands, limit)!;
+      const core = s.ids.find((id) => cands.find((c) => c.id === id)!.role === "core")!;
+      expect(s.weights[core], `limit ${limit}`).toBeGreaterThanOrEqual(CORE_MIN - 1e-9);
+      for (const id of s.ids) expect(s.weights[id]).toBeLessThanOrEqual(s.weights[core] + 1e-9);
+    }
+  });
+  it("keeps every asset class under 60% when a mix inside the limit allows it, and says so when none does", () => {
+    for (const limit of [0.25, 0.3, 0.35]) {
+      const s = suggestPlan(cands, limit)!;
+      const top = topClassOf(s.ids.map((id) => cands.find((c) => c.id === id)!.exposure), s.ids.map((id) => s.weights[id]))!;
+      expect(top.share).toBeCloseTo(s.topClass!.share, 9);
+      if (top.share >= MAX_CLASS - 1e-9) expect(s.notes.join(), `limit ${limit}`).toMatch(/under 60%/);
+    }
+    // the 30% case the walkthrough found ended 85% in US large companies
+    expect(suggestPlan(cands, 0.3)!.topClass!.share).toBeLessThan(MAX_CLASS);
+  });
+  it("gives a reason for every pick", () => {
+    const s = suggestPlan(cands, 0.3)!;
+    for (const id of s.ids) expect(s.reasons[id]).toMatch(/\w/);
+    expect(Object.values(s.reasons).join()).toMatch(/anchor/);
+  });
+  it("names both measures when the out-of-sample Sharpe is lower but growth is higher", () => {
+    const m = (sharpe: number, cagr: number) => ({ ...cands[0].metrics, sharpe, cagr, maxDrawdown: -0.2 });
+    expect(oosVerdict(m(0.87, 0.093), m(0.96, 0.089), 0.3).reason).toMatch(/less per unit of risk.*Sharpe 0\.87 against 0\.96.*grew faster \(CAGR 9\.3% against 8\.9%\)/);
   });
   it("says so when no mix fits the limit, and returns the shallowest", () => {
     const s = suggestPlan(cands, 0.001)!;
