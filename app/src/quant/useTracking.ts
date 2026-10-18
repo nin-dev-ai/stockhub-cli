@@ -31,41 +31,46 @@ async function loadHoldings(tickers: string[]): Promise<{ ds: Dataset | null; un
   return { ds: await loadDataset(ok), unpriced: unpriced.sort() };
 }
 
+/** The job input that identifies one portfolio's refresh: same portfolio, ledger, plan and day share one result. */
+export const trackingInput = (p: Portfolio, original: PlanSnapshot | null) => ({
+  id: p.id, mode: p.mode, txs: p.transactions.map((t) => t.id), snap: original?.id ?? null, day: today(),
+});
+
+/** Prices the holdings and re-runs the plan's strategies on current data, through the shared job queue. */
+export function submitTracking(p: Portfolio, original: PlanSnapshot | null): string {
+  return jobs.submit<TrackingData>("port-refresh", trackingInput(p, original), async (ctx) => {
+    const held = Object.keys(ledgerAt(p.transactions).units);
+    const targetTickers = original ? Object.keys(original.targets) : [];
+    // SPY doubles as the trading calendar for a cash-only record
+    const tickers = [...new Set([...held, ...targetTickers, ...(held.length + targetTickers.length === 0 ? ["SPY"] : [])])].sort();
+    ctx.progress(0.1);
+    const { ds, unpriced } = await loadHoldings(tickers);
+    ctx.progress(0.5); await ctx.tick();
+    let plan: TrackingData["plan"] = null;
+    if (original) {
+      const defs = original.strategies.map((s) => s.definition);
+      const sds = await loadDataset([...new Set(defs.flatMap(requiredTickers))]);
+      const results: BacktestResult[] = [];
+      for (const d of defs) { await ctx.tick(); results.push(runBacktestCached(sds, d, backtestConfig(original.inputs))); }
+      const targets = planTargets(results.map((r) => ({ id: r.strategy.id, run: r.run })), original.weights);
+      const replay = replayPlan(results.map(sleeveOf), original.weights, externalFlows(p.transactions), original.asOf);
+      plan = { results, targets, replay };
+    }
+    ctx.progress(1);
+    return { holdings: ds, unpriced, plan };
+  });
+}
+
 export function useTracking(p: Portfolio | null, snaps: PlanSnapshot[]) {
   useSyncExternalStore(jobs.subscribe, jobs.getVersion);
   const original = snaps[0] ?? null;
   const latest = snaps[snaps.length - 1] ?? null;
 
-  const input = useMemo(() => p && ({
-    id: p.id, mode: p.mode, txs: p.transactions.map((t) => t.id), snap: original?.id ?? null, day: today(),
-  }), [p, original]);
+  const input = useMemo(() => p && trackingInput(p, original), [p, original]);
   const id = input ? jobs.idFor("port-refresh", input) : null;
   const job = id ? jobs.get<TrackingData>(id) : undefined;
 
-  const refresh = useCallback(() => {
-    if (!p || !input) return null;
-    return jobs.submit<TrackingData>("port-refresh", input, async (ctx) => {
-      const held = Object.keys(ledgerAt(p.transactions).units);
-      const targetTickers = original ? Object.keys(original.targets) : [];
-      // SPY doubles as the trading calendar for a cash-only record
-      const tickers = [...new Set([...held, ...targetTickers, ...(held.length + targetTickers.length === 0 ? ["SPY"] : [])])].sort();
-      ctx.progress(0.1);
-      const { ds, unpriced } = await loadHoldings(tickers);
-      ctx.progress(0.5); await ctx.tick();
-      let plan: TrackingData["plan"] = null;
-      if (original) {
-        const defs = original.strategies.map((s) => s.definition);
-        const sds = await loadDataset([...new Set(defs.flatMap(requiredTickers))]);
-        const results: BacktestResult[] = [];
-        for (const d of defs) { await ctx.tick(); results.push(runBacktestCached(sds, d, backtestConfig(original.inputs))); }
-        const targets = planTargets(results.map((r) => ({ id: r.strategy.id, run: r.run })), original.weights);
-        const replay = replayPlan(results.map(sleeveOf), original.weights, externalFlows(p.transactions), original.asOf);
-        plan = { results, targets, replay };
-      }
-      ctx.progress(1);
-      return { holdings: ds, unpriced, plan };
-    });
-  }, [p, input, original]);
+  const refresh = useCallback(() => (p && input ? submitTracking(p, original) : null), [p, input, original]);
 
   const data = job?.result;
   const view = useMemo(() => {

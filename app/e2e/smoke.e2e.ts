@@ -63,6 +63,8 @@ test("plan: three S&P 500 strategies are flagged, Build me a plan proposes a mix
   await page.getByRole("button", { name: "Save plan", exact: true }).click();
   await expect(page.getByText("Balanced plan, 30% fall limit").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "Plan vs Observed" })).toBeVisible();
+  await expect(page.getByText("What needs doing")).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("Alert me when a plan needs something")).toBeVisible();
   expect(errors).toEqual([]);
 });
 

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { usePlanAlerts } from "@/store/planAlertStore";
+import { PLAN_WATCH_MINUTES } from "@/components/PlanWatcher";
 import { cn } from "@/lib/cn";
 import type { Portfolio } from "@/quant/tracking";
 import { usePortfolios } from "@/store/portfolioStore";
@@ -63,7 +65,31 @@ export function PortfolioList({ portfolios, selected, onSelect, onBroker, broker
       ) : (
         <button onClick={() => setOpen(true)} className="self-start text-[11px] text-term-muted hover:text-term-amber">+ Record existing holdings</button>
       )}
-      <div className="mt-auto text-[10px] text-term-muted leading-snug">Stored in this browser only. Reading IBKR is read-only; paper orders are sent only from Paper Orders, after your confirmation.</div>
+      <PlanAlertsToggle />
+      <div className="text-[10px] text-term-muted leading-snug">Stored in this browser only. Reading IBKR is read-only; paper orders are sent only from Paper Orders, after your confirmation.</div>
     </aside>
+  );
+}
+
+function PlanAlertsToggle() {
+  const { alerts, setAlerts } = usePlanAlerts();
+  const supported = typeof Notification !== "undefined";
+  const [perm, setPerm] = useState(supported ? Notification.permission : "denied");
+  const turnOn = async (on: boolean) => {
+    setAlerts(on);
+    if (on && supported && Notification.permission === "default") setPerm(await Notification.requestPermission());
+  };
+  return (
+    <div className="mt-auto border-t border-term-border pt-2 flex flex-col gap-1 text-[11px]">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" checked={alerts} onChange={(e) => void turnOn(e.target.checked)} className="accent-[#ff8c00]" />
+        Alert me when a plan needs something
+      </label>
+      <div className="text-[10px] text-term-muted leading-snug">
+        {!alerts ? `Checks saved plans when StockHub opens and every ${PLAN_WATCH_MINUTES} minutes: signal switches, rebalances due, drift past 5 points, contributions due.`
+          : !supported || perm === "denied" ? "Notifications are unavailable or blocked; the count still shows in the tab title."
+          : perm === "granted" ? "On: one notification per new item and a count in the tab title." : "Waiting for the browser's permission."}
+      </div>
+    </div>
   );
 }

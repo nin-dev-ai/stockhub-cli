@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { TodoPanel } from "./TodoPanel";
 import { SeriesChart } from "@/components/charts/SeriesChart";
 import { Badge } from "@/components/quant/Badges";
 import { fmtMoney, fmtRate } from "@/lib/format";
@@ -42,13 +43,27 @@ function AttributionTable({ a }: { a: Attribution }) {
   );
 }
 
-function PaperActions({ p, original, t }: { p: Portfolio; original: PlanSnapshot; t: ReturnType<typeof useTracking> }) {
+type PaperRequest = { kind: "rebalance" } | { kind: "contribute"; amount: number };
+
+function PaperActions({ p, original, t, request }: { p: Portfolio; original: PlanSnapshot; t: ReturnType<typeof useTracking>; request: { r: PaperRequest; n: number } | null }) {
   const addTransactions = usePortfolios((s) => s.addTransactions);
   const panel = t.data?.holdings?.panel;
   const date = t.view?.lastDate;
   const [amount, setAmount] = useState(String(original.inputs.monthly || 100));
   const [preview, setPreview] = useState<TxDraft[] | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  // a to-do row asks for a rebalance preview or a contribution
+  useEffect(() => {
+    if (!request || !panel || !date || !t.data?.plan) return;
+    if (request.r.kind === "rebalance") { setPreview(rebalanceTrades(p.transactions, panel, t.data.plan.targets, date, original.inputs.fixedFee, 1, !!p.wholeShares)); setMsg(null); }
+    else {
+      const e = addTransactions(p.id, [{ date, kind: "contribution", amount: request.r.amount, fee: 0, note: "Paper contribution" }]);
+      setMsg(e.length ? e.join(" ") : `Recorded a ${fmtMoney(request.r.amount)} contribution on ${date}. Rebalance to invest it.`);
+    }
+    box.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.n]);
   if (!panel || !date || !t.data?.plan) return null;
   const targets = t.data.plan.targets;
   const fee = original.inputs.fixedFee;
@@ -66,7 +81,7 @@ function PaperActions({ p, original, t }: { p: Portfolio; original: PlanSnapshot
   };
 
   return (
-    <div className="border border-term-border p-3 flex flex-col gap-2 text-[11px]">
+    <div ref={box} className="border border-term-border p-3 flex flex-col gap-2 text-[11px]">
       <div className="flex items-center gap-2"><span className="sub-header">Paper actions</span><Badge tone="cyan">Hypothetical</Badge>
         <span className="text-term-muted">Priced at the {date} adjusted close. Nothing is sent to a broker. {p.wholeShares ? "Whole shares only, like Paper Orders." : "Fractional shares."}</span></div>
       <div className="flex flex-wrap items-center gap-2">
@@ -100,6 +115,8 @@ function PaperActions({ p, original, t }: { p: Portfolio; original: PlanSnapshot
 export function OverviewView({ p, snaps, t }: { p: Portfolio; snaps: PlanSnapshot[]; t: ReturnType<typeof useTracking> }) {
   const v = t.view;
   const original = snaps[0];
+  const [request, setRequest] = useState<{ r: PaperRequest; n: number } | null>(null);
+  const ask = (r: PaperRequest) => setRequest((x) => ({ r, n: (x?.n ?? 0) + 1 }));
   if (t.job?.status === "failed") return <div role="alert" className="text-term-red text-[12px]">Prices could not be loaded: {t.job.error}. Use Retry above; the ledger and snapshots are still available.</div>;
   if (!v) return <div className="text-term-muted text-[12px]">{p.transactions.length === 0 && !original ? "Add entries on the Ledger tab to start tracking." : "Loading prices…"}</div>;
 
@@ -111,6 +128,7 @@ export function OverviewView({ p, snaps, t }: { p: Portfolio; snaps: PlanSnapsho
   return (
     <div className="flex flex-col gap-4">
       {v.unpriced.length > 0 && <div role="alert" className="text-term-amberBright text-[11px]">No price data for {v.unpriced.join(", ")}; their value is left out of the totals.</div>}
+      {original && <TodoPanel p={p} original={original} t={t} onRebalance={() => ask({ kind: "rebalance" })} onContribute={(amount) => ask({ kind: "contribute", amount })} />}
       <div className="grid grid-cols-4 gap-3 text-[11px]">
         <Tile label="Current value" value={fmtMoney(v.holdings.total)} note={p.mode === "paper" ? "Paper valuation" : "Manually reported holdings at market closes"} />
         <Tile label="Net contributed" value={fmtMoney(last?.contributed ?? 0)} note="Contributions and transfers in, less withdrawals" />
@@ -194,7 +212,7 @@ export function OverviewView({ p, snaps, t }: { p: Portfolio; snaps: PlanSnapsho
         <BuyListTable title={`This plan in whole shares at today's value (${fmtMoney(v.holdings.total)})`}
           list={buyList(t.data.plan.targets, (x) => closeOn(t.data!.holdings!.panel, x, v.lastDate!), v.holdings.total)} />
       )}
-      {p.mode === "paper" && original && <PaperActions p={p} original={original} t={t} />}
+      {p.mode === "paper" && original && <PaperActions p={p} original={original} t={t} request={request} />}
     </div>
   );
 }

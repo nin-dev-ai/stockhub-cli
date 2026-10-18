@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { fetchLiveFeed, SEC_CONFIGURED } from "@/lib/edgar";
-import { batchNotifications, newAlerts, titleWithCount } from "@/quant/alerts";
+import { batchNotifications, newAlerts } from "@/quant/alerts";
 import { edgarCiks } from "@/quant/personas";
 import { allPersonas, usePersonas } from "@/store/personaStore";
+import { useTitleCounts } from "@/store/titleStore";
 
-const BASE_TITLE = "StockHub";
 export const WATCH_MINUTES = 10;
 
 /**
@@ -25,9 +25,10 @@ export function PersonaWatcher() {
     })),
   });
   const stamp = qs.map((q) => q.dataUpdatedAt).join("|");
+  const setCount = useTitleCounts((s) => s.setCount);
 
   useEffect(() => {
-    if (!alerts) { document.title = BASE_TITLE; return; }
+    if (!alerts) { setCount("personas", 0); return; }
     const done = new Set(notified);
     let unseen = 0;
     const fresh: ReturnType<typeof newAlerts> = [];
@@ -41,7 +42,7 @@ export function PersonaWatcher() {
       unseen += newAlerts(p.id, p.name, feed.events, seen[p.id], new Set()).length;
       fresh.push(...newAlerts(p.id, p.name, feed.events, seen[p.id], done));
     });
-    document.title = titleWithCount(BASE_TITLE, unseen);
+    setCount("personas", unseen);
     if (!fresh.length) return;
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       for (const n of batchNotifications(fresh)) new Notification(n.title, { body: n.body, tag: n.tag });
