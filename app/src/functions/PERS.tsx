@@ -5,6 +5,7 @@ import { ExternalLink, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { fetchForm13F, fetchInsiderTrades } from "@/lib/api";
 import { fetchHouseMember, fetchRecentHouseFilings, type HouseMemberData } from "@/lib/house";
+import { ageOf, cachedQuery } from "@/lib/queryCache";
 import { fetchLiveFeed, SEC_CONFIGURED, useSecLive, validSecContact, type LiveFeed } from "@/lib/edgar";
 import { WATCH_MINUTES } from "@/components/PersonaWatcher";
 import { ageText } from "@/quant/edgar";
@@ -77,6 +78,14 @@ function ArkLine({ d }: { d: PersonaData }) {
       {a.failedFunds.length > 0 && <div className="text-term-amberBright">No data for {a.failedFunds.join(", ")}.</div>}
     </div>
   );
+}
+
+/** For a card with no buys or sells: the newest reported transaction of any kind and its age, or the window searched. */
+export function lastActivity(trades: { date: string | null; filed: string | null; action: string }[], now: number, live: boolean): string {
+  const dated = trades.map((t) => ({ d: t.date ?? t.filed, a: t.action })).filter((x): x is { d: string; a: string } => !!x.d).sort((x, y) => y.d.localeCompare(x.d));
+  if (!dated.length) return `No transactions by this name in the filings loaded (${live ? "the last 120 days of SEC filings" : "about the last four months"}).`;
+  const days = Math.max(0, Math.round((now - Date.parse(dated[0].d)) / 864e5));
+  return `No open-market buys or sells lately. Last reported: ${dated[0].a.toLowerCase()} on ${dated[0].d} (${days} day${days === 1 ? "" : "s"} ago).`;
 }
 
 const utc = (iso: string) => iso.slice(0, 16).replace("T", " ");
@@ -244,22 +253,23 @@ export function PERS() {
   const baseActive = active.filter((p) => !(hasLive(p) && p.source.kind === "insider"));
   const sources = [...new Map(baseActive.map((p) => [sourceKey(p), p.source])).entries()];
   const liveActive = active.filter(hasLive);
+  // filings read so far per persona, for the card's "reading filings 12/30" line
+  const [progress, setProgress] = useState<Record<string, { done: number; total: number }>>({});
   const liveQueries = useQueries({
     queries: liveActive.map((p) => ({
-      queryKey: ["persona-live", p.id, edgarCiks(p).join(",")],
-      queryFn: () => fetchLiveFeed(edgarCiks(p)),
+      ...cachedQuery(["persona-live", p.id, edgarCiks(p).join(",")], () =>
+        fetchLiveFeed(edgarCiks(p), new Date(), fetch, (done, total) => setProgress((x) => ({ ...x, [p.id]: { done, total } })))),
       staleTime: 4 * 60_000, refetchInterval: 5 * 60_000, retry: 1,
     })),
   });
   const liveBy = Object.fromEntries(liveActive.map((p, i) => [p.id, liveQueries[i]]));
   const arkActive = active.filter((p) => p.daily === "ark");
-  const arkQuery = useQuery({ queryKey: ["persona-ark"], queryFn: () => fetchArkFeed(), enabled: arkActive.length > 0, staleTime: 10 * 60_000, refetchInterval: 15 * 60_000, retry: 1 });
+  const arkQuery = useQuery({ ...cachedQuery(["persona-ark"], () => fetchArkFeed()), enabled: arkActive.length > 0, staleTime: 10 * 60_000, refetchInterval: 15 * 60_000, retry: 1 });
   const liveStamp = liveQueries.map((q) => `${q.dataUpdatedAt}${q.status}`).join("|");
 
   const queries = useQueries({
     queries: sources.map(([key, src]) => ({
-      queryKey: ["persona-source", key],
-      queryFn: (): Promise<Record<string, unknown>[] | HouseMemberData> => (src.kind === "fund" ? fetchForm13F(src.cik) : src.kind === "house" ? fetchHouseMember(src.key) : fetchInsiderTrades(src.symbol)),
+      ...cachedQuery(["persona-source", key], (): Promise<Record<string, unknown>[] | HouseMemberData> => (src.kind === "fund" ? fetchForm13F(src.cik) : src.kind === "house" ? fetchHouseMember(src.key) : fetchInsiderTrades(src.symbol))),
       staleTime: 6 * 3600_000,
       retry: 1,
     })),
@@ -442,8 +452,17 @@ export function PERS() {
                       </span>
                     </div>
                     <div className="text-[10px] text-term-muted">{p.role}</div>
+                    {(() => {
+                      // how old what is on the card is, and whether a refresh is running behind it
+                      const qs = [bySource[sourceKey(p)], liveBy[p.id], p.daily === "ark" ? arkQuery : undefined].filter((q) => q && q.dataUpdatedAt > 0);
+                      if (!qs.length) return null;
+                      const at = Math.min(...qs.map((q) => q!.dataUpdatedAt));
+                      const pr = progress[p.id];
+                      const busy = qs.some((q) => q!.isFetching);
+                      return <div className="text-[10px] text-term-muted">Updated {ageOf(at, today)}{busy ? (pr && pr.done < pr.total ? ` · refreshing, filings ${pr.done}/${pr.total}` : " · refreshing…") : ""}</div>;
+                    })()}
                     {d?.error ? <div className="text-[11px] text-term-red mt-1">Could not load: {d.error}</div>
-                      : !d || d.loading ? <div className="text-[11px] text-term-muted mt-1">Loading…</div>
+                      : !d || d.loading ? <div className="text-[11px] text-term-muted mt-1">{progress[p.id] && progress[p.id].total > 0 ? `Reading filings ${progress[p.id].done}/${progress[p.id].total}…` : "Loading…"}</div>
                       : (
                         <div className="mt-1 text-[11px] grid grid-cols-3 gap-1">
                           {p.source.kind === "fund" ? (
@@ -487,7 +506,7 @@ export function PERS() {
                               <div><div className="sub-header">Trades</div><div className="num">{s.trades}</div></div>
                               <div><div className="sub-header">Buy / sell</div><div className="num"><span className="up">{s.buys}</span> / <span className="down">{s.sells}</span></div></div>
                               <div><div className="sub-header">Latest</div><div className="num">{s.latest ?? "n/a"}</div></div>
-                              {s.trades === 0 && <div className="col-span-3 text-term-muted leading-snug">No buys or sells by this name in the filings loaded (about the last four months).</div>}
+                              {s.trades === 0 && <div className="col-span-3 text-term-muted leading-snug">{lastActivity(d.trades, today, hasLive(p))}</div>}
                               {s.buys > 0 && (
                                 <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setCopyFor(copyFor === p.id ? null : p.id); }}
                                   onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setCopyFor(copyFor === p.id ? null : p.id); } }}

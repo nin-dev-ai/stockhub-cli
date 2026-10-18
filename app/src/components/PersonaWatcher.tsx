@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { fetchLiveFeed, useSecLive } from "@/lib/edgar";
+import { cachedQuery } from "@/lib/queryCache";
 import { batchNotifications, newAlerts } from "@/quant/alerts";
 import { edgarCiks } from "@/quant/personas";
 import { allPersonas, usePersonas } from "@/store/personaStore";
@@ -19,8 +20,7 @@ export function PersonaWatcher() {
   const watched = useMemo(() => (live ? allPersonas(custom).filter((p) => followed.includes(p.id) && edgarCiks(p).length > 0) : []), [custom, followed, live]);
   const qs = useQueries({
     queries: watched.map((p) => ({
-      queryKey: ["persona-live", p.id, edgarCiks(p).join(",")],
-      queryFn: () => fetchLiveFeed(edgarCiks(p)),
+      ...cachedQuery(["persona-live", p.id, edgarCiks(p).join(",")], () => fetchLiveFeed(edgarCiks(p))),
       enabled: alerts, staleTime: 4 * 60_000,
       refetchInterval: alerts ? WATCH_MINUTES * 60_000 : false as const, refetchIntervalInBackground: true, retry: 1,
     })),
