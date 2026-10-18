@@ -2,7 +2,7 @@
 
 **Document:** Phase 6 plan and walkthrough findings
 **Version:** 0.1 (proposed) · **Date:** 18 October 2026
-**Status:** Proposed; nothing built yet. Decisions in [Section 7](#7-decisions-needed).
+**Status:** In progress, see [Section 8](#8-delivery-status). Issues #25–#36 and #41. Defaults from [Section 7](#7-decisions-needed) are used until the owner decides otherwise.
 **Starting point:** Phase 5 ([PRD_phase5.md](PRD_phase5.md)).
 
 ---
@@ -153,3 +153,15 @@ Fixes R1 and R2.
 | 5 | Default starting amount ($200) | Raise to $1,000 so a whole-share buy list is possible, or keep $200 and show the minimum |
 
 Out of scope: new data sources, Senate trades, live trading, the heavier ML4T items (Deflated Sharpe, HRP, regimes). They can come back once these flows are solid.
+
+## 8. Delivery status
+
+| Item | Status |
+| --- | --- |
+| L3 rebalancing note | Delivered (`c74c975`, straight to main) |
+| P-1 roles-aware builder (#25) | Delivered, PR #37: core ≥ 40% and largest, asset classes under 60% where possible, a reason per pick, both measures named in the out-of-sample sentence |
+| P-2 guided save (#26) | Delivered, PR #38: Save in one click, named plans, step line, ETF controls folded |
+| S-1 trade-off and crises (#27), S-2 Today line (#28) | Delivered, PR #40 |
+| One screen at a time (#41, owner request) | Delivered, PR #42: no tab per screen |
+| Achievements playbook | [github_achievements.md](github_achievements.md), PR #39 |
+| P-3 to P-5, R-1 to R-4, S-3 to S-5 (#29–#36) | Open |
