@@ -4,6 +4,7 @@ import { fmtPts, fmtRate, fmtRatio } from "@/lib/format";
 import type { StrategyDef } from "@/quant/strategy";
 import type { BacktestResult } from "@/quant/service";
 import { Badge, EvidenceBadge, VerdictBadge } from "@/components/quant/Badges";
+import { holdingToday, isYardstick, todayLine, tradeOff } from "@/quant/cardFacts";
 
 interface Props {
   def: StrategyDef;
@@ -64,6 +65,12 @@ export function StrategyCard({ def, result, error, draft, variant, inBasket, sel
           <Stat k={`vs ${def.benchmark}`} v={fmtPts(ex!.cagr)} tone={ex!.cagr == null ? undefined : ex!.cagr >= 0 ? "up" : "down"} title="CAGR minus the benchmark's CAGR" />
           <Stat k="Max DD" v={fmtRate(m!.maxDrawdown)} tone="down" />
           <Stat k="Sharpe" v={fmtRatio(m!.sharpe)} />
+        </div>
+      )}
+      {result && (
+        <div className="px-3 pb-2 flex flex-col gap-0.5 text-[11px] leading-snug">
+          <div className={isYardstick(def) ? "text-term-cyan" : "text-term-text"}>{tradeOff(def, result)}</div>
+          <div className="text-term-muted" title="From the last rebalance in the backtest, using prices through its end date"><span className="text-term-amber">Today:</span> {todayLine(holdingToday(def, result))}</div>
         </div>
       )}
       {result && (
