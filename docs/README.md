@@ -2,6 +2,8 @@
 
 | File | Purpose | Update when |
 | --- | --- | --- |
+| [FEATURES.md](FEATURES.md) | Detailed user-facing features, commands, data sources, and known limits | Screens, commands, data coverage, or user-facing limitations change |
+| [DEMO_SCRIPT.md](DEMO_SCRIPT.md) | Draft video walkthrough and shot list | Product demo flow changes |
 | [PRD.md](PRD.md) | Product goals, users, and current requirements | Capabilities or product scope change |
 | [PRD_phase2.md](PRD_phase2.md) | Phase 2 strategy terminal: requirements, recorded decisions, delivery status | Phase 2 scope, decisions or milestone status change |
 | [PRD_phase3.md](PRD_phase3.md) | Phase 3 plan (proposed): strategies across several ETFs, House members' trades, copy-trade backtests, IBKR read-only and paper orders; research notes | Phase 3 scope, decisions or milestone status change |
