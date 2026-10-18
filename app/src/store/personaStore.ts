@@ -18,6 +18,9 @@ interface PersonaState {
   /** Filings already notified, so none is announced twice. */
   notified: string[];
   addNotified: (keys: string[]) => void;
+  /** Name and email for the SEC's User-Agent rule, typed in Personas; sent only to the local proxy. Empty when not set. */
+  secContact: string;
+  setSecContact: (v: string) => void;
   toggle: (id: string) => void;
   follow: (id: string) => void;
   addCustom: (p: Persona) => void;
@@ -30,6 +33,8 @@ export const usePersonas = create<PersonaState>()(
       followed: ["buffett", "huang"],
       custom: [],
       seen: {},
+      secContact: "",
+      setSecContact: (v) => set({ secContact: v.trim() }),
       alerts: false,
       setAlerts: (on) => set({ alerts: on }),
       muted: [],

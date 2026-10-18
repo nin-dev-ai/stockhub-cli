@@ -1,10 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { defines, featureLines, proxyTable, readEnv } from "../stockhub.config";
+import { defines, featureLines, proxyTable, readEnv, SEC_CONTACT_HEADER, secUserAgent, validSecContact } from "../stockhub.config";
 
 describe("local server configuration", () => {
+  it("takes the SEC contact from the environment, else from a valid contact the browser sent, else refuses", () => {
+    const off = readEnv({});
+    const on = readEnv({ STOCKHUB_SEC_CONTACT: "Jane Doe jane@example.com" });
+    expect(secUserAgent(on, "Someone Else x@y.com")).toBe("StockHub/1 (Jane Doe jane@example.com)");
+    expect(secUserAgent(off, "Sam Lee sam@example.com")).toBe("StockHub/1 (Sam Lee sam@example.com)");
+    expect(secUserAgent(off, ["Sam Lee sam@example.com"])).toBe("StockHub/1 (Sam Lee sam@example.com)");
+    expect(secUserAgent(off, undefined)).toBeNull();
+    for (const bad of ["no email here", "a@b", "Sam\r\nX-Evil: 1 sam@example.com", "x".repeat(130) + " a@b.co", ""]) expect(validSecContact(bad), bad).toBeNull();
+    // the route always exists; without any contact it answers 404 locally
+    const bypass = proxyTable(off)["/sec/data"].bypass!;
+    expect(bypass({ headers: {} } as never, undefined as never, {} as never)).toBe(false);
+    expect(bypass({ headers: { [SEC_CONTACT_HEADER]: "Sam Lee sam@example.com" } } as never, undefined as never, {} as never)).toBeUndefined();
+  });
+
   it("turns optional features on only with their settings, and keeps secrets out of the browser flags", () => {
     const off = readEnv({});
-    expect(Object.keys(proxyTable(off))).not.toContain("/sec/data");
     expect(Object.keys(proxyTable(off))).not.toContain("/llm/v1/messages");
     const on = readEnv({ STOCKHUB_SEC_CONTACT: " Jane Doe jane@example.com ", STOCKHUB_LLM_KEY: "sk-secret", IBKR_GATEWAY_URL: "https://localhost:5001" });
     expect(on.secUa).toBe("StockHub/1 (Jane Doe jane@example.com)");

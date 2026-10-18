@@ -5,7 +5,7 @@ import { ExternalLink, Search } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { fetchForm13F, fetchInsiderTrades } from "@/lib/api";
 import { fetchHouseMember, fetchRecentHouseFilings, type HouseMemberData } from "@/lib/house";
-import { fetchLiveFeed, SEC_CONFIGURED, type LiveFeed } from "@/lib/edgar";
+import { fetchLiveFeed, SEC_CONFIGURED, useSecLive, validSecContact, type LiveFeed } from "@/lib/edgar";
 import { WATCH_MINUTES } from "@/components/PersonaWatcher";
 import { ageText } from "@/quant/edgar";
 import { fetchArkFeed } from "@/lib/ark";
@@ -142,9 +142,43 @@ function HouseSearch() {
   );
 }
 
+/**
+ * Live SEC filings need a name and email in the SEC's User-Agent. Without STOCKHUB_SEC_CONTACT the user can
+ * type one here: it is kept in this browser and sent only to StockHub's local server, which passes it to sec.gov.
+ */
+function SecContact() {
+  const { secContact, setSecContact } = usePersonas();
+  const [draft, setDraft] = useState(secContact);
+  const [editing, setEditing] = useState(!validSecContact(secContact));
+  const ok = validSecContact(draft);
+  if (!editing) {
+    return (
+      <div className="border border-term-greenDim p-2 text-[11px] text-term-text flex flex-wrap items-center gap-2">
+        <span className="text-term-green">Live SEC filings on.</span>
+        <span className="text-term-muted">Contact sent to sec.gov: {secContact}</span>
+        <button onClick={() => setEditing(true)} className="text-term-amber hover:underline">Change</button>
+        <button onClick={() => { setSecContact(""); setDraft(""); setEditing(true); }} className="text-term-muted hover:text-term-red">Turn off</button>
+      </div>
+    );
+  }
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (ok) { setSecContact(draft); setEditing(false); } }}
+      className="border border-term-amberDim p-2 text-[11px] text-term-amberBright leading-snug flex flex-col gap-1.5">
+      <div>Showing quarterly filings only. Live SEC filings (insider trades within days, large-holder reports) need your name and email in the SEC's User-Agent rule.</div>
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Your Name you@example.com" aria-label="Name and email for the SEC"
+          className="w-72 bg-term-bg border border-term-border px-2 py-0.5 text-term-text placeholder:text-term-muted focus:outline-none focus:border-term-amberDim" />
+        <button type="submit" disabled={!ok} className="px-2 py-0.5 border border-term-amber text-term-amber hover:bg-term-amberSubtle disabled:opacity-30">Turn on live filings</button>
+      </div>
+      <div className="text-[10px] text-term-muted">Kept in this browser and sent only to StockHub's local server, which passes it to sec.gov. Setting STOCKHUB_SEC_CONTACT on the server works too and takes precedence.</div>
+    </form>
+  );
+}
+
 /** Browser notifications for new SEC filings by followed personas, with the browser's permission. */
 function AlertsToggle() {
   const { alerts, setAlerts } = usePersonas();
+  const live = useSecLive();
   const supported = typeof Notification !== "undefined";
   const [perm, setPerm] = useState(supported ? Notification.permission : "denied");
   const turnOn = async (on: boolean) => {
@@ -154,11 +188,11 @@ function AlertsToggle() {
   return (
     <div className="border-t border-term-border pt-2 flex flex-col gap-1 text-[11px]">
       <label className="flex items-center gap-2 cursor-pointer">
-        <input type="checkbox" checked={alerts} disabled={!SEC_CONFIGURED} onChange={(e) => void turnOn(e.target.checked)} className="accent-[#ff8c00]" />
+        <input type="checkbox" checked={alerts} disabled={!live} onChange={(e) => void turnOn(e.target.checked)} className="accent-[#ff8c00]" />
         Alert me to new filings
       </label>
       <div className="text-[10px] text-term-muted leading-snug">
-        {!SEC_CONFIGURED ? "Needs live SEC filings (STOCKHUB_SEC_CONTACT)."
+        {!live ? "Needs live SEC filings: turn them on with your name and email above the cards."
           : !alerts ? `Checks followed personas every ${WATCH_MINUTES} minutes while StockHub is open in any tab.`
           : !supported ? "This browser has no notifications; the count shows in the tab title."
           : perm === "denied" ? "Notifications are blocked for this site; the count still shows in the tab title. Allow them in the browser's site settings."
@@ -204,7 +238,8 @@ export function PERS() {
   const { followed, custom, toggle, removeCustom } = usePersonas();
   const personas = useMemo(() => allPersonas(custom), [custom]);
   const active = personas.filter((p) => followed.includes(p.id));
-  const hasLive = (p: Persona) => SEC_CONFIGURED && edgarCiks(p).length > 0;
+  const live = useSecLive();
+  const hasLive = (p: Persona) => live && edgarCiks(p).length > 0;
   // insiders with SEC identities are read live (all history, to the second) instead of the provider's four-month window
   const baseActive = active.filter((p) => !(hasLive(p) && p.source.kind === "insider"));
   const sources = [...new Map(baseActive.map((p) => [sourceKey(p), p.source])).entries()];
@@ -383,11 +418,7 @@ export function PERS() {
 
         <div className="flex-1 overflow-auto scroll-thin p-4 flex flex-col gap-4">
           {active.length === 0 && <div className="text-term-muted text-[12px]">Tick a persona on the left to see their trades.</div>}
-          {!SEC_CONFIGURED && active.some((p) => edgarCiks(p).length > 0) && (
-            <div className="border border-term-amberDim p-2 text-[11px] text-term-amberBright leading-snug">
-              Showing quarterly filings only. Live SEC filings (insider trades within days, large-holder reports) need a contact in the SEC's User-Agent rule: restart StockHub with <span className="num">STOCKHUB_SEC_CONTACT=&quot;Your Name you@example.com&quot; ./start.sh</span>. It is sent only to sec.gov.
-            </div>
-          )}
+          {!SEC_CONFIGURED && active.some((p) => edgarCiks(p).length > 0) && <SecContact />}
 
           {active.length > 0 && (
             <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>

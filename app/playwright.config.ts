@@ -6,6 +6,8 @@ import { existsSync } from "node:fs";
 const LOCAL_CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const useLocalChrome = !process.env.CI && existsSync(LOCAL_CHROME);
 const PORT = 5179;
+/** A second server without STOCKHUB_SEC_CONTACT, for the contact typed into Personas. */
+export const NO_CONTACT_PORT = 5181;
 
 export default defineConfig({
   testDir: "e2e",
@@ -22,7 +24,7 @@ export default defineConfig({
     trace: "retain-on-failure",
     ...(useLocalChrome ? { headless: false, launchOptions: { executablePath: LOCAL_CHROME, args: ["--headless=new"] } } : {}),
   },
-  webServer: {
+  webServer: [{
     // every backend request is answered by fixtures in the browser (e2e/backends.ts), so nothing here
     // reaches the network; the contact only switches the live-filings feature on
     command: `npx vite --port ${PORT} --strictPort`,
@@ -30,5 +32,11 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
     env: { STOCKHUB_SEC_CONTACT: "StockHub e2e e2e@example.invalid", STOCKHUB_API_URL: "http://127.0.0.1:9" },
-  },
+  }, {
+    command: `npx vite --port ${NO_CONTACT_PORT} --strictPort`,
+    url: `http://localhost:${NO_CONTACT_PORT}`,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+    env: { STOCKHUB_SEC_CONTACT: "", STOCKHUB_API_URL: "http://127.0.0.1:9" },
+  }],
 });

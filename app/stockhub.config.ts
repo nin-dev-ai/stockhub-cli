@@ -27,8 +27,38 @@ export function readEnv(env: NodeJS.ProcessEnv = process.env): StockhubEnv {
   };
 }
 
+/** The browser sends a contact typed into Personas in this header; the proxy turns it into the SEC User-Agent and drops it. */
+export const SEC_CONTACT_HEADER = "x-stockhub-sec-contact";
+
+/** A usable contact: a name and an email address on one line, under 120 characters. */
+export function validSecContact(v: unknown): string | null {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (!s || s.length > 120 || /[\r\n]/.test(s) || !/[^\s@]+@[^\s@]+\.[^\s@]+/.test(s)) return null;
+  return s;
+}
+
+/** The SEC User-Agent for one request: the environment's contact, else the one the browser sent, else none. */
+export const secUserAgent = (e: Pick<StockhubEnv, "secUa">, headerValue: unknown): string | null => {
+  if (e.secUa) return e.secUa;
+  const c = validSecContact(Array.isArray(headerValue) ? headerValue[0] : headerValue);
+  return c ? `StockHub/1 (${c})` : null;
+};
+
 const strip = (prefix: string, to = "") => (p: string) => p.replace(new RegExp(`^${prefix}`), to);
 const BROWSER_UA = { "User-Agent": "Mozilla/5.0 (compatible; StockHub)" };
+
+function secProxy(e: StockhubEnv, target: string, prefix: string): ProxyOptions {
+  return {
+    target, changeOrigin: true, rewrite: strip(prefix),
+    ...(e.secUa ? { headers: { "User-Agent": e.secUa } } : {}),
+    bypass: (req) => (secUserAgent(e, req.headers[SEC_CONTACT_HEADER]) ? undefined : false),
+    configure: (proxy) => proxy.on("proxyReq", (out, req) => {
+      const ua = secUserAgent(e, req.headers[SEC_CONTACT_HEADER]);
+      if (ua) out.setHeader("User-Agent", ua);
+      for (const h of [SEC_CONTACT_HEADER, "cookie", "origin", "referer"]) out.removeHeader(h);
+    }),
+  };
+}
 
 /** Proxy table. Prefixes must not begin with one another, because Vite matches by prefix. */
 export function proxyTable(e: StockhubEnv): Record<string, ProxyOptions> {
@@ -46,11 +76,10 @@ export function proxyTable(e: StockhubEnv): Record<string, ProxyOptions> {
     "/ark-assets": { target: "https://assets.ark-funds.com", changeOrigin: true, headers: BROWSER_UA, rewrite: strip("/ark-assets") },
     // OpenFIGI: CUSIP to ticker (free, no key)
     "/figi": { target: "https://api.openfigi.com", changeOrigin: true, rewrite: strip("/figi") },
-    // SEC EDGAR with the User-Agent it requires; absent without a contact
-    ...(e.secUa ? {
-      "/sec/data": { target: "https://data.sec.gov", changeOrigin: true, headers: { "User-Agent": e.secUa }, rewrite: strip("/sec/data") },
-      "/sec/www": { target: "https://www.sec.gov", changeOrigin: true, headers: { "User-Agent": e.secUa }, rewrite: strip("/sec/www") },
-    } : {}),
+    // SEC EDGAR with the User-Agent it requires: from STOCKHUB_SEC_CONTACT, or from a contact typed into Personas;
+    // without either the request is answered 404 here and never reaches the SEC
+    "/sec/data": secProxy(e, "https://data.sec.gov", "/sec/data"),
+    "/sec/www": secProxy(e, "https://www.sec.gov", "/sec/www"),
     // Claude phrasing: only the Messages endpoint, only with a key; the key is added here, never sent to the browser
     ...(e.llmKey ? {
       "/llm/v1/messages": {
