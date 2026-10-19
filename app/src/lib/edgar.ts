@@ -81,12 +81,15 @@ export interface LiveFeed {
 }
 
 /** Recent insider and stake filings for a persona's CIKs, newest first, with the time they were checked. */
-export async function fetchLiveFeed(ciks: string[], now = new Date(), fetcher: typeof fetch = fetch): Promise<LiveFeed> {
+/** `onProgress(done, total)` reports filings read, for a "reading filings 12/30" line. */
+export async function fetchLiveFeed(ciks: string[], now = new Date(), fetcher: typeof fetch = fetch, onProgress?: (done: number, total: number) => void): Promise<LiveFeed> {
   const lists = await Promise.all(ciks.map((c) => fetchSubmissions(c, fetcher)));
   const all = lists.flat();
   const wanted = recentLive(all, now.toISOString());
-  let failed = 0;
-  const rows = await Promise.all(wanted.map((f) => fetchFilingRows(f, fetcher).catch(() => { failed++; return [] as PersonaTrade[]; })));
+  let failed = 0, done = 0;
+  onProgress?.(0, wanted.length);
+  const rows = await Promise.all(wanted.map((f) => fetchFilingRows(f, fetcher).catch(() => { failed++; return [] as PersonaTrade[]; })
+    .finally(() => onProgress?.(++done, wanted.length))));
   const events = rows.flat();
   const l13 = latest13F(all.filter((f) => is13F(f.form)));
   return { events, checkedAt: now.toISOString(), fresh: freshness(events, now.toISOString()), last13F: l13 ? { filed: l13.filed } : null, listed: wanted.length, failed };

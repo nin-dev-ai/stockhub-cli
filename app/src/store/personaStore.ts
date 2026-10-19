@@ -27,10 +27,13 @@ interface PersonaState {
   removeCustom: (id: string) => void;
 }
 
+/** Followed on first use: personas that publish often (Berkshire's Form 4s and 13G/As, ARK's daily trades). */
+export const DEFAULT_FOLLOWED = ["buffett", "wood"];
+
 export const usePersonas = create<PersonaState>()(
   persist(
     (set, get) => ({
-      followed: ["buffett", "huang"],
+      followed: DEFAULT_FOLLOWED,
       custom: [],
       seen: {},
       secContact: "",
@@ -55,7 +58,7 @@ export const usePersonas = create<PersonaState>()(
       name: "stockhub-personas",
       version: 2,
       // v1 followed congressional personas that no longer exist; keep only ids that still resolve
-      migrate: () => ({ followed: ["buffett", "huang"], custom: [] }),
+      migrate: () => ({ followed: DEFAULT_FOLLOWED, custom: [] }),
     },
   ),
 );
