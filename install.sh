@@ -59,7 +59,7 @@ ok "Python  $($PY --version | awk '{print $2}')"
 if ! command -v node >/dev/null 2>&1; then
   cat <<EOF >&2
 
-${RED}Node.js 18+ is required.${RST}
+${RED}Node.js 20+ is required.${RST}
 
   macOS:     brew install node
   Ubuntu:    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
@@ -69,7 +69,13 @@ ${RED}Node.js 18+ is required.${RST}
 EOF
   exit 1
 fi
-ok "Node    $(node --version)"
+# pdfjs-dist and happy-dom require Node >=20.0.0.
+NODE_VERSION=$(node --version) || fail "Node.js 20+ is required (could not read node --version)"
+NODE_MAJOR="${NODE_VERSION#v}"
+NODE_MAJOR="${NODE_MAJOR%%.*}"
+[[ "$NODE_MAJOR" =~ ^[0-9]+$ ]] && [ "$NODE_MAJOR" -ge 20 ] || \
+  fail "Node.js 20+ is required (found $NODE_VERSION; upgrade Node.js before installing)"
+ok "Node:   $NODE_VERSION"
 
 # ── clone ────────────────────────────────────────────────────
 step "Cloning stockhub-cli to $INSTALL_DIR"
