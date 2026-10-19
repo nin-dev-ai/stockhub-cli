@@ -33,7 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/nin-dev-ai/stockhub-cli/main/instal
 
 The installer will:
 
-1. Check that `git`, Python 3.10+, and Node.js 18+ are on your system (and tell you exactly how to install them if not)
+1. Check that `git`, Python 3.10+, and Node.js 20+ are on your system (and tell you exactly how to install them if not)
 2. Clone this repo to `~/stockhub-cli`
 3. Install OpenBB Platform and all its data providers (~3 min)
 4. Install the UI dependencies (~1 min)
@@ -55,7 +55,7 @@ Core market views use **Yahoo Finance** without an API key. Optional providers (
 
 - macOS or Linux (Windows via WSL)
 - Python 3.10, 3.11, or 3.12
-- Node.js 18+
+- Node.js 20+ (the locked frontend dependencies require at least 20.0.0)
 - ~2 GB free disk (OpenBB pulls many provider libraries)
 
 ---
@@ -117,6 +117,8 @@ The detailed [feature and command guide](docs/FEATURES.md) covers every screen, 
 ---
 
 ## Tests
+
+From the repository root, `python3 -m unittest discover -s tests` checks the installer prerequisite gates with mocked commands (no downloads or installations).
 
 From `app/`: `npm test` runs the unit tests, `npm run e2e` the browser end-to-end suite (all data answered from fixtures, so it needs no services), and `LIVE=1 npx vitest run src/quant/live*.test.ts` the opt-in checks against real data. CI runs the first two on every push and pull request.
 

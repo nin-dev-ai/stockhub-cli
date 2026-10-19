@@ -22,8 +22,14 @@ done
 [ -n "$PY" ] || fail "Python 3.10, 3.11, or 3.12 is required (install with: brew install python@3.12)"
 ok "Python: $($PY --version)"
 
-command -v node >/dev/null 2>&1 || fail "Node.js 18+ is required (install with: brew install node)"
-ok "Node:   $(node --version)"
+command -v node >/dev/null 2>&1 || fail "Node.js 20+ is required (install with: brew install node)"
+# pdfjs-dist and happy-dom require Node >=20.0.0.
+NODE_VERSION=$(node --version) || fail "Node.js 20+ is required (could not read node --version)"
+NODE_MAJOR="${NODE_VERSION#v}"
+NODE_MAJOR="${NODE_MAJOR%%.*}"
+[[ "$NODE_MAJOR" =~ ^[0-9]+$ ]] && [ "$NODE_MAJOR" -ge 20 ] || \
+  fail "Node.js 20+ is required (found $NODE_VERSION; upgrade Node.js before installing)"
+ok "Node:   $NODE_VERSION"
 
 command -v npm >/dev/null 2>&1 || fail "npm is required"
 ok "npm:    $(npm --version)"
